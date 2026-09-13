@@ -1,5 +1,5 @@
 % #############################################################################
-% This is Chapter 7 - Apex: The Reference Implementation
+% This is Chapter 7 - Proposal Implementation
 % !TEX root = ../main.tex
 % #############################################################################
 % SOURCE: docs/framework/Apex-Implementation-Report.docx is the authoritative
@@ -7,7 +7,9 @@
 % Figures come from docs/diagrams/architecture.puml and user-flow.puml.
 % Suite sizes are a snapshot and are stated as such in the text.
 % #############################################################################
-\fancychapter{Apex: The Reference Implementation}
+% Title changed 2026-09-14 (supervisor feedback + Tomás): plainer, paired
+% with Chapter 6's "Research Proposal" title rather than naming the product.
+\fancychapter{Proposal Implementation}
 \label{chap:apex}
 
 The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system that instantiates it, which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms the two are distinct artefacts produced by the same Design and Development activity: a method and its instantiation. This chapter answers \ac{DRQ}3, and answering it honestly means reporting which constructs resisted implementation as well as which did not.
