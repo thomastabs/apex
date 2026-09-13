@@ -130,6 +130,17 @@
 %% Use "final" option to make all tracking markups invisible.
 %\usepackage[authormarkup=superscript,authormarkuptext=id,markup=underlined,ulem={ULforem,normalbf},final]{changes}
 \usepackage[authormarkup=superscript,authormarkuptext=id,markup=underlined,ulem={ULforem,normalbf}]{changes}
+% 2026-09-13: the ulem={ULforem,...} option above makes \ULforem the active
+% style immediately on load, which redefines \emph to underline instead of
+% italicise - not just for \added{}/\replaced{} tracked-changes markup, but
+% for every plain \emph{} in the document, from here through the whole thesis
+% (main.tex's own \normalem/\ULforem toggle around \bibliography only ever
+% flips it back for the bibliography itself, then flips it to underlined
+% again for the appendices - chapters 1-10 never got \normalem at all). No
+% \added{}/\replaced{} markup is actually used anywhere in the thesis, so
+% restore normal italic emphasis right away; this is what was making every
+% \emph{} (e.g. "Vibe Coding" in Chapter 1) render underlined.
+\normalem
 % commands:
 % \added[id=xx]{text}
 % \deleted[id=xx]{text}
@@ -183,7 +194,10 @@
 % The 'cite' package will result in citation numbers being automatically
 % sorted and properly "ranged". i.e.,
 % [1], [2], [5]--[7], [9]
-\usepackage{cite}
+% Commented out 2026-09-13: only useful with a numeric bibliography style;
+% main.tex now uses apalike (author-year), which this package doesn't apply
+% to and would do nothing for.
+%\usepackage{cite}
 %
 % -----------------------------------------------------------------------------
 % PACKAGE acronym:
@@ -323,7 +337,13 @@
 	\addtolength{\headheight}{2pt} % make space for the rule
 }
 \setcounter{secnumdepth} {5}
-\setcounter{tocdepth} {5}
+% tocdepth was 5 (paragraph level), which pulled paragraph-level headings like
+% Chapter 9's "A - Practitioners." into the table of contents as their own
+% clutter rows. 3 = subsubsection, so entries like "4.3.1 Benefits of AI..."
+% still show; only the paragraph level below them is dropped from the TOC.
+% secnumdepth is left at 5 on purpose - this only changes what the TOC lists,
+% not what gets numbered in the body.
+\setcounter{tocdepth} {3}
 \renewcommand{\thesubsubsection}{\thesubsection.\Alph{subsubsection}}
 \renewcommand{\subfigtopskip}{0.3 cm}
 \renewcommand{\subfigbottomskip}{0.2 cm}

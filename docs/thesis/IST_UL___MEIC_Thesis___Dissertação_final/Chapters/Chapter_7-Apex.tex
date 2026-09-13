@@ -27,13 +27,20 @@ What Apex deliberately does not do is as much part of its definition. It does no
 \section{Architecture}
 \label{sec:apex_architecture}
 
-Apex is a split full-stack application. The frontend is Next.js 15 with the App Router in TypeScript; the backend is Python 3.12 with FastAPI; the two communicate over a typed REST API. Server state on the frontend is owned by React Query and client state by Zustand, with credentials persisted only to session storage so that they clear when the tab closes. Backend routers are kept deliberately thin, with workflow logic held in a service layer and a schema for every request and response boundary. That separation is an engineering choice rather than an accident of growth: it keeps route handlers testable as thin adapters and workflow logic testable in isolation from \ac{HTTP} concerns, which is what made the test strategy in \Cref{sec:apex_qa} possible at the sizes it reaches. \Cref{fig:apex_architecture} shows the arrangement.
+Apex is a split full-stack application. The frontend is Next.js 15 with the App Router in TypeScript; the backend is Python 3.12 with FastAPI; the two communicate over a typed REST API. Server state on the frontend is owned by React Query and client state by Zustand, with credentials persisted only to session storage so that they clear when the tab closes. Backend routers are kept deliberately thin, with workflow logic held in a service layer and a schema for every request and response boundary. That separation is an engineering choice rather than an accident of growth: it keeps route handlers testable as thin adapters and workflow logic testable in isolation from \ac{HTTP} concerns, which is what made the test strategy in \Cref{sec:apex_qa} possible at the sizes it reaches. \Cref{fig:apex_architecture,fig:apex_architecture_b} show the arrangement.
 
-\begin{figure}[htbp]
+\begin{figure}[p]
     \centering
-    \includegraphics[width=\linewidth]{./Images/architecture.png}
-    \caption{Apex's system architecture. The point of the figure is the position of the two boundaries rather than the inventory of components: every outbound call to a user-configurable host passes through a server-side guarded proxy, and all workflow state is written to a per-tenant, per-project specification store rather than to an application database.}
+    \includegraphics[width=\linewidth]{./Images/architecture-a.png}
+    \caption{Apex's system architecture: the frontend, the backend and the specification store. The figure is split across two pages for legibility; the point of it is the position of the two boundaries rather than the inventory of components, and this half shows the first, where all workflow state is written to a per-tenant, per-project specification store rather than to an application database. Continued in \Cref{fig:apex_architecture_b}.}
     \label{fig:apex_architecture}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=\linewidth]{./Images/architecture-b.png}
+    \caption{The same architecture, continuing \Cref{fig:apex_architecture}: the external services Apex integrates with. This half shows the second boundary the figure exists to make, that every outbound call to a user-configurable host passes through a server-side guarded proxy.}
+    \label{fig:apex_architecture_b}
 \end{figure}
 
 Four properties of that architecture carry framework constructs rather than merely supporting them, and each is described in turn.
