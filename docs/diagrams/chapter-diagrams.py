@@ -20,14 +20,17 @@ import sys
 from PIL import ImageFont
 
 # ------------------------------------------------------------------ palette
-FILL = "#F5F3FF"
-FILL_HEAD = "#EDE9FE"
-STROKE = "#5B21B6"
-TEXT = "#2E1065"
-BODY = "#3F3D56"
-RULE = "#C4B5FD"
-LOOP = "#64748B"
-LOOP_TEXT = "#475569"
+# Black/white/grayscale only, 2026-09-14 (Tomás: Figures 2.1, 2.2 and 4.1 are
+# the only diagrams in the thesis printed in grayscale - every other figure
+# keeps the violet house style). No hue anywhere below, only black/gray/white.
+FILL = "#FFFFFF"
+FILL_HEAD = "#E5E5E5"
+STROKE = "#000000"
+TEXT = "#000000"
+BODY = "#000000"
+RULE = "#999999"
+LOOP = "#666666"
+LOOP_TEXT = "#333333"
 SANS = "Helvetica, Arial, 'Liberation Sans', sans-serif"
 
 _REG = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
