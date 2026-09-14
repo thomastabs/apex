@@ -77,3 +77,9 @@ docs/thesis/evaluation/.cards-secrets.local
 # record for Chapter 8. Working notes, not part of the submitted thesis,
 # same convention as the evaluation study's own session log above.
 docs/thesis/demonstration/demonstration-log.local.md
+
+# Outfolio development screenshots - raw working captures, not the curated
+# subset actually used as Chapter 8 figures. A screenshot chosen as a real
+# figure gets copied into Images/ and included from there like every other
+# thesis figure; this folder itself never gets tracked or compiled.
+docs/thesis/demonstration/screenshots/
