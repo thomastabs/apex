@@ -19,7 +19,7 @@ The planning stage establishes the motivation for the review, the research quest
 
 \subsection{Motivation}
 
-The integration of AI, particularly LLMs and GenAI, represents a significant transformation in Software Engineering. These technologies are increasingly adopted across the SDLC to support code generation and completion, documentation, requirements engineering, automated bug fixing, and developer learning, and their use has been associated with productivity gains, improved efficiency, and support for complex development tasks \cite{Ahmed:2025ai, Zhang:2025ea, Durrani:2024ad, Jabrw:2025ss, Banh:2025cf, Farhanna:2025eu, KarlovsKarlovskis:2024ga, Terragni:2025fa}.
+AI, particularly LLMs and GenAI, is increasingly adopted across the SDLC to support code generation and completion, documentation, requirements engineering, automated bug fixing, and developer learning, and its use has been associated with productivity gains, improved efficiency, and support for complex development tasks \cite{Ahmed:2025ai, Zhang:2025ea, Durrani:2024ad, Jabrw:2025ss, Banh:2025cf, Farhanna:2025eu, KarlovsKarlovskis:2024ga, Terragni:2025fa}.
 
 Adoption has nevertheless outpaced the resolution of the challenges it raises, which is what motivates systematic investigation. The literature reports persistent concerns over the quality, reliability, and trustworthiness of AI-generated artifacts, and methodological barriers such as limited explainability and the black-box nature of advanced models. Effective use of LLMs also remains highly dependent on prompt formulation, while existing research concentrates on isolated tasks, leaving several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
 
@@ -250,9 +250,7 @@ Democratization and Accessibility & AI integration aims to "shift the programmin
 }
 
 
-The two most frequently reported benefits, productivity and code quality, are also mutually reinforcing: acceleration does not come at the cost of quality, since AI helps generate code adhering to high standards and thereby raises the accuracy and particularly the traceability of the final product \cite{Kim:2025is}. Automating the time-consuming quality-assurance tasks, testing, debugging and repair, supports the same synergy, and the mechanism is specific: LLMs leverage explicit feedback such as compiler error messages in follow-up prompts, iteratively fixing their own coding errors within a single conversation context.
-
-Beyond the direct impact on the codebase, AI also improves developer job satisfaction and democratises programming knowledge, by automating monotonous tasks so developers can prioritise more engaging work, and by lowering technical barriers so that programming becomes a more conversational, accessible activity for a broader audience.
+The two most frequently reported benefits, productivity and code quality, are also mutually reinforcing: acceleration does not come at the cost of quality, since AI helps generate code adhering to high standards and thereby raises the accuracy and particularly the traceability of the final product \cite{Kim:2025is}. Automating the time-consuming quality-assurance tasks, testing, debugging and repair, supports the same synergy, and the mechanism is specific: LLMs leverage explicit feedback such as compiler error messages in follow-up prompts, iteratively fixing their own coding errors within a single conversation context. Beyond the codebase itself, the reported benefits extend to developer job satisfaction and to the democratisation of programming knowledge.
 
 \subsection{Consequences of AI and LLMs usage in Software Development}
 
@@ -313,13 +311,11 @@ records between AI-generated and human-written code is the same problem seen
 from the tooling side, existing instruments being matched to failure modes
 AI-generated code does not share \cite{Yoo:2025sa}.
 
-Beyond the technical domain, adoption carries risks to human factors,
-ethics, and economic viability. Over-reliance risks eroding developers'
-independence and problem-solving skills as instant assistance becomes the
-default. Bias embedded in training data risks being perpetuated and
-magnified in generated code, particularly in sensitive industries
-\cite{Haque:2025la}, and code ownership and licensing remain unresolved
-where models train on open-source code \cite{Terragni:2025fa}.
+Beyond the technical domain, adoption carries risks to human factors, ethics
+and economic viability: over-reliance eroding developers' independence as
+instant assistance becomes the default, training-data bias perpetuated and
+magnified in generated code \cite{Haque:2025la}, and unresolved ownership and
+licensing where models train on open-source code \cite{Terragni:2025fa}.
 
 Together these risks point to the same conclusion: LLMs' non-deterministic
 output and the absence of standardised evaluation benchmarks make extensive
@@ -403,12 +399,9 @@ start (scenario definition) and end (acceptance) of each cycle
 \cite{Zhang:2025ea}, preventing the error accumulation that unsupervised
 multi-agent systems risk.
 
-"Vibe Coding", mentioned once in the corpus, represents a conceptual leap
-in prompt application: translating abstract intent directly into
-functional code, particularly for domain-specific tasks such as biomedical
-software \cite{Moore:2025vc}. It is recent and not yet widely studied, but
-reliably translating a "vibe" into working software is exactly what the
-methodologies above exist to constrain.
+"Vibe Coding", mentioned once in the corpus, is recent and not yet widely
+studied \cite{Moore:2025vc}, but reliably translating a "vibe" into working
+software is exactly what the methodologies above exist to constrain.
 
 
 \subsection{Developers' and other stakeholders' opinions regarding the use of AI and LLMs in Software Development}
