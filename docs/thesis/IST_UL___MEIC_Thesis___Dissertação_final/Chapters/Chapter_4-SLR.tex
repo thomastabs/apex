@@ -21,7 +21,7 @@ The planning stage establishes the motivation for the review, the research quest
 
 AI, particularly LLMs and GenAI, is increasingly adopted across the SDLC to support code generation and completion, documentation, requirements engineering, automated bug fixing, and developer learning, and its use has been associated with productivity gains, improved efficiency, and support for complex development tasks \cite{Ahmed:2025ai, Zhang:2025ea, Durrani:2024ad, Jabrw:2025ss, Banh:2025cf, Farhanna:2025eu, KarlovsKarlovskis:2024ga, Terragni:2025fa}.
 
-Adoption has nevertheless outpaced the resolution of the challenges it raises, which is what motivates systematic investigation. The literature reports persistent concerns over the quality, reliability, and trustworthiness of AI-generated artifacts, and methodological barriers such as limited explainability and the black-box nature of advanced models. Effective use of LLMs also remains highly dependent on prompt formulation, while existing research concentrates on isolated tasks, leaving several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
+Adoption has nevertheless outpaced the resolution of the challenges it raises, which is what motivates systematic investigation. The literature reports persistent concerns over the quality, reliability and trustworthiness of AI-generated artifacts, methodological barriers such as limited explainability and the black-box nature of advanced models, a heavy dependence on prompt formulation, and a concentration on isolated tasks that leaves several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
 
 This review therefore maps and synthesises existing research on AI and LLM use in software development, organising the evidence on benefits, limitations, methodologies, stakeholder perspectives, and application domains so that research gaps become identifiable.
 
@@ -110,9 +110,7 @@ Results & 646 \\
 }
 
 
-The subject of this review, the use of AI and LLMs to develop applications, can be expressed in many different ways, and the string had to absorb that variation. "Vibe Coding" is the most recent term for the practice, but the practice predates the term: querying it alone returned few relevant articles, because the same work is published under different expressions. Synonymous keywords were therefore added, and it is the combination of "code generation" and "application development" with "generative AI" and "AI models" that retrieves the intended body of work rather than any single term.
-
-The string was executed against the EBSCO Online Digital Library through its Advanced Search option, over the AB abstract field and the title, restricted to full-text-available results.
+The subject of this review can be expressed in many different ways, and the string had to absorb that variation. "Vibe Coding" is the most recent term for the practice, but the practice predates the term: querying it alone returned few relevant articles, because the same work is published under different expressions. Synonymous keywords were therefore added, and it is the combination of "code generation" and "application development" with "generative AI" and "AI models" that retrieves the intended body of work rather than any single term. The string was executed against the EBSCO Online Digital Library through its Advanced Search option, over the AB abstract field and the title, restricted to full-text-available results.
 
 \section{Conducting the Review}
 
@@ -122,7 +120,7 @@ The second stage applies the filtering criteria to the 646 articles retrieved in
 
 Extracting all 646 articles was not possible: EBSCO's page allows the download of 50 articles at a time, and after reloading and extending the page to its maximum the site could display, in relevance order, only 467 of the 646.
 
-The AI-powered systematic review management platform "Rayyan" was used to organise the articles. Of the 467 extracted, 227 duplicates were identified and removed, leaving 350 for abstract reading; reading those abstracts to establish the topic covered rejected 286 as belonging to a theme other than developing applications using AI, leaving 64 articles.
+The AI-powered systematic review management platform "Rayyan" was used to organise the articles. Of the 467 extracted, 227 duplicates were identified and removed, leaving 350 for abstract reading; that pass rejected 286 as belonging to a theme other than developing applications using AI, leaving 64 articles.
 
 \begin{figure}[htbp]
      \centering
@@ -131,9 +129,9 @@ The AI-powered systematic review management platform "Rayyan" was used to organi
      \label{fig:article_filtering}
 \end{figure}
 
-The content of those 64 articles was then read and each was placed in one of four categories: Included, Maybe, Excluded and Skipped. Articles were "Skipped" when reading the introduction and conclusion showed them to be off-theme, insufficiently recent, which matters given how fast the field moves, or silent on all five research questions; 20 were skipped and excluded on those grounds. "Maybe" was used while it was unclear whether an article's content bore on the theme; most were ultimately excluded in favour of more recent studies reflecting the current state of the art, and those that did fit the topic were included.
+The content of those 64 articles was then read and each placed in one of four categories: Included, Maybe, Excluded and Skipped. Articles were "Skipped" when the introduction and conclusion showed them to be off-theme, insufficiently recent, which matters given how fast the field moves, or silent on all five research questions; 20 were skipped and excluded on those grounds. "Maybe" was used while it was unclear whether an article bore on the theme, and most were ultimately excluded in favour of more recent studies reflecting the state of the art.
 
-An article that answered any of the five research questions clearly and explicitly was included. Where the information was unclear, insufficient, or too thin to confirm that an answer was given, the predefined inclusion and exclusion criteria in \Cref{tab:inclusion_exclusion} decided eligibility. Of the 64 articles, 31 met the criteria and were retained for analysis.
+An article that answered any of the five research questions clearly and explicitly was included. Where the information was unclear, insufficient, or too thin to confirm that an answer was given, the predefined criteria in \Cref{tab:inclusion_exclusion} decided eligibility. Of the 64 articles, 31 met the criteria and were retained for analysis.
 
 {\small
 \renewcommand{\arraystretch}{1.25}
@@ -179,7 +177,7 @@ An article that answered any of the five research questions clearly and explicit
 
 \subsection{Data Extraction Analysis}
 
-The retained articles were then subdivided by the venue and year in which they were published. None of them is categorised as conference material: every retained article is a peer-reviewed academic journal article as classified by EBSCO, distributed over time as shown in \Cref{fig:monthly_publications}.
+The retained articles were subdivided by venue and year of publication. None is categorised as conference material: every one is a peer-reviewed academic journal article as classified by EBSCO, distributed over time as shown in \Cref{fig:monthly_publications}.
 
 \begin{figure}[htbp]
     \centering
@@ -192,14 +190,14 @@ The retained articles were then subdivided by the venue and year in which they w
 
 \section{Reporting the Review}
 
-The third and last stage reports what the analysis of the retained articles established, answering each research question in turn. The venue of every retained study is listed in \Cref{sec:appA_corpus}; the corpus is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten of the retained articles and Information and Software Technology three, while the remaining venues contribute one each, consistent with a topic being actively published across the field rather than owned by any single outlet.
+The third and last stage reports what the analysis of the retained articles established, answering each research question in turn. The venue of every retained study is listed in \Cref{sec:appA_corpus}; the corpus is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten and Information and Software Technology three, the remaining venues one each, consistent with a topic actively published across the field rather than owned by any single outlet.
 
 
 
 
 \subsection{Benefits of AI and LLMs usage in Software Development}
 
-The first research question concerns the benefits of AI and \ac{LLM} adoption for developers, companies and other stakeholders. \Cref{tab:benefits} collects the benefits reported in the literature; what follows analyses them.
+The first research question concerns the benefits of AI and \ac{LLM} adoption for developers, companies and other stakeholders. \Cref{tab:benefits} collects those reported in the literature.
 
 {\small
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
@@ -304,12 +302,12 @@ The consequences tabulated above are technical, ethical and operational, and
 the operational and technical ones are cited most often. Cost comes first:
 training, fine-tuning and deploying large-scale models can be substantially
 more expensive than traditional methods, offsetting the productivity gains
-they are meant to buy. Reliability comes second: LLMs are fallible and
-frequently produce plausible but fabricated output, "hallucinations", most
-problematically in complex or niche scenarios. The detection gap the table
-records between AI-generated and human-written code is the same problem seen
-from the tooling side, existing instruments being matched to failure modes
-AI-generated code does not share \cite{Yoo:2025sa}.
+they are meant to buy. Reliability comes second: LLMs frequently produce
+plausible but fabricated output, "hallucinations", most problematically in
+complex or niche scenarios. The detection gap the table records between
+AI-generated and human-written code is the same problem from the tooling
+side, existing instruments being matched to failure modes AI-generated code
+does not share \cite{Yoo:2025sa}.
 
 Beyond the technical domain, adoption carries risks to human factors, ethics
 and economic viability: over-reliance eroding developers' independence as
@@ -384,20 +382,18 @@ frameworks, and they stratify. The fundamental layer improves model
 interaction through prompts, led by In-Context Learning (9 articles, the
 most frequently discussed technique) and Prompt Engineering, whose quality
 critically determines LLM effectiveness; the same principle motivates
-Chain-of-Thought prompting, in which the model generates intermediate
-reasoning steps toward its answer, and its Structured variant, which
-introduces programming constructs such as sequence, branch and loop into
-those steps \cite{Li:2025sc}.
+Chain-of-Thought prompting and its Structured variant, which introduces
+programming constructs such as sequence, branch and loop into the
+intermediate reasoning steps \cite{Li:2025sc}.
 
 Given LLMs' variable reliability, the Human-In-The-Loop paradigm is
 considered mandatory for maintaining software quality \cite{Kim:2025ao}:
 developers retain critical oversight, reviewing and verifying AI output
 before it is implemented. This is formalised in frameworks such as
-AI-Augmented Agile Development (AgileGen), which structures collaboration
-into lightweight iterations and reserves human decision-making for the
-start (scenario definition) and end (acceptance) of each cycle
-\cite{Zhang:2025ea}, preventing the error accumulation that unsupervised
-multi-agent systems risk.
+AI-Augmented Agile Development (AgileGen), which reserves human
+decision-making for the start (scenario definition) and end (acceptance) of
+each lightweight iteration \cite{Zhang:2025ea}, preventing the error
+accumulation that unsupervised multi-agent systems risk.
 
 "Vibe Coding", mentioned once in the corpus, is recent and not yet widely
 studied \cite{Moore:2025vc}, but reliably translating a "vibe" into working
@@ -406,39 +402,38 @@ software is exactly what the methodologies above exist to constrain.
 
 \subsection{Developers' and other stakeholders' opinions regarding the use of AI and LLMs in Software Development}
 
-The fourth research question concerns the human perspective, and the reception of these tools proved to differ enough between groups that the extracted opinions are tabulated separately by group, in \Cref{sec:appA_opinions}: the public and researchers, developers and practitioners, and organisations and management. The separation is itself a finding, because the three groups do not agree.
+The fourth research question concerns the human perspective. Reception differs enough between groups that the extracted opinions are tabulated separately in \Cref{sec:appA_opinions}, for the public and researchers, developers and practitioners, and organisations and management; the separation is itself a finding, because the three groups do not agree.
 
-Among the public and researchers, the dominant position is scepticism grounded in fallibility rather than in capability. General perception, cited in six articles, treats these systems as a mixture of software and sorcery, and the primary technical barrier reported is misinformation risk: generated code may execute without error while failing to meet the intended requirement. That risk is amplified by variability, since the same prompt repeated yields different code each time. This is what makes the single most prevalent opinion across all three groups, the need for human oversight with seven articles, follow from the evidence rather than from caution: errors such as inconsistencies in design diagrams or incomplete implementations propagate into project integrity.
+Among the public and researchers, the dominant position is scepticism grounded in fallibility rather than in capability. General perception, cited in six articles, treats these systems as a mixture of software and sorcery, and the primary technical barrier reported is misinformation risk: generated code may execute without error while failing to meet the intended requirement, a risk amplified by variability, since the same prompt repeated yields different code each time. This is what makes the single most prevalent opinion across all three groups, the need for human oversight with seven articles, follow from the evidence rather than from caution: errors such as inconsistencies in design diagrams or incomplete implementations propagate into project integrity.
 
-Developers and practitioners report the opposite emphasis. Productivity and efficiency gains are the most-cited positive opinion for this group, in six articles, and \acp{LLM} are valued for knowledge acquisition because they allow a developer to bypass extended search or dependence on colleagues~\cite{Banh:2025cf}. Two countervailing findings appear alongside it. The convenience carries a documented risk of over-reliance and erosion of technical competence, and effectiveness is not seamless: prompt design is reported as a significant time investment requiring considerable skill, which reduces the efficiency it promises~\cite{Banh:2025cf}.
+Developers and practitioners report the opposite emphasis. Productivity and efficiency gains are the most-cited positive opinion for this group, in six articles, and \acp{LLM} are valued for knowledge acquisition because they allow a developer to bypass extended search or dependence on colleagues~\cite{Banh:2025cf}. Two countervailing findings appear alongside it: a documented risk of over-reliance and erosion of technical competence, and prompt design reported as a significant time investment requiring considerable skill, which reduces the efficiency it promises~\cite{Banh:2025cf}.
 
-Organisations and management treat adoption as a risk-management exercise. The strategic case is tied to job satisfaction, talent retention and competitiveness, since automating routine work retains valuable staff~\cite{Jensen:2025me}, but it is constrained by the group's most-cited concern, data security and privacy, in six articles. The consensus strategy is to avoid commercial \acp{LLM} in favour of open models fine-tuned on organisation-specific data, which in turn raises operational cost and pushes teams towards medium-sized models to manage computational limits. Expectation management appears less often but matters for the same reason: organisations report needing to discount the hype surrounding these tools when planning their integration.
+Organisations and management treat adoption as a risk-management exercise. The strategic case is tied to job satisfaction, talent retention and competitiveness, since automating routine work retains valuable staff~\cite{Jensen:2025me}, but it is constrained by the group's most-cited concern, data security and privacy, in six articles. The consensus strategy is to avoid commercial \acp{LLM} in favour of open models fine-tuned on organisation-specific data, which in turn raises operational cost and pushes teams towards medium-sized models. Expectation management appears less often but matters for the same reason: organisations report needing to discount the hype surrounding these tools when planning their integration.
 
 \subsection{Industry sectors adopting AI and LLMs for Software Applications Development}
 
-The fifth research question asks which industry sectors are actively adopting \ac{AI} for application development and what sector-level benefits they report. The extracted evidence is tabulated in \Cref{sec:appA_sectors}; what follows is what it establishes.
+The fifth research question asks which industry sectors are actively adopting \ac{AI} for application development and what sector-level benefits they report; the extracted evidence is tabulated in \Cref{sec:appA_sectors}.
 
-Adoption concentrates overwhelmingly in Software Engineering, Software Development and IT Consulting, which is unsurprising since these domains are both the origin and the primary proving ground for \ac{LLM}-based tools. The reported use cases centre on code generation, completion, explanation and refactoring, and several sources describe a gradual shift in the developer role from writing code manually to orchestrating AI-enabled workflows in which the human directs, validates and refines automated output~\cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao}. In consulting specifically, \acp{LLM} are valued for accelerating onboarding and transferring client-specific business knowledge between projects. Adoption also appears in specialised technical domains involving infrastructure-level or mathematically intensive systems, where models must be adapted or augmented with structured knowledge to produce reliable output~\cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, AlHashimi:2025er}.
+Adoption concentrates overwhelmingly in Software Engineering, Software Development and IT Consulting, unsurprisingly, since these domains are both the origin and the primary proving ground for \ac{LLM}-based tools. The reported use cases centre on code generation, completion, explanation and refactoring, and several sources describe a gradual shift in the developer role from writing code manually to orchestrating AI-enabled workflows in which the human directs, validates and refines automated output~\cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao}. In consulting specifically, \acp{LLM} are valued for accelerating onboarding and transferring client-specific business knowledge between projects, and adoption also appears in infrastructure-level or mathematically intensive domains, where models must be adapted or augmented with structured knowledge to produce reliable output~\cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, AlHashimi:2025er}.
 
-Beyond the core \ac{IT} sector, adoption clusters in high-stakes regulated environments: Finance, Banking and Regulated Industries in eight articles, Transportation and other safety-critical domains in seven, Healthcare and Biomedical Research in five, and Legal Reasoning in four. In these domains \acp{LLM} are introduced cautiously, with emphasis on reliability, auditability and regulatory compliance, and the literature is consistent that extensive human review and verification remain mandatory wherever incorrect or unverifiable output could produce safety risks, compliance failures or legal liability~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}. Education and Training, in five articles, is an emerging area in which \acp{LLM} act as adaptive learning companions rather than replacements for educators, supporting exercise generation, personalised feedback and formative assessment~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
+Beyond the core \ac{IT} sector, adoption clusters in high-stakes regulated environments: Finance, Banking and Regulated Industries in eight articles, Transportation and other safety-critical domains in seven, Healthcare and Biomedical Research in five, and Legal Reasoning in four. There \acp{LLM} are introduced cautiously, with emphasis on reliability, auditability and regulatory compliance, and the literature is consistent that extensive human review remains mandatory wherever incorrect or unverifiable output could produce safety risks, compliance failures or legal liability~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}. Education and Training, in five articles, is an emerging area in which \acp{LLM} act as adaptive learning companions rather than replacements for educators, supporting exercise generation, personalised feedback and formative assessment~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
 
-No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks. That is a finding about process rather than about capability, and it is the point at which this review begins to constrain the design of a framework rather than merely describing practice.
+No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks. That is a finding about process rather than about capability, and it is where this review begins to constrain the design of a framework rather than merely describing practice.
 
 \section{Discussion}
 
 Read across the five research questions rather than one at a time, the review
-converges on a single pattern rather than five separate ones. Every benefit
-reported under RQ1 has a corresponding risk reported under RQ2 that
-threatens the same property it claims: speed and code quality (RQ1) sit
-against hallucination, security vulnerabilities and homogenisation (RQ2);
-democratised access sits against over-reliance and skill erosion. RQ3 shows
-the field's answer to that tension is not automation but control, since
-every prevalent method, In-Context Learning, Prompt Engineering,
+converges on a single pattern. Every benefit reported under RQ1 has a
+corresponding risk under RQ2 threatening the same property it claims: speed
+and code quality against hallucination, security vulnerabilities and
+homogenisation; democratised access against over-reliance and skill erosion.
+RQ3 shows the field's answer to that tension is not automation but control,
+since every prevalent method, In-Context Learning, Prompt Engineering,
 Chain-of-Thought and above all Human-In-The-Loop, exists to shape or
 supervise AI output before it is trusted, and no method proposes removing
 the human. RQ4 shows the same tension held by the people who do the work:
 every stakeholder group pairs enthusiasm with a caveat, and human oversight
-is the one point of consensus that survives across public, practitioner and
+is the one consensus surviving across public, practitioner and
 organisational perspectives despite their differing incentives. RQ5 shows
 it is also the organising variable for adoption itself: where an incorrect
 output is cheap, adoption is broad and unconditional; where it is
@@ -447,11 +442,9 @@ conditioned explicitly on verification. The absence of a standardised,
 secure integration methodology, not a shortfall in model capability, is
 therefore what the literature identifies as the actual barrier to broader
 adoption, and it is the gap this dissertation's proposal is built to close.
-
-\Cref{tab:ai_sdlc_mapping} restates this pattern at the granularity a
+\Cref{tab:ai_sdlc_mapping} restates the pattern at the granularity a
 framework needs: the specific contribution and the specific challenge AI
-introduces at each phase of the \ac{SDLC}, from requirements through
-maintenance.
+introduces at each phase of the \ac{SDLC}.
 
 {\small
 \begin{longtable}{p{2.3cm} p{5.8cm} p{6.5cm}}
