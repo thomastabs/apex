@@ -158,8 +158,8 @@ confirm.
   bibliographic typographic convention). **No en or em dash appears anywhere
   in the authored prose** (Sections 1-8, the abstract, the table). This is
   not a new problem introduced here: the main dissertation's own compiled
-  PDF (`IST_UL___MEIC_Thesis___Dissertação_final/main.pdf`, `IEEEtran`
-  style) has the identical pattern for citation-range compression, already
+  PDF (`IST_UL___MEIC_Thesis___Dissertação_final/ist1103641-tomas-taborda-dissertacao.pdf`,
+  `IEEEtran` style) has the identical pattern for citation-range compression, already
   unaddressed. Flagged rather than silently worked around; see the
   final report for this task for the explicit call-out. A fix, if wanted,
   would mean patching or replacing the `.bst` file to force a literal hyphen

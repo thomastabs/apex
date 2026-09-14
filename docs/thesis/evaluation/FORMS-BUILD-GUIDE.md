@@ -131,7 +131,7 @@ as authoritative over the sheet for these two questions.
     - `task-script.pdf` (this repo, `docs/thesis/evaluation/`) - the
       participant-facing document, EN + PT, 9 annotated screenshots, all 18
       links wired.
-    - `main.pdf` (`docs/thesis/IST_UL___MEIC_Thesis___Dissertação_final/`) -
+    - `ist1103641-tomas-taborda-dissertacao.pdf` (`docs/thesis/IST_UL___MEIC_Thesis___Dissertação_final/`) -
       the full dissertation. Rebuilt 2026-08-28, current with the latest
       `.tex` (105 pages).
     - `main.pdf` (`docs/thesis/extended-abstract/`) - the 10-page English
