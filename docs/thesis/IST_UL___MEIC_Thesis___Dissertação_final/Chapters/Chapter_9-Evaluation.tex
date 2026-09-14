@@ -194,37 +194,252 @@ Two further observations from the same session are reported as open limitations 
 
 \subsection{Analytical Assessment}
 \label{sec:analytical}
-\todo[inline]{State the success criteria in advance - clarity, completeness, alignment with \ac{SDLC} phases, support for human-in-the-loop practice, and governance of AI-enabled activity - and the three-level ordinal scale used to assess each. Each rating must carry a short qualitative justification grounded in observed usage, artefacts, or interview evidence rather than in the author's judgement alone.}
+The framework is additionally assessed against five criteria fixed before the results were seen rather than derived from them. \emph{Clarity} asks whether each construct is defined precisely enough to be applied without its author present. \emph{Completeness} asks whether the framework covers the lifecycle it claims to cover, including its own defined measurements. \emph{Alignment with \ac{SDLC} phases} asks whether the phase decomposition maps onto recognised lifecycle stages without merging, splitting or omitting one. \emph{Support for human-in-the-loop practice} asks whether the framework makes human review of generated output structurally necessary rather than merely advisable. \emph{Governance of AI-enabled activity} asks whether AI contributions are made traceable, attributable and measurable by mechanism rather than by discipline.
+
+Each is rated on a three-level ordinal scale. \emph{Met} means the criterion is satisfied and evidence exists that it is. \emph{Partially met} means it is satisfied in part and the shortfall is identifiable rather than merely suspected. \emph{Not met} means it is not satisfied. No finer scale is used, because the evidence available cannot distinguish more than three levels and a five-point scale would imply a precision this assessment does not have.
+
+Each rating is justified against evidence that exists independently of the author's opinion of his own design: the construct-to-mechanism mapping in \Cref{tab:apex_mapping}, whose negative rows are as usable here as its positive ones; the interviews in \Cref{sec:interviews}; and incidents recorded during the study sessions themselves. Where the only available support for a rating would be the author's own assessment, the rating is lowered rather than argued, on the principle that a criterion which cannot be evidenced is not distinguishable from one that is not met. The ratings are reported in \Cref{tab:analytical}.
 
 % #############################################################################
 \section{Results}
 \label{sec:eval_results}
 
-\todo[inline]{Report \ac{SUS} results: per-participant scores, mean, and dispersion. Given the expected sample size, report the distribution rather than the mean alone, and avoid inferential statistics the sample cannot support.}
+\subsection{System Usability Scale}
+\label{sec:results_sus}
 
-\todo[inline]{Report \ac{NASA-TLX} results per subscale, not only the aggregate. The subscale profile is the informative part: a tool that raises mental demand while lowering frustration and effort tells a specific and reportable story about where the framework moves the practitioner's burden.}
+Thirteen participants returned complete \ac{SUS} responses with no blank item. \Cref{tab:sus_scores} gives every score individually, since at this sample size the distribution carries more information than the mean and the mean alone would conceal how wide it is.
 
-\todo[inline]{Report the Apex \ac{UX} questionnaire results item by item as diverging bar charts, with the median per item, no composite score. Report the two framework-scoped items (process fit and effort-versus-value) separately from the sixteen instantiation-scoped items, and cross-read the deployment-gate comprehension item against the corresponding \ac{NASA-TLX} Frustration score and free text.}
+{\small
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{6pt}
+\begin{longtable}{l c r r r}
+\caption[\ac{SUS} score and sub-scales, per participant]{\ac{SUS} score and the Usability and Learnability sub-scales, per participant, by language of administration. All three quantities run from 0 to 100 and none is a percentage.}
+\label{tab:sus_scores} \\
+\toprule
+\textbf{Participant} & \textbf{Language} & \textbf{\ac{SUS}} & \textbf{Usability} & \textbf{Learnability} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Participant} & \textbf{Language} & \textbf{\ac{SUS}} & \textbf{Usability} & \textbf{Learnability} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
 
-\todo[inline]{Report the interview findings as themes, with representative anonymised quotations. Report disconfirming evidence explicitly.}
+P0 & EN & 42.5 & 50.00 & 12.5 \\
+P1 & EN & 75.0 & 81.25 & 50.0 \\
+P5 & EN & 80.0 & 87.50 & 50.0 \\
+P6 & EN & 15.0 & 12.50 & 25.0 \\
+P7 & EN & 62.5 & 71.88 & 25.0 \\
+P8 & EN & 60.0 & 59.38 & 62.5 \\
+P9 & EN & 60.0 & 65.63 & 37.5 \\
+P10 & EN & 75.0 & 75.00 & 75.0 \\
+P11 & EN & 65.0 & 56.25 & 100.0 \\
+P12 & EN & 70.0 & 75.00 & 50.0 \\ \addlinespace
+P2 & PT & 37.5 & 46.88 & 0.0 \\
+P3 & PT & 40.0 & 46.88 & 12.5 \\
+P4 & PT & 55.0 & 50.00 & 75.0 \\ \addlinespace
+\midrule
+\textbf{Mean, all 13} & & \textbf{56.73} & \textbf{59.86} & \textbf{44.23} \\
+Mean, English ($n = 10$) & & 60.50 & & \\
+Mean, Portuguese ($n = 3$) & & 44.17 & & \\
+\end{longtable}
+}
 
-\todo[inline]{Report the analytical assessment as a table of criteria, ratings, and justifications.}
+The mean across all thirteen is \textbf{56.73}, with a standard deviation of 18.50, a median of 60 and a range from 15 to 80. That is below the published corpus mean of approximately 68: on the curved grading scale it is a \textbf{grade D}, in the fifteenth to thirty-fourth percentile band, and on the adjective scale it sits between \emph{OK} at 50.9 and \emph{Good} at 71.4, closer to the former. The two language groups differ, and are not pooled for interpretation: the ten English responses average 60.50 (SD 19.18, median 63.75), also grade D, while the three Portuguese responses average 44.17 (SD 9.46, median 40), which is a \textbf{grade F}, in the zeroth to fourteenth percentile band. Three respondents cannot support a claim about Portuguese-speaking users, particularly given the agreement limits that instrument's own validation reports, but the figure is stated rather than withheld.
+
+The spread is the more informative part. Sorted, the thirteen scores run 15, 37.5, 40, 42.5, 55, 60, 60, 62.5, 65, 70, 75, 75, 80: six above 60, two at 60, and five below it. Four participants scored at or above 70, which is the region the adjective scale calls \emph{Good}. One participant, P6, scored \textbf{15}, below Bangor's \emph{Awful} anchor at 20.3 and near \emph{Worst imaginable} at 12.5. That score is reported as recorded and is not excluded. It should be read alongside one observation about the same participant's other data: of the thirty-six Raw \ac{NASA-TLX} ratings P6 gave across six tasks and six subscales, thirty-five are the identical value, which is the signature of a constant response style rather than of a differentiated judgement. The observation cuts both ways and neither way is pursued, because a sample of thirteen has no capacity to absorb one atypical respondent and none to justify removing one.
+
+The sub-scales separate in the way the decomposition exists to expose. Usability averages 59.86 and Learnability 44.23, so the weaker of the two is the one concerning how much has to be learned before the tool can be used at all. Learnability is also far more dispersed, running the full 0 to 100: P2 scored 0, maximally agreeing both that they would need technical support to use the system and that they would need to learn a great deal before getting going, while P11 scored 100, disagreeing with both as strongly as the scale allows. Usability by comparison runs from 12.50 to 87.50. The reading this supports, and which \Cref{sec:eval_discussion} takes up against the other instruments, is that the difficulty reported is concentrated at first contact rather than distributed evenly through use.
+
+\subsection{Raw NASA Task Load Index}
+\label{sec:results_tlx}
+
+\Cref{tab:tlx_matrix} is the primary workload result: the six subscales against the six marked tasks, each cell a mean over all thirteen participants. Reporting the aggregate alone would discard the part of the instrument that does the work here, since the six subscales move independently and their shape is the finding.
+
+{\small
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{5pt}
+\begin{longtable}{l r r r r r r r}
+\caption[Raw \ac{NASA-TLX} subscale means by task]{Raw \ac{NASA-TLX} subscale means by task, over thirteen participants, on the instrument's 0 to 100 range. Performance carries reversed anchors and is reported as marked, so a higher value is a self-assessment further from \emph{Perfect}. Every response is a multiple of ten, so differences of a few points between cells are not interpreted.}
+\label{tab:tlx_matrix} \\
+\toprule
+\textbf{Task} & \textbf{Mental} & \textbf{Physical} & \textbf{Temporal} & \textbf{Effort} & \textbf{Frustr.} & \textbf{Perf.} & \textbf{Aggregate} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Task} & \textbf{Mental} & \textbf{Physical} & \textbf{Temporal} & \textbf{Effort} & \textbf{Frustr.} & \textbf{Perf.} & \textbf{Aggregate} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{8}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+
+3 Gherkin & 26.9 & 17.7 & 21.5 & 23.8 & 13.1 & 14.6 & 19.6 \\
+4 Design & 47.7 & 21.5 & 40.8 & 36.2 & 20.0 & 16.2 & 30.4 \\
+6 Packs & 40.0 & 21.5 & 32.3 & 36.2 & 26.2 & 18.5 & 29.1 \\
+7 \ac{QA} & 25.4 & 13.8 & 19.2 & 23.1 & 15.4 & 10.8 & 18.0 \\
+8 Deploy & 25.4 & 20.8 & 26.9 & 29.2 & 22.3 & 21.5 & 24.3 \\
+9 Export & 9.2 & 7.7 & 6.9 & 7.7 & 3.1 & 10.8 & 7.6 \\ \addlinespace
+\midrule
+\textbf{All tasks} & \textbf{29.1} & \textbf{17.2} & \textbf{24.6} & \textbf{26.0} & \textbf{16.7} & \textbf{15.4} & \textbf{21.5} \\
+\end{longtable}
+}
+
+Collapsed across all seventy-eight administrations the grand aggregate is 21.5 out of 100, and the profile has a definite shape. Mental demand is the largest component at 29.1, followed by effort at 26.0 and temporal demand at 24.6; frustration, at 16.7, is among the smallest, below physical demand. The burden this tool imposes therefore sits in comprehension rather than in struggle, which is the distinction the subscale profile exists to make and which a single aggregate would have flattened. Performance, reported as marked with its reversed anchors, averages 15.4, meaning participants placed their own success close to the \emph{Perfect} end throughout.
+
+Ranked by aggregate, the tasks order as Design (30.4), Packs (29.1), Deploy (24.3), Gherkin (19.6), \ac{QA} (18.0) and Export (7.6). The two heaviest are the two in which the largest volume of generated content is put in front of the participant for review, and the lightest by a wide margin is the one that generates nothing. That the workload tracks the quantity of generated material to be assessed, rather than the number of interface steps, is consistent with the framework's own account of where it puts the practitioner's effort.
+
+Three predictions were recorded before administration and two of them were wrong, which is reported here rather than left out. Task 3 was predicted to carry the session's highest mental demand; it carried the second highest, 26.9 against Design's 47.7. Task 6 was predicted to be moderate throughout on the grounds that it is largely a review task; it came second by aggregate, tied for the highest effort score at 36.2, and carried the highest frustration of any task at 26.2. Two predictions held: task 9 was predicted lowest overall and was lowest on every single subscale, and physical demand was predicted to sit near the floor and never exceeded 21.5. Task 8, predicted moderate throughout following its redesign away from a refusal test, came third by aggregate but carried the highest Performance value of any task at 21.5, meaning participants rated their own success on the deployment further from \emph{Perfect} than anywhere else in the session. \Cref{sec:eval_discussion} reads that one against an independently recorded defect in the same feature.
+
+\subsection{Apex UX Questionnaire}
+\label{sec:results_ux}
+
+\Cref{tab:ux_items} reports all seventeen administered items individually, as response counts and a median, with no composite score and no construct means, for the reason given in \Cref{sec:apex_ux}. Responses of \emph{N/A - did not use this} are counted separately and excluded from the median.
+
+{\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{l >{\raggedright\arraybackslash}p{7.3cm} c c c c c c c}
+\caption[Apex \ac{UX} questionnaire responses, item by item]{Apex \ac{UX} questionnaire responses, item by item, $N = 13$. Scale 1 = strongly disagree to 5 = strongly agree; the \emph{N/A} column counts participants who marked \emph{did not use this}, which is excluded from the median. Items E2 and E3 evaluate the framework, not the instantiation.}
+\label{tab:ux_items} \\
+\toprule
+& \textbf{Item} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{N/A} & \textbf{Mdn} \\
+\midrule
+\endfirsthead
+\toprule
+& \textbf{Item} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{N/A} & \textbf{Mdn} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{9}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+
+\multicolumn{9}{l}{\textit{A. Understanding where you are}} \\
+A1 & Knew which phase of the process I was in & 0 & 0 & 3 & 4 & 6 & 0 & 4 \\
+A2 & Understood what the tool expected next & 0 & 0 & 4 & 5 & 4 & 0 & 4 \\
+A3 & Could tell finished work from unfinished & 0 & 0 & 4 & 7 & 2 & 0 & 4 \\ \addlinespace
+\multicolumn{9}{l}{\textit{B. Working with AI-generated content}} \\
+B1 & Could tell generated content from my own & 0 & 0 & 0 & 3 & 7 & 1 & 5 \\
+B2 & Reviewing took less effort than writing it & 0 & 0 & 2 & 7 & 4 & 0 & 4 \\
+B3 & Felt able to reject or change the output & 0 & 0 & 0 & 1 & 11 & 1 & 5 \\
+B4 & Trusted it enough to use in a real project & 0 & 0 & 3 & 8 & 2 & 0 & 4 \\
+B5 & Could see what information the AI was given & 0 & 1 & 2 & 6 & 4 & 0 & 4 \\ \addlinespace
+\multicolumn{9}{l}{\textit{C. Control and reversibility}} \\
+C1 & Felt in control of what the tool did & 0 & 1 & 3 & 8 & 1 & 0 & 4 \\
+C2 & Confident I could undo or redo a step & 0 & 1 & 1 & 2 & 8 & 1 & 5 \\
+C3 & Understood the consequences of locking a phase & 0 & 1 & 4 & 2 & 6 & 0 & 4 \\
+C4 & Waiting for the AI to finish was acceptable & 0 & 0 & 0 & 4 & 9 & 0 & 5 \\ \addlinespace
+\multicolumn{9}{l}{\textit{D. Feedback and errors}} \\
+D1 & Was told clearly what had happened when something went wrong & 0 & 1 & 6 & 4 & 2 & 0 & 3 \\
+D2 & Messages said what to do next, not only what failed & 0 & 0 & 4 & 3 & 6 & 0 & 4 \\ \addlinespace
+\multicolumn{9}{l}{\textit{E. Fit to real work}} \\
+E1 & The artefacts are ones my team would use & 0 & 1 & 3 & 5 & 1 & 3 & 4 \\
+E2 & \textit{(framework)} The process fits how my team works & 0 & 2 & 2 & 6 & 0 & 3 & 4 \\
+E3 & \textit{(framework)} The effort is worth what it produces & 0 & 0 & 2 & 5 & 6 & 0 & 4 \\
+\end{longtable}
+}
+
+Fifteen of the seventeen items are instantiation-scoped and are read first. Ten of the fifteen have a median of 4 and four have a median of 5: being able to tell generated content from one's own (B1), feeling able to reject or change it (B3), confidence that a step could be undone (C2), and the acceptability of waiting for generation to finish (C4). One item sits lower than every other closed item in the instrument: \textbf{D1}, on being told clearly what had happened when something went wrong, has a median of \textbf{3}, with six of the thirteen at the neutral point and one below it. Its paired item D2, on whether messages said what to do next rather than only what had failed, sits at 4, so what participants report is not an absence of messages but an absence of a legible account of what went wrong.
+
+The trust-calibration pair predicted in \Cref{sec:apex_ux} to be the most diagnostic does not diverge at the median: B4, trust sufficient for real use, and B2, reviewing being cheaper than writing, both sit at 4, with no participant below 3 on either. On its face this is calibrated trust, which is the reassuring reading. It is qualified by the free text of a single participant who describes the opposite state directly, having believed the models were properly grounded and so, in their own words, ``I did not review in great detail and I trusted it completely'' (P7). One self-report is not a rate, and the design cannot say how many others were in the same position while answering 4, because nothing was observed. The pair is reported as not diverging, and the limit on what that establishes is carried into \Cref{sec:threats}.
+
+The two framework-scoped items are read separately, consistent with \Cref{tab:eval_instruments}. E3, on whether the effort of following the process is worth what it produces, is among the more strongly supported items in the instrument: six of thirteen strongly agree, five agree, two are neutral and none disagrees. E2, on whether the process fits the way the participant's team works, is the weakest-supported item of the seventeen. Three participants marked \emph{did not use this}, no one strongly agreed, two of the ten who did answer disagreed and two more were neutral, so its median of 4 rests on the six remaining agreements. The three \emph{N/A} responses on E2 come from the same three participants who marked \emph{N/A} on E1, so the missing values are not independent of one another; those three answered E3 normally. That a majority endorses the process as worth its cost while fewer will say it fits their own team is the most interesting result in this instrument, and it is a question about the framework rather than about Apex.
+
+The interview findings, with their disconfirming evidence, are reported as themes in \Cref{sec:interviews} rather than restated here.
+
+\subsection{Analytical Assessment}
+\label{sec:results_analytical}
+
+\Cref{tab:analytical} gives the rating for each of the five criteria stated in \Cref{sec:analytical}, with the evidence each rests on. No criterion is rated \emph{not met}, and that is not a favourable finding in itself: these are the framework's own design criteria, so a \emph{not met} would record a failure at something it explicitly set out to do. The information is in the three \emph{partially met} rows, each of which names a specific shortfall rather than a general reservation.
+
+{\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{2.6cm}
+                  >{\raggedright\arraybackslash}p{2.2cm}
+                  >{\raggedright\arraybackslash}p{10.4cm}}
+\caption[Analytical assessment of the framework against criteria fixed in advance]{Analytical assessment of the framework against the five criteria fixed in \Cref{sec:analytical}, with the evidence each rating rests on.}
+\label{tab:analytical} \\
+\toprule
+\textbf{Criterion} & \textbf{Rating} & \textbf{Justification and evidence} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Criterion} & \textbf{Rating} & \textbf{Justification and evidence} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+
+Clarity & Partially met & Every construct in \Cref{tab:apex_mapping} resolved to a nameable mechanism, which is the operational test of whether a definition is precise enough to act on, and a practitioner described the central construct back in his own terms unprompted, as a library for project information carrying guidelines, requirements, plans and tests together (T2, \Cref{sec:interviews}). Against that, one construct was found to depend on a premise the framework never states: spec-drift detection presumes the specification is scoped per story, and the omission surfaced only when the implementation failed on it (\Cref{sec:apex_limitations}). A definition whose preconditions are discoverable only by building it is not yet clear. \\ \addlinespace
+
+Completeness & Partially met & The framework addresses Strategic Alignment and six lifecycle phases through to Maintenance, with three named loop-backs, so no stage of the lifecycle it claims is left unaddressed (\Cref{tab:phase_mapping}, \Cref{fig:lifecycle}). Two of its own defined measurements fall short of their definitions: \ac{AI} Defect Escape Rate is not instantiable at the observation point the definition presumes and exists only as a weaker proxy, and spec-drift detection holds for the functional specification but not the technical one (\Cref{tab:apex_mapping}). The gap is in the definitions rather than in the coverage, and it is identifiable, which is what separates this rating from \emph{not met}. \\ \addlinespace
+
+Alignment with \ac{SDLC} phases & Met & Each phase maps onto a recognised lifecycle stage with a defined AI contribution, an accountable hat and an exit control (\Cref{tab:phase_mapping}), and the decomposition survived instantiation without a phase being merged, split or skipped: all six exist in Apex as gated surfaces (\Cref{tab:apex_mapping}). No interviewee questioned the phase set. One practitioner did question its linearity (T4, \Cref{sec:interviews}), which is a claim about the transitions rather than the stages, and it was answered by making the loop-backs out of Maintenance explicit rather than by altering the phases. \\ \addlinespace
+
+Support for human-in-the-loop practice & Met & Every phase terminates in a write to the specification store and a human acceptance, so no phase can be exited by generation alone (\Cref{fig:apex_userflow,fig:apex_userflow_b}); the Interactive Bridge, the Consistency Factor and server-side reconciliation of generated claims are all realised (\Cref{tab:apex_mapping}). Participants independently report the preconditions for review: median 5 on telling generated content from their own, and eleven of thirteen strongly agreeing they could reject or change it (\Cref{tab:ux_items}). The criterion concerns whether review is structurally supported, not whether it happens; one participant reports not reviewing in detail at all (P7, \Cref{sec:results_ux}), and the framework has no mechanism that would detect a gate satisfied without scrutiny. \\ \addlinespace
+
+Governance of AI-enabled activity & Partially met & Gate enforcement and traceability are realised and machine-checkable rather than procedural: per-story phase status refused by middleware, stable identifiers resolving every artefact to a requirement, and a Context Traceability Rate computed as a real aggregate (\Cref{tab:apex_mapping}). Two shortfalls are specific. The framework's own measure of AI-attributable defects exists only as a proxy over reported, linked, post-deployment issues, so a governance regime cannot see most of what it governs (\Cref{sec:apex_limitations}). And during the study a governance surface was observed reporting a verdict its evidence did not support, the Phase 5 pre-flight check reading a stale repository-context file as current and presenting the result at high confidence; four participants' task 8 free text converged on that surface from three different directions (\Cref{sec:eval_discussion}). A control that can report confidently from stale evidence is not yet trustworthy without an independent check. \\
+
+\end{longtable}
+}
 
 % #############################################################################
 \section{Threats to Validity}
 \label{sec:threats}
 
-\todo[inline]{Address construct, internal, external, and conclusion validity. Name specifically: the author's dual role as designer and participant, and that the unmoderated design removes it during the sessions but not from the task set, the questionnaire wording, or the interviews, all of which the author authored and conducted; the small and non-random sample, recruited through the supervisor's professional connections, which makes it a convenience sample and bounds what the external-validity claim can be; the single organisational setting; the short observation window, which precludes any claim about long-term maintainability or organisational change; and the fact that the instruments measure perception rather than delivered software quality. For each threat, state the mitigation applied, or state plainly that none was possible.}
+\paragraph{Construct validity.} Every instrument here measures perception, and none measures delivered software quality. \ac{SUS} and Raw \ac{NASA-TLX} are standardised and comparable against published corpora, which is the mitigation that does apply; the \ac{UX} questionnaire is author-written and unvalidated, which is why it carries no composite score and is reported item by item. Two departures reduce what the workload instrument can resolve: responses were collected on a 0 to 10 scale, so every value is a multiple of ten and small between-cell differences are not interpreted, and administering it six times invites anchoring on earlier ratings and fatigue on the last tasks. One respondent's data is consistent with exactly that: thirty-five of P6's thirty-six workload ratings are the same number. No mitigation was available for either and none is claimed.
 
-\todo[inline]{Address the two threats that follow from the decision to observe and record nothing, and state them as consequences of a deliberate design rather than as oversights. First, there is no observational evidence at all: no measured completion rate, no time on task beyond an indicative form timestamp that cannot distinguish a hard task from an interruption, no assist or error counts, and no independent check on whether a participant understood the deployment refusal in task eight. This leaves standing, rather than partly answering, the threat that the instruments measure perception rather than delivered software quality. Second, the interview analysis rests on written notes rather than transcripts, and note taking is selective in a way transcription is not, with the selection made by the person who designed the artefact.}
+The sharpest construct gap concerns phase gates. The study set out to measure whether a gate reads as a guardrail or as obstruction, through item A4 cross-read against task 8's frustration score. When task 8 was redesigned away from a refusal test (\Cref{sec:tlx}), A4 was removed, and the gap is therefore worse than the absence of an observer check: there was no guaranteed refusal trigger for any of the thirteen participants, so gate comprehension is unmeasured rather than weakly measured. The framework's most distinctive mechanism is the one this evaluation has least evidence about, and that is stated rather than compensated for.
+
+\paragraph{Internal validity.} The author designed both artefacts, wrote the task script and the seventeen \ac{UX} items, built the seeded demonstration project, and conducted the interviews. The unmoderated design removes the conflict from the sessions structurally, since no facilitator is present to steer or react, and that is the strongest mitigation available; it removes nothing from the instruments themselves. Two incidents make the residue concrete rather than hypothetical. A configuration defect let an interface-language setting leak between projects, so a nominally English session was answered by the model in Portuguese, and it was noticed only because the author recognised the symptom in a participant's free text and root-caused it himself. A second defect, in which Phase 5 read a stale repository-context file as current and reported at high confidence, was found during the first session and was still present for every subsequent participant. In both cases the person best placed to detect and interpret the anomaly was the artefact's designer.
+
+The same window produced a second internal threat: the system was not frozen. One defect fix was deployed during data collection and one configuration change followed it, so participants did not all use a byte-identical build. Against that, the project environment was reset to an identical seeded state before every session, so no participant encountered another's work.
+
+\paragraph{External validity.} The sample is a convenience sample from one person's professional network, with no open call and no recorded count of those approached. It is junior, contains nobody above three years of experience, and includes two participants from outside software development. It supports a description of how these thirteen people experienced the tool and no claim about experienced practitioners, teams or organisations. The pre-registered concern about a single organisational setting turns out to apply in a different place than expected: the participants are not from one organisation, but the \emph{task} environment is a single seeded project on one project-management tool, which ten of the thirteen had never used, so unfamiliarity with that board is confounded with unfamiliarity with Apex throughout. The observation window is one session of roughly an hour, which precludes any claim about long-term maintainability, adoption or organisational change; one participant makes the point himself, expecting that ``with regular use, I believe the user would become very familiar with the interface'' (P12), which is a hypothesis this design cannot test. The Portuguese figures rest on three respondents administered an instrument whose own validation reports weak inter-rater agreement, and are reported as indicative only.
+
+\paragraph{Conclusion validity.} Thirteen participants spread over five levels of prior AI exposure cannot support inferential statistics or subgroup comparison, and none is computed. Two administration artefacts show what an unmoderated design cannot catch as it happens: one participant declared Portuguese as the session language and then completed every instrument in English, and another declared English but submitted the Portuguese consent form. Neither was correctable at the time because nobody was present to correct it, and both are reported as recorded.
+
+\paragraph{The cost of recording nothing.} Two threats follow from the decision not to observe or record, and both are consequences of a deliberate design rather than oversights. First, there is no observational evidence of any kind: no measured completion rate, no time on task beyond a form-submission timestamp that cannot distinguish a hard task from a coffee break, no assist or error counts, and no independent check on comprehension anywhere. This leaves the perception-versus-quality threat standing rather than partly answered, and it is why the trust-calibration pair in \Cref{sec:results_ux} can report that trust and review effort did not diverge without being able to say whether any individual accepted output unread. Second, the interview analysis rests on contemporaneous written notes rather than transcripts. Note taking is selective in a way transcription is not, and the selection was made by the person who designed the artefact under discussion; \Cref{sec:interviews} names which interviewee raised which point precisely so that the selection is at least attributable.
 
 % #############################################################################
 \section{Discussion}
 \label{sec:eval_discussion}
 
-\todo[inline]{Synthesise across instruments. Where they agree, say so; where they disagree - for instance a favourable usability score alongside interview scepticism about the process overhead - treat the disagreement as a finding rather than smoothing it over, and read it against the threats to validity stated above.}
+The instruments do not tell one story, and the places they part company are more informative than the places they coincide.
+
+The first apparent disagreement is between \ac{SUS} and the \ac{UX} questionnaire. A grade D mean of 56.73 sits alongside medians of 5 on being able to reject generated output, on confidence that a step could be undone, and on the acceptability of waiting for generation. That is only a contradiction if both are read as verdicts on the same object. \ac{SUS} asks about the system as a whole, and three of its items ask specifically about complexity, about needing to learn a great deal, and about needing technical support; the \ac{UX} items ask about individual mechanisms. The free text resolves the two in the same direction: nine of the thirteen answers to what was most confusing name density, orientation or navigation rather than any AI mechanism, in terms such as ``too many things in the screen at the begging not sure where to click'' (P1) and ``too much happening at the same time'' (P6). The \ac{SUS} sub-scales point the same way, Learnability at 44.23 against Usability at 59.86. The reading all four sources support is that the mechanisms the framework requires are individually legible while the surface assembling them is not, and that the cost is concentrated at first contact. This is a finding about the instantiation and, for the reason given in \Cref{sec:eval_strategy}, it does not transfer to the framework.
+
+The second cross-read is an agreement between instruments that were not designed to meet. Error and feedback surfacing is the weakest area the \ac{UX} questionnaire identifies, D1 having the lowest closed-item median in the instrument. Independently, the two heaviest tasks by workload are Design and Packs, and Packs carries the highest frustration score of any task at 26.2 despite having been predicted moderate on the grounds that it is largely review. A participant's free text supplies the mechanism connecting them, describing having made a mistake in one stage which ``Apex did not clearly show what the error was'' and then completing the following stages correctly but on that incorrect assumption (P8). A low D1 is not a cosmetic complaint about message wording: it describes a state in which a gate passes over an error that was never surfaced.
+
+The third is the one place an instrument, a free-text pattern and an independently recorded defect converge. Task 8 was predicted to be moderate throughout after its redesign; it returned the highest Performance value of any task, 21.5, meaning participants rated their own success on the deployment furthest from \emph{Perfect}. Four participants' free text centres on the same surface, Phase 5's pre-flight reasoning about the repository, from three different angles: one read the ``infra changes required'' verdict as unexpected friction on a demonstration project, and two named the absence of a prior deployment as the resolving fact, which is the framework's own documented bootstrap rule rather than a fault. Recorded separately, and not by the instruments, is the defect described in \Cref{sec:threats}, in which that check read a stale context file as current and reported at high confidence. Three sources of evidence, one of which is not a questionnaire, point at the same mechanism, which is why \Cref{tab:analytical} rates governance \emph{partially met} rather than met.
+
+Where the instruments genuinely disagree, they do so about trust, and the disagreement is not resolvable within this design. B4 and B2 both return a median of 4, which is the calibrated-trust signature the pair was built to detect. One participant's free text reports the uncalibrated state directly, having trusted completely and not reviewed in detail. The questionnaire cannot say whether that participant was alone or typical, because task 4 was designed with blanket acceptance of generated output as its key observation and, nothing having been observed, no data on it exists. The honest position is that the instrument found no divergence and that the study is not capable of finding one.
+
+Finally, a disagreement that runs the opposite way to the one usually anticipated. The expected tension is a favourable usability score alongside interview scepticism about process overhead; here the tool score is below average while the framework's reception in the interviews is broadly favourable, including an unprompted endorsement of its central bet and an expert reading the phase and hat structure as a genuine departure from closed-role methodology (\Cref{sec:interviews}). Both readings are reported at their real strength. A below-average \ac{SUS} is not evidence against the method, in exactly the way a good one would not have been evidence for it, and the questionnaire data does contain one framework-scoped signal of its own: a majority hold that the effort of following the process is worth what it produces, while markedly fewer will say it fits the way their own team works.
 
 \subsection{Answering the Research Questions}
 \label{sec:eval_rq_answers}
 
-\todo[inline]{Answer DRQ1, DRQ2, DRQ3 and DRQ4 from \Cref{sec:intro_objectives} in turn, each grounded explicitly in the evidence reported above (results, demonstration, interviews) rather than merely asserted. DRQ1 and DRQ2 concern the framework and are answered primarily from the practitioner and Agile-expert interviews and the analytical assessment; DRQ3 is answered from the construct-to-mechanism mapping in \Cref{sec:apex_framework_mapping} read together with the implementation limitations, reporting which constructs were realised in full, which were realised as proxies, and which resisted implementation, since the existence of Apex alone establishes only that something was built; DRQ4 is answered from \ac{SUS}, \ac{NASA-TLX}, the Apex \ac{UX} questionnaire, and the demonstration. This closes the loop the introduction opened: each research question is answered here with evidence, not merely restated in the conclusion.}
+\paragraph{DRQ1, how can AI-supported activities be mapped to \ac{SDLC} phases so that the point, purpose and boundary of AI participation are unambiguous?} They can be, at phase granularity, and the mapping in \Cref{tab:phase_mapping} is the answer: every phase names what AI may contribute, what it must produce, which hat is accountable, and the control that must be satisfied before the phase is exited. Two independent checks support it rather than the author's assertion. The decomposition survived instantiation with no phase merged, split or skipped, which is the alignment criterion rated \emph{met} in \Cref{tab:analytical}. And the framework was read back in an interview by an expert who had not designed it, who compared its hats and its refusal to bind roles to individuals against the closed-role structures of organisational methodology (\Cref{sec:interviews}). The qualification is the clarity rating: boundaries are unambiguous at phase level, and at least one construct carried a precondition the framework never stated, which only building it exposed.
+
+\paragraph{DRQ2, which governance mechanisms, quality gates and human-in-the-loop practices keep AI contributions traceable, validated and accountable?} Those named in \Cref{sec:governance,sec:gates}, and the evidence separates them by strength. Traceability and validation are the strongest: gates are enforced against specification content rather than against a signature, stable identifiers make every artefact resolve to a requirement, and generated claims about coverage are re-checked server-side because self-reporting was found untrustworthy in practice (\Cref{sec:apex_qa}). Human-in-the-loop support is rated \emph{met} on the structural test, no phase being exitable by generation alone, and participants confirm its preconditions, with a median of 5 on distinguishing generated content from their own and eleven of thirteen strongly agreeing they could reject it. Accountability is the weaker half of the answer and is rated \emph{partially met}: the framework's own measure of AI-attributable defects is instantiable only as a proxy, and a governance surface was observed during this study reporting confidently on stale evidence. The mechanisms make contributions traceable and reviewable; they do not yet make the consequences of a contribution measurable.
+
+\paragraph{DRQ3, to what extent can those constructs be operationalised in a working system, and which resist it?} Of the twelve constructs mapped in \Cref{tab:apex_mapping}, ten are realised as specified, one exists only as a named proxy, and one is partially realised with the resisting part identified. That count is the smaller part of the answer. The larger part is what the two exceptions revealed. Bolt Cycle Time was implemented, displayed and believed while measuring something else, and was caught only by comparing the implementation against the written definition, which establishes that a construct can be operationalised incorrectly without anything appearing wrong. Spec-drift detection failed because the framework assumes a per-story specification granularity it nowhere states, so the instantiation discovered an omission in the method rather than a defect in the tool. Both are reported as findings, and the existence of Apex on its own is not offered as an answer to this question.
+
+\paragraph{DRQ4, does the framework, through that implementation, give practitioners usable and cognitively sustainable support in a real setting?} The honest answer is split, and the two halves do not contradict each other. On cognitive sustainability the evidence is favourable: a grand workload aggregate of 21.5 out of 100, frustration among the lowest subscales at 16.7, and a heaviest single task at 30.4. The burden is concentrated in mental demand and falls on the phases with the most generated content to review, which is where the framework intends to put it. On usability the evidence is not favourable and is reported as it stands: a \ac{SUS} mean of 56.73, grade D and below the published corpus mean, with one participant at 15 and a Portuguese subgroup mean of 44.17 at grade F; the weakest item in the \ac{UX} questionnaire is error legibility; and nine of thirteen participants named density or orientation as the most confusing thing about the tool. The two readings sit together because they measure different things: the tool asks little of the practitioner once they know where they are, and does too little to get them there. Both halves are claims about the instantiation, at one session of about an hour, with the sample limits stated in \Cref{sec:threats}; the framework's own component of DRQ4 rests on the demonstration in \Cref{chap:demonstration}.
