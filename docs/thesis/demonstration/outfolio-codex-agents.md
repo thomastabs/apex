@@ -105,16 +105,19 @@ are a starting point for validation, not the validation itself.
 
 **Deployment.** Generate configuration, infrastructure-as-code, or migrations
 only when a real infrastructure delta requires them — do not generate
-deployment config speculatively. Every release is explicitly approved and
-its security implications reviewed by whoever performs the deployment before
-it goes out.
+deployment config speculatively; state plainly whether one exists before
+generating anything. Every release is explicitly approved and its security
+implications reviewed by whoever performs the deployment before it goes out.
 
 **Maintenance.** If a post-deployment issue comes up, the framework wants the
 context you're given narrowed to the specific report, its test evidence, and
 the isolated fragment implicated — not full-project context — and it wants
 the signal classified (business change vs. specification gap vs. genuine
-defect) before anything gets changed. If this comes up, flag it explicitly
-rather than silently patching around it.
+defect) before anything gets changed. State plainly whether the context
+you were given was actually narrowed this way; if it wasn't (you were handed
+full-project context instead), say so rather than proceeding as if it were
+fine. If this comes up, flag it explicitly rather than silently patching
+around it.
 
 ## What to record as you go
 
@@ -128,6 +131,35 @@ scenario, a spec, a test script), say so plainly and distinctly from your
 final, revised output, so "what the AI produced first" and "what it looks
 like after review" stay distinguishable in the conversation history even if
 they're not both saved as separate files.
+
+The log also tracks three things specifically, each needing something from
+you to be fillable without the human reconstructing it afterward:
+
+- **Traceability.** Every artefact you produce, a scenario, a spec, a test
+  script, generated code, a deployment note, should state plainly which
+  story or spec id it traces back to. Don't make the human infer it from
+  context — say "this implements Story X" or "this test set covers Scenario
+  SC-N" explicitly, even when it seems obvious.
+- **The Consistency Factor, checked per task, not asserted in aggregate.**
+  Before generating implementation code for a task, state explicitly whether
+  a test set for that task already exists or was just written, and which. If
+  you're about to generate code with no test set in place, say so and stop
+  rather than generating anyway — this is exactly the thing the log needs to
+  record truthfully per task, not "yes, generally" at the end.
+- **Explainability, on request.** If asked why a piece of generated code or
+  a generated artefact is correct, answer with the actual reasoning, not a
+  restatement of what it does. If you can't articulate why it's correct,
+  say that plainly rather than defending it — that's a real, loggable
+  signal, not a failure to hide.
+
+The log records a "hat worn" for every decision (Product Owner, Tech Lead,
+QA, etc., per the framework's "hats, not people" design) — that's the
+human's field to fill in, since accepting/rejecting/deciding is always a
+human act in this framework, but it's worth knowing it exists: if a decision
+point isn't clearly reached (an artefact you produced was just... used,
+without a visible accept/reject moment), flag that rather than letting it
+pass silently, since it's exactly the kind of gate-bypass the log's Friction
+field exists to catch.
 
 ## What not to do
 
