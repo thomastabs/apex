@@ -309,8 +309,8 @@ heatmap source).
 | 3 (Gherkin) | 26.9 | 17.7 | 21.5 | 23.8 | 13.1 | 14.6 | 19.6 |
 | 4 (Design) | 47.7 | 21.5 | 40.8 | 36.2 | 20.0 | 16.2 | 30.4 |
 | 6 (Packs) | 40.0 | 21.5 | 32.3 | 36.2 | 26.2 | 18.5 | 29.1 |
-| 7 (QA) | 25.4 | 13.8 | 19.2 | 23.1 | 15.4 | 10.8 | 18.0 |
-| 8 (Deploy) | 25.4 | 20.8 | 26.9 | 29.2 | 22.3 | 21.5 | 24.3 |
+| 7 (QA) | 25.4 | 13.8 | 19.2 | 23.1 | 15.4 | 10.8 | 17.9 |
+| 8 (Deploy) | 25.4 | 20.8 | 26.9 | 29.2 | 22.3 | 21.5 | 24.4 |
 | 9 (Export) | 9.2 | 7.7 | 6.9 | 7.7 | 3.1 | 10.8 | 7.6 |
 
 Medians per cell (given coarse 10-point resolution, means alone understate
@@ -339,9 +339,9 @@ this):
 
 1. Task 4, Design: 30.4
 2. Task 6, Packs: 29.1
-3. Task 8, Deploy: 24.3
+3. Task 8, Deploy: 24.4
 4. Task 3, Gherkin: 19.6
-5. Task 7, QA: 18.0
+5. Task 7, QA: 17.9
 6. Task 9, Export: 7.6
 
 ### Pre-registered predictions vs. observed (from `instrument-nasa-tlx.md`, for the writing agent to cross-read; not an interpretation, just the recorded prediction next to the recorded number)
@@ -356,7 +356,7 @@ this):
   highest of all tasks (26.2).
 - Task 7 predicted "low across the board" -> observed lowest or
   second-lowest on every subscale except being unremarkable middle - overall
-  second-lowest aggregate (18.0).
+  second-lowest aggregate (17.9).
 - Task 8 predicted "moderate throughout" (no longer a refusal test) ->
   observed Performance=21.5, the highest Performance (least-perfect-rated)
   score of any task, and third-highest aggregate.
@@ -531,8 +531,8 @@ Format: counts for 1/2/3/4/5, then NA count, then median.
 
 | Item | 1 | 2 | 3 | 4 | 5 | NA | Median |
 |---|---|---|---|---|---|---|---|
-| B1 - could tell AI-generated vs own parts | 0 | 0 | 0 | 3 | 7 | 1 (P12) | 5 |
-| B2 - reviewing AI output took less effort than writing it | 0 | 0 | 2 | 7 | 4 | 0 | 4 |
+| B1 - could tell AI-generated vs own parts | 0 | 2 | 0 | 3 | 7 | 1 (P12) | 5 |
+| B2 - reviewing AI output took less effort than writing it | 0 | 0 | 2 | 6 | 5 | 0 | 4 |
 | B3 - felt able to reject/change AI output | 0 | 0 | 0 | 1 | 11 | 1 (P12) | 5 |
 | B4 - trusted generated content enough for real project | 0 | 0 | 3 | 8 | 2 | 0 | 4 |
 | B5 - could see what info AI had been given | 0 | 1 | 2 | 6 | 4 | 0 | 4 |
