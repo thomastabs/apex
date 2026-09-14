@@ -17,9 +17,11 @@ wins.
 
 > **The table in this section is the original 2026-08-19 measurement, kept for
 > the record. It is superseded by §1a-bis's revised targets, which are in turn
-> superseded by the 2026-09-01 numbers in that section, which are themselves
-> superseded by §1a-ter's 2026-09-10 numbers** - read §1a-ter for the current
-> state, not the table immediately below.
+> superseded by the 2026-09-01 numbers in that section, superseded by
+> §1a-ter's 2026-09-10 numbers, superseded by §1a-quater's 2026-09-14 numbers,
+> superseded by §1a-quinquies's 2026-09-15 account** - read §1a-quinquies for
+> the current state and the Chapter 8/10 page budgets it sets, not the table
+> immediately below.
 
 ## 1. The page limit - currently violated
 
@@ -239,6 +241,72 @@ Down from the 6-page margin [[thesis_blank_page_fix_2026_09_10]] opened up:
 the figure split and the forced Declaration page break together cost 2
 pages, both worth keeping. Chapters 9 and 10 still carry unwritten `\todo`
 sections that will eat into this margin once filled.
+
+## 1a-quinquies. Chapter 9 written, margin gone, budgets set for Chapter 8/10
+
+The last section's warning came true exactly as stated. Writing Chapter 9's
+real content from the study data (2026-09-14/15) took it from 9 to 20 pages
+- more than double, because a `\todo` placeholder's page count reflects
+having nothing to say, not an estimate of what saying it costs. Whole
+document went 96 -> 108, breaching both ceiling 2 (main text + bibliography,
+82 vs 80) and ceiling 3 (100).
+
+Two corrective passes ran same day. A whole-document redundancy/verbosity
+pass (Chapters 3-7, 9, both appendices; Chapters 8 and 10 explicitly
+untouched, their `\todo`s left as `\todo`s) cut 108 -> 104: real duplication
+removed (Appendix B's SUS section restated Chapter 9's own psychometric
+analysis against the appendix's stated policy not to; Appendix B's
+per-participant-raw-scores section was resolved from an empty `\todo` into a
+data-availability note rather than printed matrices that would have
+duplicated Table 9.2 and dwarfed the rest of the appendix), three genuine
+factual errors caught and fixed along the way (Chapter 9 claimed the task
+script was reproduced in Appendix B, which it is not; Appendix B said the
+Portuguese UX form had eighteen items when its own table beside it lists
+the seventeen actually administered; Chapter 7 said "four properties" above
+a list of five), and cross-chapter/cross-section restatement tightened
+throughout. Zero citations, numbers or findings were removed - verified by
+diffing the full `\cite{}` key set of every touched file before and after.
+A second, Chapter-9-specific pass and a `minitoc` List-of-Tables fix (five
+chapters with no tables were still getting empty chapter headings in the
+global list, one of the pages this costs) followed the same day; see
+[[thesis_page_budget_2026_09_15]] for the numbers those produced, since this
+file was last refreshed before they landed.
+
+**The honest arithmetic, stated plainly:** even after every genuine
+redundancy findable in the finished chapters is removed, the document sits
+at or near its ceiling with Chapters 8 and 10 *still unwritten*. Chapter 9's
+placeholder-to-real-content ratio (9 -> 20, +11) is the only data point this
+document has for what "finishing a `\todo` chapter" actually costs, and no
+amount of budgeting can make that free. Two explicit page budgets are
+therefore set now, in advance, as a hard writing constraint rather than a
+target to discover after the fact:
+
+- **Chapter 8 (Demonstration): 9 pages maximum**, current real content
+  (Design section, already written) roughly 4-5 of that. Demonstration is
+  narrower in kind than Chapter 9 despite covering three settings: it walks
+  one Unit of Work per setting through the phases and reports what happened,
+  it does not carry per-participant statistical tables, sub-scale
+  computations, or a research-instrument methodology section the way an
+  evaluation chapter does. Real artefacts (generated scenarios,
+  specifications) are to be referenced/excerpted, not reproduced in full, if
+  full reproduction would blow the budget - this chapter is not the place a
+  complete generated specification belongs if it is pages long.
+- **Chapter 10 (Conclusion): 5 pages maximum**, current real content 0 (pure
+  `\todo`). A conclusion chapter is summary and synthesis of what earlier
+  chapters already established at length, not a place to re-argue it -
+  Summary and Contributions restates, it does not re-derive; Limitations and
+  Future Work are each a paragraph or two of named items, not a new
+  discussion section each.
+
+**Even at these budgets, the document does not clear ceiling 3 with
+margin.** Whatever total this file's freshest section reports for the
+finished chapters, adding a fully-budgeted Chapter 8 (+4-5pp over its
+current state) and Chapter 10 (+5pp) lands close to or slightly over 100
+again. This is disclosed here rather than papered over: closing that last
+gap, once Chapter 8 and 10 are actually written and the real total is
+known, will most likely need one more targeted cut, not a budgeting trick.
+The two budgets above exist to stop a second uncontrolled Chapter-9-style
+overrun, not to guarantee compliance on their own.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
