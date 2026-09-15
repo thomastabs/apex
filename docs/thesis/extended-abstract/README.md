@@ -86,32 +86,33 @@ Takeaways that shaped this scaffold, not the ACM sample's content:
 ## Page budget for this scaffold (drafted vs. results-dependent)
 
 10-page hard ceiling; Cruz landed at 5; this scaffold targets **6 to 8** once
-results exist, per the task's guidance. Current compiled length is **5
-pages**, roughly half of it results-dependent placeholder text rather than
-findings, so there is real headroom to grow into once the usability study
-runs without threatening the ceiling.
+results exist, per the task's guidance. Current compiled length is **7
+pages** (see "Verified build result (2026-09-15)" below): Chapters 7 and 9
+of the dissertation now have real content to draw from, so Sections 5 and
+the results half of Section 6 are drafted for real rather than placeholder
+text. Chapter 8's Application/Observations/Summary and Chapter 10 remain
+genuinely unwritten in the dissertation itself, so Sections 7-8 here are
+drafted as far as that source material allows and no further.
 
 | Section | Status | Approx. current share |
 |---|---|---|
-| Abstract + Keywords | Drafted; final sentence is a placeholder for the headline result | front matter |
-| 1 Motivation and Problem Statement | Drafted from Chapter 1 + Chapter 5 | about 3/4 column |
-| 2 Research Methodology | Drafted from Chapter 2 | about 1/4 column |
-| 3 Related Work (SLR findings) | Drafted from Chapter 4's Discussion + Chapter 3 | about 1/2 column |
-| 4 Proposed Framework (4.1-4.5) | Drafted from Chapter 6 in full, including the phase table | the largest section, over a page, mirroring Cruz's §3 |
-| 5 Reference Implementation: Apex | Placeholder only | waiting on Chapter 7 being written (currently a dissertation skeleton, not a results gap) |
-| 6 Demonstration, Evaluation Design, and Results | Design paragraph drafted (instruments are already decided); results are a placeholder | waiting on the usability study being run |
-| 7 Discussion and Threats to Validity | Placeholder only | waiting on the results above |
-| 8 Conclusion | Placeholder only | waiting on the results above |
-| References | 30 entries, all reused from the thesis bibliography | - |
+| Abstract + Keywords | Drafted; headline result now stated (constructs realised/proxy/partial, SUS, NASA-TLX), with the demonstration/synthesis gap named explicitly | front matter |
+| 1 Motivation and Problem Statement | Drafted from Chapter 1 + Chapter 5; staleness-checked against current Chapters 1/4/6, unchanged | about 3/4 column |
+| 2 Research Methodology | Drafted from Chapter 2; staleness-checked, unchanged | about 1/4 column |
+| 3 Related Work (SLR findings) | Drafted from Chapter 4's Discussion + Chapter 3; staleness-checked against the corrected SLR funnel (117 duplicates, not 227), no stale number was actually present here to begin with | about 1/2 column |
+| 4 Proposed Framework (4.1-4.5) | Drafted from Chapter 6 in full, including the phase table; staleness-checked against current Chapter 6 (8 principles, 6 phases, Trio/hats, 5 gates, 3 metrics, Siddeeq figures), unchanged | the largest section, over a page, mirroring Cruz's §3 |
+| 5 Reference Implementation: Apex | **Drafted from Chapter 7**: the five architecture properties, a condensed DRQ3 construct-mechanism outcome count (10 realised / 1 proxy / 1 partial), the Spec-Anchored Continuity file-taxonomy liberty, and the practitioner-feedback design history | new, about a page |
+| 6 Demonstration, Evaluation Design, and Results | Design paragraph updated to name the two-settings-plus-abandoned-third framing; **results now drafted from Chapter 9** (participants, SUS, NASA-TLX, UX trust-calibration pair and lost gate-comprehension measure, analytical assessment), with the Apex-demonstration-narrative-vs-real-evaluation-data scope seam stated explicitly | new, about a page |
+| 7 Discussion and Threats to Validity | **Drafted from Chapter 9's Discussion/Threats and Chapter 8's researcher-role and abandoned-partner threats**: DRQ1/2/4 answered from Chapter 9, DRQ3 from Chapter 7's mapping, the demonstration boundary carried through explicitly | new, about 3/4 column |
+| 8 Conclusion | Intro paragraph tightened to the current contribution counts; synthesis paragraph **remains a placeholder on purpose**, since Chapter 8's Application/Observations/Summary and Chapter 10 are still genuinely unwritten in the dissertation - the placeholder now says precisely what is answerable today (DRQ3 fully, DRQ1/2/4 partially) and what is not | placeholder, updated wording only |
+| References | 33 entries (30 plus Martins:2015SUS, Lewis:2009SUS, J.Pries-Heje:2008SD, added for the Section 6 results), all reused verbatim from the thesis bibliography | - |
 
-Every placeholder in `main.tex` is a visible red `[PLACEHOLDER - WAITING ON
-DATA: ...]` paragraph (a small custom command, not the `todonotes` package,
-see the "Known LaTeX issue" note below) naming exactly what it is blocked on
-and what it must contain once unblocked. Nothing is drafted for Chapters
-7-10 beyond what the task scoped as safe to compress (Chapters 1-6 only);
-Chapters 7, 8 and 10 of the dissertation are themselves still skeletons, and
-Chapter 9 has no results, so there is nothing finished yet to compress into
-those sections.
+Remaining placeholders are limited to Section 8's synthesis paragraph, which
+stays a visible red `[PLACEHOLDER - WAITING ON DATA: ...]` block (the small
+custom command, not `todonotes`, see the "Known LaTeX issue" note below)
+naming exactly what it is blocked on (Chapter 8's fieldwork and Chapter 10's
+own drafting) and what it must contain once unblocked. Every other section
+is now drafted from real, current dissertation content.
 
 ## Build
 
@@ -167,6 +168,47 @@ confirm.
   generation code, not this document's own content, and the same fix would
   then need making twice (`IEEEtran.bst` for the thesis, `ACM-Reference-
   Format.bst` here).
+
+### Verified build result (2026-09-15)
+
+Sections 5-8 rewritten from the now-real Chapters 7 and 9 (Chapter 7 fully
+written, Chapter 9 fully written with N=13 evaluation data since
+2026-09-13); Section 8's synthesis paragraph deliberately kept as a
+placeholder since Chapter 8's Application/Observations/Summary and Chapter
+10 are still genuinely unwritten in the dissertation. Full rebuild cycle
+(`pdflatex` -> `bibtex` -> `pdflatex` -> `pdflatex`) from this directory.
+
+- **Page count: 7** (up from 5; still 3 pages of headroom under the 10-page
+  ceiling, and within the 6-8 page target this scaffold set for itself once
+  results existed).
+- **LaTeX errors: 0.**
+- **Undefined references: 0. Undefined citations: 0.** (`grep -i undefined
+  main.log` empty after the full cycle.)
+- **Dash check** (`pdftotext main.pdf - | grep -P "[\x{2013}\x{2014}]"`):
+  **10 matches, all inside the auto-generated References list** (the same
+  `ACM-Reference-Format.bst` page-range rendering behaviour described below;
+  the count rose from 8 to 10 only because three bibliography entries were
+  added, not because any dash appeared in authored prose). No en or em dash
+  appears anywhere in Sections 1-8, the abstract, or the table.
+- **References**: three entries added, copied verbatim from the thesis
+  bibliography (`Martins:2015SUS`, `Lewis:2009SUS`, `J.Pries-Heje:2008SD`),
+  needed for the Section 6 SUS sub-scale and Portuguese-validation results.
+  No entry was invented; all three are cited in the current Chapter 9 text
+  this section draws from.
+- **Fact-checking against current dissertation text**: every number in
+  Sections 5-7 (the 10/1/1 construct-outcome split, the 44-story spec-drift
+  cascade, SUS 56.73/grade D, the English/Portuguese sub-means, the NASA-TLX
+  21.5 aggregate and subscale profile, the 13-participant sample breakdown,
+  the analytical assessment's 2 met/3 partially met split) was read from the
+  current text of `Chapter_7-Apex.tex` and `Chapter_9-Evaluation.tex` in this
+  same pass, not carried over from an earlier draft or from
+  `docs/thesis/evaluation/ch9-analytical-data.md`. The SLR duplicate-count
+  figure (117, not the old 227) was checked against `Chapter_4-SLR.tex` and
+  was already absent from this document's own Section 3, so no correction
+  was needed there. The dissertation's renamed compiled PDF
+  (`ist1103641-tomas-taborda-dissertacao.pdf`) was already the only filename
+  referenced in this README; `main.tex` does not reference the dissertation's
+  own PDF filename at all, so nothing needed fixing there either.
 
 ### Known LaTeX issue found and worked around
 
