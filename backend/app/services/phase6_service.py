@@ -64,8 +64,15 @@ class Phase6Service:
                 "Implement the story first."
             )
         github_context = self.context.read_context_file("github-context.md")
-        # Treat the unpopulated template (header + HTML comments only) as not synced.
-        if "## File Tree" not in github_context:
+        # Treat the unpopulated template (header + HTML comments only) as not
+        # synced. "# Directory Structure" is repomix's own heading in every
+        # real `--style markdown` pack (github_fetch.clone_and_pack writes
+        # repomix's raw output verbatim, unwrapped) - real synced content
+        # never contains "## File Tree" (that string only ever appeared in
+        # this project's own placeholder-template comment text, never in an
+        # actual repomix pack), so checking for it made every real sync look
+        # unpopulated and silently zeroed conformance for every project.
+        if "# Directory Structure" not in github_context:
             github_context = ""
         return {
             "title": entry.get("title", f"Story {story_id}"),

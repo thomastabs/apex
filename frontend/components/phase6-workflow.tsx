@@ -115,7 +115,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
       {count === 0 ? (
         <p className={cn("text-xs italic", muted)}>{t("phase6.noneInSpec")}</p>
       ) : (
-        <div className={cn("overflow-hidden rounded-lg border", cellBorder)}>
+        <div className={cn("overflow-x-auto rounded-lg border", cellBorder)}>
           <table className="w-full text-left text-xs">
             <tbody>{rows}</tbody>
           </table>
@@ -154,12 +154,12 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
           ) : null}
         </td>
         <td className="px-3 py-2 align-top">
-          <div className={dark ? "text-neutral-200" : "text-slate-800"}>{label}</div>
+          <div className={cn("break-words", dark ? "text-neutral-200" : "text-slate-800")}>{label}</div>
           {loc ? (
-            <div className={cn("mt-0.5 font-mono text-xs", muted)}>{loc}</div>
+            <div className={cn("mt-0.5 break-words font-mono text-xs", muted)}>{loc}</div>
           ) : null}
           {detail ? (
-            <div className={cn("mt-0.5 text-xs", muted)}>{detail}</div>
+            <div className={cn("mt-0.5 break-words text-xs", muted)}>{detail}</div>
           ) : null}
           {v?.rationale ? (
             <div className={cn("mt-0.5 text-xs italic", muted)}>{t("phase6.judgePrefix")}{v.rationale}</div>
@@ -359,7 +359,7 @@ function TraceabilityPanel() {
       ) : stories.length === 0 ? (
         <Callout>{t("phase6.noConformanceStories")}</Callout>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[16rem_1fr]">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
           {/* Story list */}
           <div className="space-y-1">
             {stories.map((s: ConformanceEligibleStory) => (
@@ -498,7 +498,7 @@ function TraceabilityPanel() {
             {report?.summary ? (
               <div
                 className={cn(
-                  "rounded-lg border p-3 text-sm",
+                  "break-words rounded-lg border p-3 text-sm",
                   dark ? "border-neutral-800 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700",
                 )}
               >

@@ -8,7 +8,17 @@ from backend.app.services.request_context import RequestContext
 
 _GHERKIN = "Scenario: User signs in\n  Then a token is returned"
 _TECH_SPEC = "- `POST /api/v1/auth/login` · auth:none · out:token:str"
-_GITHUB = "# GitHub Repository Context\n\n## File Tree\n\n```\nbackend/api/auth.py\n```\n"
+# Shaped like a real repomix `--style markdown` pack (github_fetch.clone_and_pack
+# writes repomix's raw output verbatim) - "# Directory Structure" is the real
+# heading phase6_service checks for, not the fictional "## File Tree" this
+# fixture used to assert (a real conformance-scoring bug, found 2026-09-18:
+# that string never appears in actual repomix output, so every real sync was
+# silently treated as unpopulated and conformance always scored 0).
+_GITHUB = (
+    "This file is a merged representation of the entire codebase.\n\n"
+    "# Directory Structure\n```\nbackend/api/auth.py\n```\n\n"
+    "# Files\n\n## File: backend/api/auth.py\n```python\ndef login(): ...\n```\n"
+)
 
 
 def _index():
@@ -239,6 +249,27 @@ def test_unsynced_github_blanked(ctx):
     ai.layer_a_conformance = lambda g, t, gh, c="", r="": captured.setdefault("gh", gh) or {"score": 0}
     svc.verify_conformance(ctx, 1, ai=False)
     assert captured["gh"] == ""  # template treated as not synced
+
+
+def test_real_repomix_pack_is_not_blanked(ctx):
+    """Regression test for a real bug (found 2026-09-18): the populated-check
+    used to look for '## File Tree', a string that never actually appears in
+    real repomix `--style markdown` output (github_fetch.clone_and_pack writes
+    repomix's raw output verbatim). Every real GitHub sync was silently
+    treated as unpopulated, and conformance scored 0 for every project
+    regardless of how much real code was actually synced."""
+    svc, ai, context = _service()
+    context.context_files["github-context.md"] = _GITHUB  # shaped like a real repomix pack
+    captured = {}
+
+    def fake_layer_a(g, t, gh, c="", r=""):
+        captured["gh"] = gh
+        return {"score": 0}
+
+    ai.layer_a_conformance = fake_layer_a
+    svc.verify_conformance(ctx, 1, ai=False)
+    assert captured["gh"] != ""
+    assert "backend/api/auth.py" in captured["gh"]
 
 
 def test_get_conformance_roundtrip(ctx):
