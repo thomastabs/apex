@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, Eye, Loader2, Pencil, Save, ScrollText, Trash2, X, Zap } from "lucide-react";
+import { Download, Eye, Loader2, Pencil, Plus, Save, ScrollText, Trash2, X, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Callout, Skeleton } from "@/components/ui/primitives";
-import { deleteBugReport, getBugReport, getFixLog, listBugReports, saveBugReport } from "@/lib/api/phase4";
+import { Button, Callout, Skeleton, Textarea } from "@/components/ui/primitives";
+import { deleteBugReport, failGate, getBugReport, getFixLog, listBugReports, saveBugReport } from "@/lib/api/phase4";
+import { getAnalyticsSummary } from "@/lib/api/analytics";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useApiContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
@@ -36,8 +37,15 @@ export function FixBoltDashboard() {
   const [draft, setDraft] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
+  const [reporting, setReporting] = useState(false);
+  const [reportStoryId, setReportStoryId] = useState<number | "">("");
+  const [reportMd, setReportMd] = useState("");
+  const [reportRootCause, setReportRootCause] = useState("");
+  const [reportResolution, setReportResolution] = useState("");
+
   const REPORTS_KEY = ["phase4", "bug-reports", context?.projectId];
   const FIXLOG_KEY = ["phase4", "fix-log", context?.projectId];
+  const ANALYTICS_KEY = ["analytics", "summary", context?.projectId];
 
   const { data: reportsData, isLoading: reportsLoading, error: reportsError } = useQuery({
     queryKey: REPORTS_KEY,
@@ -54,6 +62,43 @@ export function FixBoltDashboard() {
     staleTime: 30_000,
   });
   const fixLog = (fixLogData?.fix_log_md ?? "").trim();
+
+  const { data: analyticsData } = useQuery({
+    queryKey: ANALYTICS_KEY,
+    queryFn: () => getAnalyticsSummary(context!),
+    enabled: Boolean(context) && reporting,
+    staleTime: 30_000,
+  });
+  const reportableStories = useMemo(
+    () => [...(analyticsData?.stories ?? [])].sort((a, b) => a.story_id - b.story_id),
+    [analyticsData],
+  );
+
+  const resetReportForm = () => {
+    setReporting(false);
+    setReportStoryId("");
+    setReportMd("");
+    setReportRootCause("");
+    setReportResolution("");
+  };
+
+  const reportMut = useMutation({
+    mutationFn: () =>
+      failGate(context!, {
+        story_id: reportStoryId as number,
+        bug_report_md: reportMd,
+        root_cause: reportRootCause,
+        resolution_summary: reportResolution,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: REPORTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: FIXLOG_KEY });
+      void queryClient.invalidateQueries({ queryKey: ANALYTICS_KEY });
+      toast.success(t("fixbolt.toast.bugReportCreated"));
+      resetReportForm();
+    },
+    meta: { errorLabel: "op.reportBug" },
+  });
 
   const fetchContent = async (storyId: number): Promise<string> => {
     const res = await getBugReport(context!, storyId);
@@ -141,7 +186,69 @@ export function FixBoltDashboard() {
                   {reports.length}
                 </span>
               )}
+              <Button
+                className="ml-auto h-8 px-3 text-xs"
+                onClick={() => setReporting((v) => !v)}
+              >
+                <Plus className="size-3.5" /> {t("fixbolt.reportBug")}
+              </Button>
             </div>
+
+            {reporting && (
+              <div className={cn(
+                "mb-4 space-y-3 rounded-lg border p-4",
+                dark ? "border-neutral-800 bg-[#1b1b1c]" : "border-slate-200 bg-slate-50",
+              )}>
+                <p className={cn("text-xs", mutedClass)}>{t("fixbolt.reportBugHint")}</p>
+                <select
+                  className={cn(
+                    "h-10 w-full rounded border px-3 text-sm outline-none transition-colors",
+                    dark
+                      ? "border-neutral-700 bg-neutral-950 text-white hover:border-neutral-500 focus:border-violet-500"
+                      : "border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:border-violet-500",
+                  )}
+                  value={reportStoryId}
+                  onChange={(e) => setReportStoryId(e.target.value ? Number(e.target.value) : "")}
+                >
+                  <option value="">{t("fixbolt.reportBugSelectStory")}</option>
+                  {reportableStories.map((s) => (
+                    <option key={s.story_id} value={s.story_id}>
+                      US#{s.story_id} {s.title} — {s.phase_status}
+                    </option>
+                  ))}
+                </select>
+                <Textarea
+                  placeholder={t("fixbolt.reportBugDescriptionPlaceholder")}
+                  rows={4}
+                  value={reportMd}
+                  onChange={(e) => setReportMd(e.target.value)}
+                />
+                <Textarea
+                  placeholder={t("fixbolt.reportBugRootCausePlaceholder")}
+                  rows={2}
+                  value={reportRootCause}
+                  onChange={(e) => setReportRootCause(e.target.value)}
+                />
+                <Textarea
+                  placeholder={t("fixbolt.reportBugResolutionPlaceholder")}
+                  rows={2}
+                  value={reportResolution}
+                  onChange={(e) => setReportResolution(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    disabled={!reportStoryId || !reportMd.trim() || reportMut.isPending}
+                    onClick={() => reportMut.mutate()}
+                  >
+                    {reportMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}
+                    {t("fixbolt.reportBugSubmit")}
+                  </Button>
+                  <Button variant="secondary" onClick={resetReportForm}>
+                    {t("common.cancel")}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {reportsLoading ? (
               <div className="space-y-2 rounded-lg border p-3">
