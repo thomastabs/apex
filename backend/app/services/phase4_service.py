@@ -180,6 +180,18 @@ class Phase4Service:
         self.configure_request(ctx)
         return self.context.get_fix_log()
 
+    def get_qa_results(self, ctx: RequestContext, story_id: int) -> dict:
+        """QA attempt history for a story - which scenarios failed/passed and
+        when. Saved on every pass_gate/fail_gate call (save_qa_results) but,
+        until now, never read back anywhere: a story returning to Testing
+        after a Fix-Bolt had no way to show which scenario failed last time
+        (found 2026-09-19, alongside the phase_status loop-back bug above)."""
+        self.configure_request(ctx)
+        data = self.context.load_qa_results(story_id)
+        if not data:
+            return {"story_id": story_id, "attempts": []}
+        return data
+
     def generate_bug_report(
         self,
         ctx: RequestContext,
@@ -280,6 +292,14 @@ class Phase4Service:
                 f"## Fix-Bolt #{fix_bolt_number} - {stamp}\n\n{entry_md}"
             )
         self.context.save_bug_report(story_id, entry_md)
+        # A failed gate routes the story back to a named phase, per the
+        # framework's own gate model - here, back to Implementation. Nothing
+        # else ever performed this transition (found 2026-09-19 - a failing
+        # story stayed at phase_status "qa" indefinitely, so is_regression_
+        # bypass, keyed on has_bug_report AND phase_status=="implementation",
+        # could never actually become true through this gate, and the
+        # Regression Bypass badge/warning never had a chance to show).
+        self.context.upsert_story_index(story_id, phase_status="implementation")
         # Append to global fix log
         if root_cause.strip():
             self.context.append_fix_log_record(

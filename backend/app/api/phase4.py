@@ -20,6 +20,7 @@ from backend.app.schemas.phase4 import (
     GenerateTestPlanRequest,
     GenerateTestPlanResponse,
     PassGateRequest,
+    QaResultsResponse,
     SaveBugReportRequest,
     StoryContextResponse,
     SaveTestPlanRequest,
@@ -230,6 +231,18 @@ def fix_log(
 ):
     try:
         return {"fix_log_md": service.get_fix_log(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/qa-results/{story_id}", response_model=QaResultsResponse)
+def qa_results(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        return service.get_qa_results(ctx, story_id)
     except Exception as exc:
         _handle_error(exc)
 

@@ -601,6 +601,17 @@ export type Phase4FailGateRequest = {
   scenario_results?: Phase4ScenarioResultItem[];
 };
 
+export type Phase4QaAttempt = {
+  recorded_at: string;
+  gate: "pass" | "fail";
+  results: Phase4ScenarioResultItem[];
+};
+
+export type Phase4QaResultsResponse = {
+  story_id: number;
+  attempts: Phase4QaAttempt[];
+};
+
 // ---------------------------------------------------------------------------
 // Phase 5 — Deployment Gate
 // ---------------------------------------------------------------------------

@@ -130,3 +130,14 @@ class FailGateRequest(BaseModel):
     resolution_summary: str = Field("", max_length=5_000)
     push_to_pm: bool = False
     scenario_results: list[ScenarioResultItem] | None = None
+
+
+class QaAttempt(BaseModel):
+    recorded_at: str
+    gate: Literal["pass", "fail"]
+    results: list[ScenarioResultItem]
+
+
+class QaResultsResponse(BaseModel):
+    story_id: int
+    attempts: list[QaAttempt] = Field(default_factory=list)

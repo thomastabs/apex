@@ -86,6 +86,10 @@ class FakeContextService(FakeContextServiceBase):
         from src import context_manager
         context_manager.delete_bdd_tests(story_id)
 
+    def load_qa_results(self, story_id: int) -> dict | None:
+        from src import context_manager
+        return context_manager.load_qa_results(story_id)
+
     def save_qa_results(self, story_id: int, gate: str, results: list[dict]) -> None:
         from src import context_manager
         context_manager.save_qa_results(story_id, gate, results)
@@ -158,6 +162,23 @@ def test_eligible_stories_no_bypass_when_in_qa():
     svc = Phase4Service(ai=FakeAiService(), context=FakeContextService(index=index))
     stories = svc.get_eligible_stories(_ctx())
     assert stories[0]["is_regression_bypass"] is False
+
+
+def test_fail_gate_routes_story_back_to_implementation(ctx):
+    """Regression test for a real bug (found 2026-09-19): failing a story in
+    Phase 4 never routed it back to Implementation, so is_regression_bypass
+    (has_bug_report AND phase_status=="implementation") could never become
+    true through this gate - the story just sat at "qa" forever with a bug
+    report attached, and the Regression Bypass badge/warning never showed
+    when the user came back to pick a story to test."""
+    ctx.upsert_story_index(10, title="S", phase_status="qa")
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "off-by-one", "guard added")
+    entry = ctx.get_story_index()["10"]
+    assert entry["phase_status"] == "implementation"
+    assert entry["has_bug_report"] is True
+    # The condition itself, exactly as get_eligible_stories computes it.
+    assert entry["has_bug_report"] and entry["phase_status"] == "implementation"
 
 
 # ---------------------------------------------------------------------------
@@ -467,6 +488,35 @@ def test_fail_gate_skips_fix_log_when_no_root_cause(ctx):
     svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "", "")
     assert ctx.load_bug_report(10) == _FAKE_BUG_REPORT
     assert "## Fix #" not in ctx.get_fix_log()
+
+
+def test_get_qa_results_empty_when_never_tested(ctx):
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    data = svc.get_qa_results(_ctx(), 10)
+    assert data == {"story_id": 10, "attempts": []}
+
+
+def test_get_qa_results_surfaces_which_scenario_failed(ctx):
+    """Regression test for a real bug (found 2026-09-19, reported alongside
+    the phase_status loop-back one): fail_gate's scenario_results were saved
+    server-side (save_qa_results) but nothing ever read them back, so a story
+    returning to Testing after a Fix-Bolt had no record of which scenario
+    had failed - the data existed, it just had no way out."""
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.fail_gate(
+        _ctx(), 10, _FAKE_BUG_REPORT, "off-by-one", "guard added",
+        scenario_results=[
+            {"scenario": "Successful login", "result": "fail", "notes": "500 on submit"},
+            {"scenario": "Invalid password", "result": "pass", "notes": ""},
+        ],
+    )
+    data = svc.get_qa_results(_ctx(), 10)
+    assert data["story_id"] == 10
+    assert len(data["attempts"]) == 1
+    attempt = data["attempts"][0]
+    assert attempt["gate"] == "fail"
+    failed = [r["scenario"] for r in attempt["results"] if r["result"] == "fail"]
+    assert failed == ["Successful login"]
 
 
 def test_delete_test_plan_rolls_back_to_implementation(ctx):

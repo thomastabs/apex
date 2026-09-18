@@ -8,6 +8,7 @@ import {
   generateEdgeCases,
   generateTestPlan,
   getEligibleStories,
+  getQaResults,
   getStoryContext,
   getTestPlan,
   passGate,
@@ -111,6 +112,32 @@ export function useLoadTestPlan(storyId: number | null) {
   });
 }
 
+/** Hydrates Regression Bypass state from the server's own QA attempt history
+ * rather than only from a live fail-gate event in this browser session -
+ * without this, jumping straight to a story (a fresh session, a different
+ * device, or the Zustand draft having been cleared by selecting another
+ * story in between) showed no trace of which scenario had failed, even
+ * though the server had saved it all along (found 2026-09-19). */
+export function useLoadRegressionBypass(storyId: number | null) {
+  const context = useApiContext();
+  const setRegressionBypass = usePhase4Store((s) => s.setRegressionBypass);
+  return useQuery({
+    queryKey: ["phase4", "qa-results", context?.projectId, storyId],
+    queryFn: async () => {
+      const res = await getQaResults(context!, storyId!);
+      const last = res.attempts[res.attempts.length - 1];
+      if (last?.gate === "fail") {
+        const failedNames = last.results.filter((r) => r.result === "fail").map((r) => r.scenario);
+        setRegressionBypass(true, failedNames);
+      } else if (last?.gate === "pass") {
+        setRegressionBypass(false, []);
+      }
+      return res;
+    },
+    enabled: Boolean(context) && storyId !== null,
+  });
+}
+
 export function useGenerateTestPlan() {
   const context = useApiContext();
   const qc = useQueryClient();
@@ -197,10 +224,11 @@ export function usePassGate() {
       storyId: number;
       scenarioResults?: Phase4ScenarioResultItem[];
     }) => passGate(context!, storyId, scenarioResults),
-    onSuccess: () => {
+    onSuccess: (_data, { storyId }) => {
       toast.success("Testing Gate passed — story ready for production.");
       void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["phase4", "qa-results", context?.projectId, storyId] });
     },
     meta: { errorLabel: "op.passGate" },
   });
@@ -250,10 +278,11 @@ export function useFailGate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Phase4FailGateRequest) => failGate(context!, body),
-    onSuccess: () => {
+    onSuccess: (_data, { story_id }) => {
       toast.success("Bug report saved. Fix-Bolt artifact ready.");
       void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["phase4", "qa-results", context?.projectId, story_id] });
     },
     meta: { errorLabel: "op.failGate" },
   });

@@ -305,8 +305,13 @@ def test_phase4_test_plan_rejects_qa_passed_story(ctx):
 
 
 def test_phase4_fail_gate_flags_bug_and_appends_fix_log(ctx):
-    """Bad path that stays in-flow: a QA failure flags the story for Regression
-    Bypass and writes a permanent Fix Log entry (no phase_status downgrade)."""
+    """Bad path that loops back: a QA failure flags the story for Regression
+    Bypass, routes it back to Implementation (the named phase a failed gate
+    sends work to, per the framework's own gate model - fixed 2026-09-19,
+    previously the story stayed at "qa" forever with no phase_status change,
+    so is_regression_bypass, which requires phase_status=="implementation",
+    could never actually become true), and writes a permanent Fix Log
+    entry."""
     from src import context_manager
 
     rc = _req()
@@ -315,7 +320,9 @@ def test_phase4_fail_gate_flags_bug_and_appends_fix_log(ctx):
     p4 = Phase4Service(ai=FakeAi())
     p4.save_test_plan(rc, sid, p4.generate_test_plan(rc, sid))
     p4.fail_gate(rc, sid, "# Bug\nboom", root_cause="off-by-one in gate", resolution_summary="guard added")
-    assert context_manager.get_story_index()[str(sid)]["has_bug_report"] is True
+    entry = context_manager.get_story_index()[str(sid)]
+    assert entry["has_bug_report"] is True
+    assert entry["phase_status"] == "implementation"
     assert "off-by-one in gate" in p4.get_fix_log(rc)
 
 

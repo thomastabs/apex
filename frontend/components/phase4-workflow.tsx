@@ -30,6 +30,7 @@ import {
   useGenerateBugReport,
   useGenerateEdgeCases,
   useGenerateTestPlan,
+  useLoadRegressionBypass,
   useLoadTestPlan,
   usePassGate,
   useSaveTestPlan,
@@ -592,6 +593,11 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   // Load the saved plan into the store even when the user jumps straight here
   // via the stepper (skipping the Test Plan stage that normally loads it).
   const { isLoading: planLoading } = useLoadTestPlan(storyId);
+  // Same idea for Regression Bypass: hydrate from the server's own QA
+  // attempt history, not only from a live fail-gate event earlier in this
+  // browser session (which a fresh session, a different device, or picking
+  // another story in between would have no way to reconstruct).
+  useLoadRegressionBypass(storyId);
 
   const testPlanMd = usePhase4Store((s) => s.testPlanMd);
   const scenarioResults = usePhase4Store((s) => s.scenarioResults);

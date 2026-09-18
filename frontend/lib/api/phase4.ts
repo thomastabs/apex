@@ -8,6 +8,7 @@ import type {
   Phase4GenerateBugReportRequest,
   Phase4GenerateBugReportResponse,
   Phase4GenerateTestPlanResponse,
+  Phase4QaResultsResponse,
   Phase4ScenarioResultItem,
   Phase4StoryContext,
   Phase4TestPlanResponse,
@@ -142,4 +143,8 @@ export function deleteBugReport(context: RequestContext, storyId: number) {
 
 export function getFixLog(context: RequestContext) {
   return apiRequest<Phase4FixLogResponse>("/api/phase4/fix-log", { context });
+}
+
+export function getQaResults(context: RequestContext, storyId: number) {
+  return apiRequest<Phase4QaResultsResponse>(`/api/phase4/qa-results/${storyId}`, { context });
 }
