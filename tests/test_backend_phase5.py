@@ -221,6 +221,25 @@ def test_story_context_returns_specs():
     assert data["github_context_synced"] is False
 
 
+def test_story_context_placeholder_is_not_reported_synced():
+    """The unpopulated github-context.md template must not read as synced.
+
+    It opens with "# GitHub Repository Context", not "<!--", so the old
+    startswith("<!--") check reported github_context_synced True (and
+    Phase 2 injected the empty placeholder as "Existing Codebase") on
+    every project that had never run a GitHub sync.
+    """
+    from src.context_manager import _GITHUB_CONTEXT_TEMPLATE
+
+    ctx_service = FakeContextService()
+    ctx_service.read_context_file = lambda f: (
+        _GITHUB_CONTEXT_TEMPLATE if f == "github-context.md" else ""
+    )
+    data = _svc(context=ctx_service).get_story_context(_ctx(), 10)
+    assert data["github_context_synced"] is False
+    assert data["pipeline_detected"] is False
+
+
 def test_story_context_rejects_wrong_status():
     ctx_service = FakeContextService(index=_story_index(status="qa"))
     with pytest.raises(Phase5ValidationError, match="not eligible"):

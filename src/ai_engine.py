@@ -4292,8 +4292,13 @@ _CODE_ROUTE_PATTERNS = (
 _FLASK_ROUTE_RE = re.compile(
     r"""route\s*\(\s*['"]([^'"]+)['"][^)]*methods\s*=\s*\[([^\]]*)\]""", re.IGNORECASE
 )
-# Markdown section heading naming a file: "## `backend/app/api/auth.py`".
-_FILE_HEADING_RE = re.compile(r"^#{1,6}\s+`?([^\n`]+?)`?\s*(?:\(.*\))?\s*$", re.MULTILINE)
+# Per-file headings in the synced pack. repomix --style markdown writes
+# "## File: path/to/x.ts"; the on-demand file-fetch path appends "## `path`".
+# The optional "File:" prefix is non-capturing so both spellings yield the bare
+# path - without it every Layer-A citation read "File: src/x.ts:12".
+_FILE_HEADING_RE = re.compile(
+    r"^#{1,6}\s+(?:File:\s*)?`?([^\n`]+?)`?\s*(?:\(.*\))?\s*$", re.MULTILINE
+)
 
 
 def extract_code_routes(github_context: str) -> list[tuple[str, str, int]]:
@@ -4379,11 +4384,31 @@ _STOPWORDS = frozenset(
 
 
 def _extract_file_tree(github_context: str) -> list[str]:
-    """Pull the file paths from the '## File Tree' fenced block, if present."""
-    m = re.search(r"##\s*File Tree\s*\n+```[^\n]*\n(.*?)```", github_context or "", re.DOTALL | re.IGNORECASE)
-    if not m:
-        return []
-    return [ln.strip() for ln in m.group(1).splitlines() if ln.strip()]
+    """List the synced repo's file paths.
+
+    Primary source is the pack's own per-file headings, because that is the
+    only place paths appear in real output: github_fetch packs every repo with
+    --no-directory-structure, so repomix emits no tree block at all. Reading
+    only the legacy '## File Tree' fenced block (the pre-server-side browser
+    fetcher's format) made this return [] on every real sync, which in turn
+    left _match_scenarios with no test files to match against.
+
+    The fenced block is still parsed as a fallback so projects whose
+    github-context.md was written by the old fetcher keep working.
+    """
+    paths: list[str] = []
+    for m in _FILE_HEADING_RE.finditer(github_context or ""):
+        candidate = m.group(1).strip()
+        # Same path-shaped heuristic _locate_offset uses, so section headings
+        # like repomix's own "# Files" are not mistaken for file paths.
+        if "/" in candidate or "." in candidate:
+            paths.append(candidate)
+    legacy = re.search(
+        r"##\s*File Tree\s*\n+```[^\n]*\n(.*?)```", github_context or "", re.DOTALL | re.IGNORECASE
+    )
+    if legacy:
+        paths += [ln.strip() for ln in legacy.group(1).splitlines() if ln.strip()]
+    return list(dict.fromkeys(paths))
 
 
 def _scenario_keywords(title: str) -> list[str]:

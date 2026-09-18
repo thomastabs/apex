@@ -34,6 +34,36 @@ class GroundingValidationError(ValueError):
     """Raised when a selected grounding file is invalid for an AI call."""
 
 
+# HTML comments and ATX headings are the only things the unpopulated
+# github-context.md / figma-context.md templates are made of, so stripping
+# both is what separates "never synced" from "holds a real pack".
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_ATX_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}[^\n]*$", re.MULTILINE)
+
+
+def context_file_is_populated(text: str) -> bool:
+    """True when a synced context file holds real content, not its placeholder.
+
+    Detects the placeholder STRUCTURALLY (nothing but a heading and HTML
+    comments) rather than whitelisting some heading the packer is expected to
+    emit. Both previous whitelist checks were wrong against production output:
+
+      - "## File Tree" never appears in repomix output at all. It only ever
+        existed in this project's own template comment text.
+      - "# Directory Structure" is real repomix markdown, but github_fetch's
+        _run_repomix passes --no-directory-structure on every single pack, so
+        it is suppressed in exactly the output this check has to recognise.
+
+    Either way the file read as unpopulated and Phase 6 blanked real code.
+    A structural check cannot drift out of sync with repomix's flags: real
+    packed content always leaves file bodies behind once headings and
+    comments are removed, and a template never does.
+    """
+    body = _HTML_COMMENT_RE.sub("", text or "")
+    body = _ATX_HEADING_RE.sub("", body)
+    return bool(body.strip())
+
+
 def is_custom_context_file(filename: str) -> bool:
     return (
         filename.startswith("wiki-")

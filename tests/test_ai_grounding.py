@@ -62,3 +62,48 @@ def test_extra_context_block_prefers_stored_agent_file(monkeypatch, tmp_path):
     block = ai_grounding.extra_context_block(context, ["AGENTS.md"])
 
     assert "Use Apex storage" in block
+
+
+# ---------------------------------------------------------------------------
+# context_file_is_populated
+#
+# Two production bugs came from whitelisting a heading here instead of asking
+# the structural question. Phase 6 keyed on a heading a real pack never has
+# (blanking real code, conformance 0/100); Phase 2/5 keyed on a leading
+# "<!--" the template does not actually start with (so the empty placeholder
+# counted as synced). These pin both directions.
+# ---------------------------------------------------------------------------
+
+# Verified against the pinned repomix CLI run with github_fetch._run_repomix's
+# exact argv: --no-file-summary and --no-directory-structure leave no preamble
+# and no tree block, so real output opens directly at "# Files".
+_REAL_PACK = "# Files\n\n## File: src/app.ts\n```typescript\nexport const x = 1;\n```\n"
+
+
+def test_unpopulated_template_is_not_populated():
+    from src.context_manager import _FIGMA_CONTEXT_TEMPLATE, _GITHUB_CONTEXT_TEMPLATE
+
+    # The template opens with "# GitHub Repository Context", NOT "<!--", which
+    # is why the old startswith("<!--") check reported it as synced.
+    assert _GITHUB_CONTEXT_TEMPLATE.strip().startswith("<!--") is False
+    assert ai_grounding.context_file_is_populated(_GITHUB_CONTEXT_TEMPLATE) is False
+    assert ai_grounding.context_file_is_populated(_FIGMA_CONTEXT_TEMPLATE) is False
+
+
+def test_real_repomix_pack_is_populated():
+    assert ai_grounding.context_file_is_populated(_REAL_PACK) is True
+    # Neither heading the two broken checks looked for is present.
+    assert "# Directory Structure" not in _REAL_PACK
+    assert "## File Tree" not in _REAL_PACK
+
+
+def test_legacy_browser_fetched_context_is_populated():
+    legacy = "# GitHub Repository Context\n\n## File Tree\n\n```\nsrc/app.ts\n```\n"
+    assert ai_grounding.context_file_is_populated(legacy) is True
+
+
+def test_empty_and_headings_only_are_not_populated():
+    assert ai_grounding.context_file_is_populated("") is False
+    assert ai_grounding.context_file_is_populated("   \n\n") is False
+    # A pack that matched no files at all is not usable context either.
+    assert ai_grounding.context_file_is_populated("# Files\n") is False

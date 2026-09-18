@@ -4,7 +4,7 @@ import logging
 import re
 
 from backend.app.services.ai_service import AiService
-from backend.app.services.ai_grounding import with_extra_context
+from backend.app.services.ai_grounding import context_file_is_populated, with_extra_context
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 from src import ai_engine
@@ -126,7 +126,7 @@ class Phase2Service:
         if tech_stack:
             parts.append(f"## Previously Proposed/Locked Tech Stack\n\n{tech_stack}")
         github_context = self.context.read_context_file("github-context.md")
-        if github_context.strip() and not github_context.strip().startswith("<!--"):
+        if context_file_is_populated(github_context):
             parts.append(f"## Existing Codebase (GitHub)\n\n{github_context.strip()}")
         return "\n\n".join(parts)
 
@@ -220,10 +220,10 @@ class Phase2Service:
             f"targets outside this stack:\n\n{tech_stack}"
         )
         github_context = self.context.read_context_file("github-context.md")
-        if github_context.strip() and not github_context.strip().startswith("<!--"):
+        if context_file_is_populated(github_context):
             parts.append(f"## Existing Codebase (GitHub)\n\n{github_context.strip()}")
         figma_context = self.context.read_context_file("figma-context.md")
-        if figma_context.strip() and not figma_context.strip().startswith("<!--"):
+        if context_file_is_populated(figma_context):
             parts.append(f"## Design Reference (Figma)\n\n{figma_context.strip()}")
         return "\n\n".join(parts)
 

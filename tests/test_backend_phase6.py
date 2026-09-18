@@ -8,16 +8,16 @@ from backend.app.services.request_context import RequestContext
 
 _GHERKIN = "Scenario: User signs in\n  Then a token is returned"
 _TECH_SPEC = "- `POST /api/v1/auth/login` · auth:none · out:token:str"
-# Shaped like a real repomix `--style markdown` pack (github_fetch.clone_and_pack
-# writes repomix's raw output verbatim) - "# Directory Structure" is the real
-# heading phase6_service checks for, not the fictional "## File Tree" this
-# fixture used to assert (a real conformance-scoring bug, found 2026-09-18:
-# that string never appears in actual repomix output, so every real sync was
-# silently treated as unpopulated and conformance always scored 0).
+# Byte-for-byte the shape real production output takes, verified by running the
+# pinned repomix CLI with github_fetch._run_repomix's exact argv. Those args
+# include --no-file-summary and --no-directory-structure, so a real pack has
+# NO preamble and NO "# Directory Structure" block - it opens straight at
+# "# Files". This fixture previously carried both, which is why two successive
+# populated-vs-template checks ("## File Tree", then "# Directory Structure")
+# each passed their tests while blanking real code in production.
 _GITHUB = (
-    "This file is a merged representation of the entire codebase.\n\n"
-    "# Directory Structure\n```\nbackend/api/auth.py\n```\n\n"
-    "# Files\n\n## File: backend/api/auth.py\n```python\ndef login(): ...\n```\n"
+    "# Files\n\n"
+    "## File: backend/api/auth.py\n```python\ndef login(): ...\n```\n"
 )
 
 
@@ -249,6 +249,30 @@ def test_unsynced_github_blanked(ctx):
     ai.layer_a_conformance = lambda g, t, gh, c="", r="": captured.setdefault("gh", gh) or {"score": 0}
     svc.verify_conformance(ctx, 1, ai=False)
     assert captured["gh"] == ""  # template treated as not synced
+
+
+def test_populated_check_does_not_depend_on_suppressed_repomix_headings():
+    """Regression test for the second miss on the same bug (found 2026-09-19).
+
+    The populated-vs-template check has now been wrong twice by whitelisting a
+    heading: first '## File Tree' (never in repomix output at all), then
+    '# Directory Structure' (real repomix markdown, but suppressed because
+    github_fetch._run_repomix passes --no-directory-structure on every pack).
+    Both spellings blanked real synced code and scored conformance 0/100.
+
+    Assert on the property that actually matters instead of a heading: the
+    template is not populated, a real pack is, and neither answer depends on
+    any heading repomix's flags may or may not emit.
+    """
+    from backend.app.services.ai_grounding import context_file_is_populated
+    from src.context_manager import _GITHUB_CONTEXT_TEMPLATE
+
+    assert context_file_is_populated(_GITHUB_CONTEXT_TEMPLATE) is False
+    assert context_file_is_populated(_GITHUB) is True
+    # The exact headings both broken checks keyed on are absent from _GITHUB,
+    # which is what real production output looks like.
+    assert "# Directory Structure" not in _GITHUB
+    assert "## File Tree" not in _GITHUB
 
 
 def test_real_repomix_pack_is_not_blanked(ctx):

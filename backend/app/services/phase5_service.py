@@ -12,7 +12,7 @@ import json
 import logging
 
 from backend.app.services.ai_service import AiService
-from backend.app.services.ai_grounding import extra_context_block
+from backend.app.services.ai_grounding import context_file_is_populated, extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.github_actions import GithubActionsClient, GithubActionsError, utc_now_iso
 from backend.app.services.request_context import RequestContext
@@ -99,16 +99,16 @@ class Phase5Service:
     @staticmethod
     def _pipeline_detected(github_context: str) -> bool:
         """True when the synced repo context shows CI/CD, containerisation, or IaC."""
-        text = (github_context or "").lower()
-        if not text.strip() or text.strip().startswith("<!--"):
+        if not context_file_is_populated(github_context):
             return False
+        text = (github_context or "").lower()
         return any(marker in text for marker in _PIPELINE_MARKERS)
 
     def get_story_context(self, ctx: RequestContext, story_id: int) -> dict:
         self.configure_request(ctx)
         entry = self._eligible_entry(story_id)
         github_context = self.context.read_context_file("github-context.md")
-        synced = bool(github_context.strip()) and not github_context.strip().startswith("<!--")
+        synced = context_file_is_populated(github_context)
         return {
             "story_id": story_id,
             "title": entry.get("title", ""),

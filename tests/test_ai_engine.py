@@ -1212,6 +1212,76 @@ _RUNTIME_SPEC_FIXTURE = (
 )
 
 
+# Exactly the shape github_fetch._run_repomix produces: --no-file-summary and
+# --no-directory-structure mean there is no preamble and no tree block, so the
+# ONLY place a file path appears is repomix's own "## File: <path>" headings.
+_REPOMIX_PACK_FIXTURE = """\
+# Files
+
+## File: backend/app/api/auth.py
+```python
+@router.post("/login")
+def login(body: LoginIn):
+    ...
+```
+
+## File: tests/test_auth.py
+```python
+def test_user_signs_in_successfully():
+    ...
+```
+"""
+
+
+class TestFileTreeExtraction:
+    """Regression tests for _extract_file_tree against REAL repomix output.
+
+    It used to parse only a '## File Tree' fenced block, a format no packer
+    this project ships has ever produced, so it returned [] on every real
+    sync. _match_scenarios keys its test evidence off that list, so every
+    scenario permanently read 'untested' no matter what was synced.
+    """
+
+    def test_paths_come_from_repomix_per_file_headings(self):
+        from src.ai_engine import _extract_file_tree
+        assert _extract_file_tree(_REPOMIX_PACK_FIXTURE) == [
+            "backend/app/api/auth.py", "tests/test_auth.py",
+        ]
+
+    def test_section_heading_is_not_mistaken_for_a_path(self):
+        from src.ai_engine import _extract_file_tree
+        # repomix's own "# Files" banner has no "/" or "." and must not appear.
+        assert "Files" not in _extract_file_tree(_REPOMIX_PACK_FIXTURE)
+
+    def test_legacy_file_tree_block_still_parsed(self):
+        from src.ai_engine import _extract_file_tree
+        # github-context.md written by the old browser-side fetcher is still on
+        # disk for projects synced before the server-side clone landed.
+        assert "tests/test_auth.py" in _extract_file_tree(_GITHUB_CONTEXT_FIXTURE)
+
+    def test_scenario_finds_test_evidence_in_a_real_pack(self):
+        from src.ai_engine import _extract_file_tree, _match_scenarios
+        rows = _match_scenarios(
+            ["User signs in successfully"],
+            _REPOMIX_PACK_FIXTURE,
+            _extract_file_tree(_REPOMIX_PACK_FIXTURE),
+        )
+        assert rows[0].status == "tested"
+        assert rows[0].test_location == "tests/test_auth.py"
+
+    def test_citation_location_has_no_repomix_file_prefix(self):
+        from src.ai_engine import build_layer_a_report
+        report = build_layer_a_report(
+            "Scenario: User signs in\n  Then a token is returned",
+            "- `POST /login` · auth:none",
+            _REPOMIX_PACK_FIXTURE,
+        )
+        loc = report.endpoints[0].location
+        # Used to read "File: backend/app/api/auth.py:2" because the heading
+        # regex captured repomix's "File:" label as part of the path.
+        assert loc.startswith("backend/app/api/auth.py:"), loc
+
+
 class TestLayerARuntimeConformance:
     """Deterministic Runtime Contract probing (RT-n items from runtime-spec.md)."""
 

@@ -3,7 +3,7 @@
 import logging
 
 from backend.app.services.ai_service import AiService
-from backend.app.services.ai_grounding import extra_context_block
+from backend.app.services.ai_grounding import context_file_is_populated, extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
@@ -64,15 +64,13 @@ class Phase6Service:
                 "Implement the story first."
             )
         github_context = self.context.read_context_file("github-context.md")
-        # Treat the unpopulated template (header + HTML comments only) as not
-        # synced. "# Directory Structure" is repomix's own heading in every
-        # real `--style markdown` pack (github_fetch.clone_and_pack writes
-        # repomix's raw output verbatim, unwrapped) - real synced content
-        # never contains "## File Tree" (that string only ever appeared in
-        # this project's own placeholder-template comment text, never in an
-        # actual repomix pack), so checking for it made every real sync look
-        # unpopulated and silently zeroed conformance for every project.
-        if "# Directory Structure" not in github_context:
+        # Treat the unpopulated template (heading + HTML comments only) as not
+        # synced. This must NOT whitelist a packer heading: github_fetch packs
+        # every repo with --no-directory-structure, so neither "## File Tree"
+        # nor "# Directory Structure" survives into real output, and both
+        # earlier spellings of this check therefore blanked real code and
+        # zeroed conformance on every project. See context_file_is_populated.
+        if not context_file_is_populated(github_context):
             github_context = ""
         return {
             "title": entry.get("title", f"Story {story_id}"),
