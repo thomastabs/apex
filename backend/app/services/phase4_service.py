@@ -1,6 +1,7 @@
 """Phase 4 QA assistant workflow service."""
 
 import logging
+from datetime import datetime, timezone
 
 from backend.app.services.ai_service import AiService
 from backend.app.services.ai_grounding import extra_context_block
@@ -248,10 +249,37 @@ class Phase4Service:
         self.configure_request(ctx)
         if scenario_results:
             self.context.save_qa_results(story_id, "fail", scenario_results)
-        # Save per-story bug report
-        self.context.save_bug_report(story_id, bug_report_md)
         # Each failed gate triggers one Fix-Bolt — the AI-defect-rate proxy
-        self.context.increment_story_counter(story_id, "fix_bolt_count")
+        fix_bolt_number = self.context.increment_story_counter(story_id, "fix_bolt_count")
+
+        # The per-story bug report must be self-contained: root_cause and
+        # resolution_summary were previously written only to the separate,
+        # global Fix Log, so a reader viewing this story's own Bug Report
+        # never saw them even though the caller supplied them right here.
+        # Fold them into the saved artefact itself.
+        entry_md = bug_report_md
+        if root_cause.strip():
+            entry_md += f"\n\n**Root Cause:** {root_cause.strip()}"
+        if resolution_summary.strip():
+            entry_md += f"\n\n**Resolution:** {resolution_summary.strip()}"
+
+        # A story can accumulate more than one Fix-Bolt over its life (a QA
+        # failure fixed, then later a separate manually-reported defect,
+        # say) — save_bug_report itself is a plain "set exact content"
+        # primitive the dashboard's manual editor also relies on, so
+        # overwriting here would silently destroy every prior report the
+        # moment a second one is logged. When one already exists, append the
+        # new one under a dated, numbered heading instead of replacing it,
+        # so every Fix-Bolt against a story stays readable and
+        # distinguishable from the others.
+        existing = self.context.load_bug_report(story_id)
+        if existing.strip():
+            stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            entry_md = (
+                f"{existing.rstrip()}\n\n---\n\n"
+                f"## Fix-Bolt #{fix_bolt_number} - {stamp}\n\n{entry_md}"
+            )
+        self.context.save_bug_report(story_id, entry_md)
         # Append to global fix log
         if root_cause.strip():
             self.context.append_fix_log_record(

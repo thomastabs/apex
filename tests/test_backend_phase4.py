@@ -94,6 +94,10 @@ class FakeContextService(FakeContextServiceBase):
         from src import context_manager
         context_manager.save_bug_report(story_id, bug_md)
 
+    def load_bug_report(self, story_id: int) -> str:
+        from src import context_manager
+        return context_manager.load_bug_report(story_id)
+
     def increment_story_counter(self, story_id: int, field: str = "fix_bolt_count") -> int:
         from src import context_manager
         return context_manager.increment_story_counter(story_id, field)
@@ -433,9 +437,29 @@ def test_pass_gate_transitions_to_qa_passed(ctx):
 def test_fail_gate_saves_bug_report_and_fix_log(ctx):
     svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
     svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "Missing null check", "Added validation")
-    assert ctx.load_bug_report(10) == _FAKE_BUG_REPORT
+    saved = ctx.load_bug_report(10)
+    # The per-story bug report must be self-contained: root cause/resolution
+    # are folded in, not left visible only in the separate global fix log.
+    assert saved.startswith(_FAKE_BUG_REPORT)
+    assert "**Root Cause:** Missing null check" in saved
+    assert "**Resolution:** Added validation" in saved
     assert ctx.get_story_index()["10"]["has_bug_report"] is True
     assert "Missing null check" in ctx.get_fix_log()
+
+
+def test_fail_gate_preserves_prior_bug_report_when_a_second_is_logged(ctx):
+    """A second Fix-Bolt on a story that already has one must not silently
+    destroy the first — real data-loss bug found 2026-09-18 (save_bug_report
+    is a plain overwrite, and fail_gate called it unconditionally)."""
+    ctx.upsert_story_index(10, title="S", phase_status="qa")
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.fail_gate(_ctx(), 10, "First bug: usernames collide on case.", "", "")
+    svc.fail_gate(_ctx(), 10, "Second bug: session expiry breaks login.", "", "")
+    combined = ctx.load_bug_report(10)
+    assert "usernames collide on case" in combined
+    assert "session expiry breaks login" in combined
+    assert "Fix-Bolt #2" in combined
+    assert ctx.get_story_index()["10"]["fix_bolt_count"] == 2
 
 
 def test_fail_gate_skips_fix_log_when_no_root_cause(ctx):
