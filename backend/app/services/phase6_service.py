@@ -65,11 +65,12 @@ class Phase6Service:
             )
         github_context = self.context.read_context_file("github-context.md")
         # Treat the unpopulated template (heading + HTML comments only) as not
-        # synced. This must NOT whitelist a packer heading: github_fetch packs
-        # every repo with --no-directory-structure, so neither "## File Tree"
-        # nor "# Directory Structure" survives into real output, and both
-        # earlier spellings of this check therefore blanked real code and
-        # zeroed conformance on every project. See context_file_is_populated.
+        # synced. This must NOT whitelist a packer heading: two earlier
+        # spellings of this check each keyed on one specific heading
+        # ("## File Tree", then "# Directory Structure") and each blanked
+        # real code and zeroed conformance on every project once repomix's
+        # actual flags stopped matching that assumption. See
+        # context_file_is_populated, which checks structure instead.
         if not context_file_is_populated(github_context):
             github_context = ""
         return {

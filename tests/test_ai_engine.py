@@ -1212,9 +1212,10 @@ _RUNTIME_SPEC_FIXTURE = (
 )
 
 
-# Exactly the shape github_fetch._run_repomix produces: --no-file-summary and
-# --no-directory-structure mean there is no preamble and no tree block, so the
-# ONLY place a file path appears is repomix's own "## File: <path>" headings.
+# A valid shape github_fetch._run_repomix produces (--no-file-summary drops
+# the preamble regardless; a directory-structure tree may also precede "# Files"
+# depending on current pack flags, but is not present in this fixture) - a
+# file path always appears in repomix's own "## File: <path>" headings either way.
 _REPOMIX_PACK_FIXTURE = """\
 # Files
 

@@ -424,10 +424,13 @@ def _run_repomix(
         "--ignore", ignore_globs,
         "--token-budget", str(token_budget),
         # Boilerplate/formatting cuts — none of these drop a file's real
-        # content, just the summary preamble, directory tree (redundant with
-        # each file's own "## path" header), comments, and blank lines.
+        # content, just the summary preamble, comments, and blank lines.
+        # Directory structure is kept (unlike the other three): a codebase
+        # shape overview costs little relative to file bodies and is real
+        # signal for conformance mapping (which endpoints/files exist at
+        # all), not redundant with each file's own "## File: path" header —
+        # those only appear one at a time, scattered through a large pack.
         "--no-file-summary",
-        "--no-directory-structure",
         "--remove-comments",
         "--remove-empty-lines",
         "-o", str(output_path),

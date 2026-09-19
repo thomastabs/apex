@@ -74,9 +74,10 @@ def test_extra_context_block_prefers_stored_agent_file(monkeypatch, tmp_path):
 # counted as synced). These pin both directions.
 # ---------------------------------------------------------------------------
 
-# Verified against the pinned repomix CLI run with github_fetch._run_repomix's
-# exact argv: --no-file-summary and --no-directory-structure leave no preamble
-# and no tree block, so real output opens directly at "# Files".
+# One real, valid shape of production output (--no-file-summary drops the
+# preamble; a directory-structure tree may or may not precede "# Files"
+# depending on github_fetch's current pack flags - context_file_is_populated
+# does not depend on either, which is the property this fixture exercises).
 _REAL_PACK = "# Files\n\n## File: src/app.ts\n```typescript\nexport const x = 1;\n```\n"
 
 

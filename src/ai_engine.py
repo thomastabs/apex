@@ -4386,12 +4386,14 @@ _STOPWORDS = frozenset(
 def _extract_file_tree(github_context: str) -> list[str]:
     """List the synced repo's file paths.
 
-    Primary source is the pack's own per-file headings, because that is the
-    only place paths appear in real output: github_fetch packs every repo with
-    --no-directory-structure, so repomix emits no tree block at all. Reading
-    only the legacy '## File Tree' fenced block (the pre-server-side browser
-    fetcher's format) made this return [] on every real sync, which in turn
-    left _match_scenarios with no test files to match against.
+    Primary source is the pack's own per-file headings: repomix's directory-
+    structure tree (present or not, depending on github_fetch's current pack
+    flags) is a plain fenced listing with no per-line markup this function
+    can key on reliably, so per-file "## File: path" headings are the one
+    place a path is unambiguous in real output regardless of packer flags.
+    Reading only the legacy '## File Tree' fenced block (the pre-server-side
+    browser fetcher's format) made this return [] on every real sync, which
+    in turn left _match_scenarios with no test files to match against.
 
     The fenced block is still parsed as a fallback so projects whose
     github-context.md was written by the old fetcher keep working.

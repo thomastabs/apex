@@ -9,13 +9,18 @@ from backend.app.services.request_context import RequestContext
 _GHERKIN = "Scenario: User signs in\n  Then a token is returned"
 _TECH_SPEC = "- `POST /api/v1/auth/login` · auth:none · out:token:str"
 # Byte-for-byte the shape real production output takes, verified by running the
-# pinned repomix CLI with github_fetch._run_repomix's exact argv. Those args
-# include --no-file-summary and --no-directory-structure, so a real pack has
-# NO preamble and NO "# Directory Structure" block - it opens straight at
-# "# Files". This fixture previously carried both, which is why two successive
-# populated-vs-template checks ("## File Tree", then "# Directory Structure")
-# each passed their tests while blanking real code in production.
+# pinned repomix CLI with github_fetch._run_repomix's exact argv. --no-file-
+# summary drops the preamble; --no-directory-structure was removed (2026-09-19,
+# it cost little and was real signal the conformance check could use), so a
+# real pack now opens with a "# Directory Structure" tree before "# Files".
+# This fixture previously carried neither block and then only the wrong one,
+# which is why two successive populated-vs-template checks ("## File Tree",
+# then "# Directory Structure") each passed their tests while blanking real
+# code in production - context_file_is_populated no longer depends on either
+# heading being present or absent, so this fixture's exact shape is no longer
+# load-bearing for correctness, only for staying honest about real output.
 _GITHUB = (
+    "# Directory Structure\n```\nbackend/\n  api/\n    auth.py\n```\n\n"
     "# Files\n\n"
     "## File: backend/api/auth.py\n```python\ndef login(): ...\n```\n"
 )
@@ -269,9 +274,11 @@ def test_populated_check_does_not_depend_on_suppressed_repomix_headings():
 
     assert context_file_is_populated(_GITHUB_CONTEXT_TEMPLATE) is False
     assert context_file_is_populated(_GITHUB) is True
-    # The exact headings both broken checks keyed on are absent from _GITHUB,
-    # which is what real production output looks like.
-    assert "# Directory Structure" not in _GITHUB
+    # The property holds either way a real pack happens to be shaped: with
+    # the directory-structure heading (current production output, restored
+    # 2026-09-19) or without it (production output before that, and any
+    # other packer configuration in between).
+    assert context_file_is_populated(_GITHUB.replace("# Directory Structure\n```\nbackend/\n  api/\n    auth.py\n```\n\n", "")) is True
     assert "## File Tree" not in _GITHUB
 
 

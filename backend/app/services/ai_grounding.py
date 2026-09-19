@@ -50,14 +50,17 @@ def context_file_is_populated(text: str) -> bool:
 
       - "## File Tree" never appears in repomix output at all. It only ever
         existed in this project's own template comment text.
-      - "# Directory Structure" is real repomix markdown, but github_fetch's
-        _run_repomix passes --no-directory-structure on every single pack, so
-        it is suppressed in exactly the output this check has to recognise.
+      - "# Directory Structure" is real repomix markdown, but at the time
+        this was tried github_fetch's _run_repomix passed
+        --no-directory-structure on every pack, suppressing exactly the
+        heading this check was keying on (that flag was later removed,
+        2026-09-19, once the check stopped depending on it either way).
 
     Either way the file read as unpopulated and Phase 6 blanked real code.
-    A structural check cannot drift out of sync with repomix's flags: real
-    packed content always leaves file bodies behind once headings and
-    comments are removed, and a template never does.
+    A structural check cannot drift out of sync with repomix's flags,
+    whichever way those flags are set: real packed content always leaves
+    file bodies behind once headings and comments are removed, and a
+    template never does.
     """
     body = _HTML_COMMENT_RE.sub("", text or "")
     body = _ATX_HEADING_RE.sub("", body)

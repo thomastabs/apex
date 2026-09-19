@@ -216,8 +216,12 @@ class TestCloneAndPack:
         monkeypatch.setattr(gf.subprocess, "run", fake_run)
         gf.clone_and_pack("pat", "acme", "widgets", "main")
         pack_args = fake_run.calls[1]["args"]
-        for flag in ("--no-file-summary", "--no-directory-structure", "--remove-comments", "--remove-empty-lines"):
+        for flag in ("--no-file-summary", "--remove-comments", "--remove-empty-lines"):
             assert flag in pack_args
+        # Directory structure is deliberately kept (2026-09-19): real signal
+        # for conformance mapping at a low token cost, unlike the other three
+        # flags above which only strip formatting/preamble.
+        assert "--no-directory-structure" not in pack_args
         # Regression: --compress used to be inserted at a fixed index and
         # landed BETWEEN --style and its "markdown" value, corrupting the
         # pair. Not exercised here (compress=False), but --style must still
