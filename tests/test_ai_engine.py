@@ -1305,6 +1305,68 @@ class TestFileTreeExtraction:
         assert rows[0].status == "tested"
         assert rows[0].test_location == "tests/test_auth.py"
 
+    def test_routes_inside_test_files_are_not_counted_as_declarations(self):
+        """github_fetch stopped excluding test files on 2026-09-19 so scenario
+        coverage could be evidenced. A route string in a test is a call site or
+        a fixture, so it must not make an unimplemented endpoint read "present".
+        """
+        from src.ai_engine import extract_code_routes
+        text = (
+            "## File: backend/app/api/auth.py\n"
+            "```python\n"
+            '@router.post("/login")\n'
+            "```\n\n"
+            "## File: tests/api/deployment-router.test.ts\n"
+            "```typescript\n"
+            'await request(app).post("/api/deployments");\n'
+            'await request(app).delete("/api/sessions");\n'
+            "```\n\n"
+            "## File: app/page.tsx.test.tsx\n"
+            "```typescript\n"
+            'fetchMock.get("/api/ghost");\n'
+            "```\n"
+        )
+        routes = {(m, p) for m, p, _ in extract_code_routes(text)}
+        assert ("POST", "/login") in routes
+        assert ("POST", "/api/deployments") not in routes
+        assert ("DELETE", "/api/sessions") not in routes
+        assert ("GET", "/api/ghost") not in routes
+
+    def test_test_file_filter_does_not_swallow_lookalike_source_paths(self):
+        """`src/latest.ts` contains the substring "test" - the looser
+        _TEST_PATH_RE used for scenario citations would flag it, and dropping
+        its routes would turn a live endpoint "missing"."""
+        from src.ai_engine import extract_code_routes
+        text = (
+            "## File: src/latest.ts\n"
+            "```typescript\n"
+            'router.get("/api/latest");\n'
+            "```\n\n"
+            "## File: src/contest/manifest.ts\n"
+            "```typescript\n"
+            'router.post("/api/contest");\n'
+            "```\n"
+        )
+        routes = {(m, p) for m, p, _ in extract_code_routes(text)}
+        assert ("GET", "/api/latest") in routes
+        assert ("POST", "/api/contest") in routes
+
+    def test_tests_directory_file_still_supplies_scenario_evidence(self):
+        """The other half of the same change: a `tests/`-directory file now
+        reaches the pack and must count as coverage evidence."""
+        from src.ai_engine import _extract_file_tree, _match_scenarios
+        pack = (
+            "# Files\n\n"
+            "## File: tests/api/deployment-router.test.ts\n"
+            "```typescript\n"
+            'it("deploys a story to production", () => {});\n'
+            "```\n"
+        )
+        rows = _match_scenarios(
+            ["Story is deployed to production"], pack, _extract_file_tree(pack))
+        assert rows[0].status == "tested"
+        assert rows[0].test_location == "tests/api/deployment-router.test.ts"
+
     def test_citation_location_has_no_repomix_file_prefix(self):
         from src.ai_engine import build_layer_a_report
         report = build_layer_a_report(

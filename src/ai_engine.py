@@ -18,6 +18,7 @@ Phase 1 pipeline (two-step):
   Step 2 — compile_gherkin()      : NL draft → Gherkin acceptance criteria (on approval)
 """
 
+import bisect
 import contextvars
 import hashlib
 import inspect
@@ -4301,8 +4302,58 @@ _FILE_HEADING_RE = re.compile(
 )
 
 
+# A route-shaped string inside a TEST file is a call site or a fixture, never a
+# declaration - `await request(app).post("/api/projects")` in a supertest suite
+# must not make an endpoint that was never implemented read "present". Test
+# files reach the synced pack by design (github_fetch._IGNORE_GLOBS stopped
+# stripping them on 2026-09-19 so scenario coverage could be evidenced), so
+# route extraction attributes every hit to its enclosing "## File:" heading and
+# drops the hits that came out of a test file.
+#
+# Deliberately tighter than _TEST_PATH_RE below, which _match_scenarios uses to
+# FIND test files (over-matching there is harmless - it only offers a citation).
+# Here a false positive would delete real evidence and turn a live endpoint
+# "missing", so only exact directory segments and the conventional test
+# basenames count: `src/latest.ts` must not be read as a test file.
+_TEST_FILE_PATH_RE = re.compile(
+    r"(?:^|/)(?:tests?|specs?|__tests__|__mocks__|e2e)/"
+    r"|(?:^|/)test_[^/]*$"
+    r"|[._-](?:test|spec)\.[^/.]+$",
+    re.IGNORECASE,
+)
+
+
+def _drop_test_file_routes(
+    text: str, routes: list[tuple[str, str, int]]
+) -> list[tuple[str, str, int]]:
+    """Remove route hits whose nearest preceding file heading is a test file.
+
+    A pack with no per-file headings at all (a bare code snippet, as the unit
+    tests pass in) is left untouched - nothing can be attributed, so nothing
+    is dropped.
+    """
+    headings = [
+        (m.start(), m.group(1).strip())
+        for m in _FILE_HEADING_RE.finditer(text)
+        if "/" in m.group(1) or "." in m.group(1)
+    ]
+    if not headings:
+        return routes
+    starts = [h[0] for h in headings]
+    kept: list[tuple[str, str, int]] = []
+    for route in routes:
+        idx = bisect.bisect_right(starts, route[2]) - 1
+        if idx >= 0 and _TEST_FILE_PATH_RE.search(headings[idx][1]):
+            continue
+        kept.append(route)
+    return kept
+
+
 def extract_code_routes(github_context: str) -> list[tuple[str, str, int]]:
-    """Find (METHOD, path, char_offset) route declarations in synced code text."""
+    """Find (METHOD, path, char_offset) route declarations in synced code text.
+
+    Hits inside test files are excluded - see _TEST_FILE_PATH_RE.
+    """
     text = github_context or ""
     routes: list[tuple[str, str, int]] = []
     for pat in _CODE_ROUTE_PATTERNS:
@@ -4315,7 +4366,7 @@ def extract_code_routes(github_context: str) -> list[tuple[str, str, int]]:
             if method:
                 routes.append((method, path, m.start()))
     routes += _extract_nextjs_app_router_routes(text)
-    return routes
+    return _drop_test_file_routes(text, routes)
 
 
 # Next.js App Router: a route.ts/route.js file's own location IS the URL, and

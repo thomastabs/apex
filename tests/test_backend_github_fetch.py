@@ -238,6 +238,31 @@ class TestCloneAndPack:
         ignore_idx = pack_args.index("--ignore") + 1
         assert pack_args[ignore_idx] == f"{gf._IGNORE_GLOBS},assets/**,*.svg"
 
+    def test_built_in_globs_do_not_strip_test_files(self):
+        """Regression guard for 2026-09-19.
+
+        Test files are the evidence ai_engine._match_scenarios needs to mark a
+        Gherkin scenario "tested", and the Phase 6 AI verification layer reads
+        the same synced pack. The three directory globs that used to be here
+        (`**/__tests__/**`, `**/test/**`, `**/tests/**`) stripped a real
+        project's whole `tests/` tree out of github-context.md, so every
+        scenario read "untested" regardless of coverage.
+
+        The two filename patterns that used to sit alongside them
+        (`**/*.test.*`, `**/*.spec.*`) were verified inert against repomix
+        1.16.0 (the Dockerfile pin) and 1.18.0 - a `**/`-prefixed pattern
+        ending in a wildcard extension matches nothing in repomix's ignore
+        engine - and were removed rather than left as decoration, because the
+        concrete-extension form (`**/*.test.ts`) DOES work and "repairing"
+        them would silently re-break the conformance evidence.
+        """
+        for glob in ("**/__tests__/**", "**/test/**", "**/tests/**",
+                     "**/*.test.*", "**/*.spec.*"):
+            assert glob not in gf._IGNORE_GLOBS, f"{glob} must not exclude test evidence"
+        # The genuinely-noisy excludes are untouched.
+        for glob in ("node_modules/**", "dist/**", "coverage/**", "docs/**", "package-lock.json"):
+            assert glob in gf._IGNORE_GLOBS
+
     def test_mode_compress_skips_full_body_attempt_entirely(self, monkeypatch):
         fake_run = _fake_run_factory()
         monkeypatch.setattr(gf.subprocess, "run", fake_run)

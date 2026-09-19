@@ -92,12 +92,33 @@ def scale_token_budgets(remaining_chars: int) -> tuple[int, int]:
     return full, compress
 
 # Excludes entire files (the biggest lever on size) on top of the automatic
-# .gitignore respect: build output, tests, docs, migrations, CI configs, and
-# lockfiles are rarely useful for Phase 2-6 grounding and often dominate a
-# repo's line count without carrying implementation logic.
+# .gitignore respect: build output, docs, migrations, CI configs, and lockfiles
+# are rarely useful for Phase 2-6 grounding and often dominate a repo's line
+# count without carrying implementation logic.
+#
+# TEST FILES ARE DELIBERATELY NOT EXCLUDED (2026-09-19). They are the evidence
+# ai_engine._match_scenarios needs to mark a Gherkin scenario "tested" rather
+# than "untested", and the same evidence the Phase 6 AI verification layer
+# reads. Excluding them made every scenario on a real project (Outfolio) read
+# untested purely because its `tests/` tree never reached the pack. The cost is
+# a bigger pack: "auto" mode absorbs that by falling back to --compress, and a
+# project that genuinely wants tests out can re-add the globs per project via
+# Settings -> GitHub -> extra ignore patterns.
+#
+# Verified repomix quirk, do NOT "fix" this by reintroducing filename patterns:
+# in repomix's own --ignore glob engine (checked against the pinned 1.16.0 and
+# against 1.18.0), a `**/`-prefixed pattern whose last segment ends in a
+# wildcard extension matches NOTHING. `**/*.test.*`, `**/*.spec.*`, even
+# `**/*.*` all exclude zero files. Those two test-filename patterns used to sit
+# in this list and were pure decoration - colocated `foo.test.ts` files were
+# reaching the pack the whole time, and only the three directory globs
+# (`**/__tests__/**`, `**/test/**`, `**/tests/**`) ever actually stripped
+# anything. They have been removed rather than left inert, because a concrete
+# extension DOES work (`**/*.test.ts` correctly strips test files) - so a future
+# reader "repairing" the dead patterns would silently re-break the conformance
+# evidence this exclusion list is now deliberately letting through.
 _IGNORE_GLOBS = (
     "node_modules/**,.git/**,dist/**,build/**,.next/**,coverage/**,"
-    "**/*.test.*,**/*.spec.*,**/__tests__/**,**/test/**,**/tests/**,"
     "docs/**,**/migrations/**,**/migration/**,.github/**,"
     "package-lock.json,yarn.lock,pnpm-lock.yaml,poetry.lock,Pipfile.lock,"
     "*.min.js,*.map"
