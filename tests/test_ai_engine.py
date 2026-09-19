@@ -915,6 +915,41 @@ class TestConformanceParsers:
         assert ("POST", "/rails/path") in routes
         assert ("PUT", "/flask") in routes and ("DELETE", "/flask") in routes
 
+    def test_extract_code_routes_nextjs_app_router(self):
+        """Regression test for a real gap (found 2026-09-19, on Outfolio -
+        Next.js App Router throughout): a route.ts file's own location IS the
+        URL and its named exports ARE the methods, no string-literal call for
+        the other patterns to match. Every real endpoint read "missing" until
+        this was added."""
+        from src.ai_engine import extract_code_routes
+        text = (
+            "## File: app/api/projects/route.ts\n"
+            "```typescript\n"
+            "export async function GET(req: Request) { return Response.json([]); }\n"
+            "export async function POST(req: Request) { return Response.json({}); }\n"
+            "```\n\n"
+            "## File: src/app/api/projects/[id]/route.ts\n"
+            "```typescript\n"
+            "export const DELETE = async (req: Request) => Response.json({});\n"
+            "```\n\n"
+            "## File: app/(marketing)/api/health/route.ts\n"
+            "```typescript\n"
+            "export function GET() { return Response.json({ ok: true }); }\n"
+            "```\n"
+        )
+        routes = {(m, p) for m, p, _ in extract_code_routes(text)}
+        assert ("GET", "/api/projects") in routes
+        assert ("POST", "/api/projects") in routes
+        assert ("DELETE", "/api/projects/[id]") in routes
+        # Route group "(marketing)" is dropped from the URL, not treated as a
+        # real path segment.
+        assert ("GET", "/api/health") in routes
+
+    def test_norm_route_path_collapses_nextjs_dynamic_segments(self):
+        from src.ai_engine import _paths_match
+        assert _paths_match("/api/projects/{id}", "/api/projects/[id]")
+        assert _paths_match("/api/projects/{id}", "/api/projects/[...slug]")
+
 
 class TestSpecIdParsers:
     """Stable id parsers for the spec index (endpoints/entities/screens/scenarios)."""

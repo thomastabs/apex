@@ -4314,6 +4314,56 @@ def extract_code_routes(github_context: str) -> list[tuple[str, str, int]]:
             method = raw.strip().strip("'\"").upper()
             if method:
                 routes.append((method, path, m.start()))
+    routes += _extract_nextjs_app_router_routes(text)
+    return routes
+
+
+# Next.js App Router: a route.ts/route.js file's own location IS the URL, and
+# its named exports ARE the methods - there is no string-literal call for
+# _CODE_ROUTE_PATTERNS above to match. Every one of a real Next.js project's
+# endpoints read "missing" until this was added (found 2026-09-19, on
+# Outfolio - Next.js App Router throughout).
+_NEXTJS_ROUTE_FILE_RE = re.compile(r"(^|/)route\.(?:ts|tsx|js|jsx|mjs|cjs)$", re.IGNORECASE)
+_NEXTJS_HANDLER_RE = re.compile(
+    r"export\s+(?:async\s+)?(?:function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b"
+    r"|const\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*=)",
+    re.IGNORECASE,
+)
+
+
+def _nextjs_route_path_from_file(path: str) -> str:
+    """Derive a Next.js App Router URL from a route file's own path.
+
+    app/api/projects/[id]/route.ts -> /api/projects/[id]
+    src/app/api/health/route.ts -> /api/health
+
+    Route groups (parenthesised segments, e.g. "(marketing)") are stripped:
+    Next.js uses them purely to organise files and drops them from the URL.
+    """
+    p = (path or "").strip().replace("\\", "/")
+    idx = p.rfind("app/")
+    if idx != -1:
+        p = p[idx + len("app/"):]
+    p = re.sub(r"/route\.(?:ts|tsx|js|jsx|mjs|cjs)$", "", p, flags=re.IGNORECASE)
+    p = re.sub(r"(?:^|/)\([^/]+\)(?=/|$)", "", p)
+    p = p if p.startswith("/") else f"/{p}"
+    return p or "/"
+
+
+def _extract_nextjs_app_router_routes(text: str) -> list[tuple[str, str, int]]:
+    routes: list[tuple[str, str, int]] = []
+    headings = list(_FILE_HEADING_RE.finditer(text))
+    for i, m in enumerate(headings):
+        candidate = m.group(1).strip()
+        if not _NEXTJS_ROUTE_FILE_RE.search(candidate):
+            continue
+        block_start = m.end()
+        block_end = headings[i + 1].start() if i + 1 < len(headings) else len(text)
+        block = text[block_start:block_end]
+        url_path = _nextjs_route_path_from_file(candidate)
+        for hm in _NEXTJS_HANDLER_RE.finditer(block):
+            method = (hm.group(1) or hm.group(2)).upper()
+            routes.append((method, url_path, block_start + hm.start()))
     return routes
 
 
@@ -4323,6 +4373,7 @@ def _norm_route_path(p: str) -> str:
     p = re.sub(r"\{[^}]*\}", "*", p)   # {id}, {user_id}
     p = re.sub(r"<[^>]*>", "*", p)     # <int:id>
     p = re.sub(r":\w+", "*", p)        # :id (express / rails)
+    p = re.sub(r"\[[^\]]*\]", "*", p)  # [id], [...slug], [[...slug]] (Next.js)
     return p or "/"
 
 
