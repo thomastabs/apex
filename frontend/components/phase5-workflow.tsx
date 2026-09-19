@@ -1126,6 +1126,12 @@ function GithubActionsDeploymentPanel({
         />
       </label>
 
+      {status === "completed" && conclusion === "success" && (
+        <Callout variant="success">
+          <span className="font-semibold">{t("phase5.githubDeployment.deployedBanner", { storyId })}</span>
+        </Callout>
+      )}
+
       {latest && (
         <div className={cn("rounded-lg border px-3 py-2 text-xs", dark ? "border-neutral-700 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-500")}>
           <div className="flex flex-wrap items-center gap-2">
