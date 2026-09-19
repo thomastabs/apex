@@ -340,6 +340,11 @@ export function useDispatchGithubDeployment() {
       toast.success("GitHub Actions deployment dispatched.");
       void qc.invalidateQueries({ queryKey: ["phase5", "github-deployment", "status", context?.projectId, storyId] });
       void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
+      // get_story_context's own `deployed` flag is what StageD's terminal
+      // screen keys off of — dispatch itself rarely finishes a run this
+      // fast, but a fast pipeline (or a race with an already-running one)
+      // can, so this must be kept in sync here too, not only on Sync run.
+      void qc.invalidateQueries({ queryKey: ["phase5", "story-context", context?.projectId, storyId] });
     },
     meta: { errorLabel: "op.dispatchDeployment" },
   });
@@ -356,6 +361,12 @@ export function useSyncGithubDeployment() {
       void qc.invalidateQueries({ queryKey: ["phase5", "github-deployment", "status", context?.projectId, storyId] });
       void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+      // Sync is the actual path that learns a run completed (dispatch's own
+      // poll only waits for the run to start, not finish) — without this,
+      // get_story_context's `deployed` flag stays stale and StageD's
+      // terminal screen never appears even though the story really is
+      // deployed (found 2026-09-19, right after that flag was added).
+      void qc.invalidateQueries({ queryKey: ["phase5", "story-context", context?.projectId, storyId] });
     },
     meta: { errorLabel: "op.syncDeployment" },
   });

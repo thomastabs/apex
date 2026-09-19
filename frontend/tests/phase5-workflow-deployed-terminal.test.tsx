@@ -63,20 +63,29 @@ vi.mock("@/lib/api/phase5", () => ({
   getInfraDelta: vi.fn().mockRejectedValue(new Error("no delta saved")),
   getDeployPack: vi.fn().mockResolvedValue({ story_id: 10, deploy_pack_md: "" }),
   getQaResults: vi.fn().mockResolvedValue({ story_id: 10, qa_results: null }),
-  getGithubDeploymentStatus: vi.fn().mockResolvedValue({
+  getGithubDeploymentStatus: vi.fn(() => Promise.resolve({
     github_connected: true,
     repo: "acme/widgets",
-    config: {},
+    config: { workflow_id: "deploy.yml" },
     workflow_configured: true,
     workflow_exists: true,
-    workflow: null,
+    workflow: { id: 1, name: "deploy.yml" },
     workflows: [],
-    latest_run: null,
+    latest_run: { run_id: 555, status: "in_progress", conclusion: "", run_url: "https://github.com/x/y/actions/runs/555" },
     error: "",
-  }),
+  })),
   saveGithubDeploymentConfig: vi.fn(),
   dispatchGithubDeployment: vi.fn(),
-  syncGithubDeployment: vi.fn(),
+  // Simulates the real backend: syncing is what learns a dispatched run
+  // finished and marks the story deployed server-side. The mock flips the
+  // same storyContext object getStoryContext reads, so this test can prove
+  // the mutation's own query invalidation is what surfaces it — not just
+  // that StageD renders correctly given an already-deployed prop.
+  syncGithubDeployment: vi.fn(() => {
+    storyContext.phase_status = "deployed";
+    storyContext.deployed = true;
+    return Promise.resolve({ matched: true, run_id: 555 });
+  }),
   saveVerification: vi.fn().mockResolvedValue({ story_id: 10, matrix: null }),
   passDeploymentGate: vi.fn(),
   generateInfraDelta: vi.fn(),
@@ -141,6 +150,26 @@ describe("Phase5Workflow Stage D — GitHub Actions deployed terminal state", ()
     await goToStageD();
     await waitFor(() => expect(screen.getByText("Deployment Gate Passed")).toBeInTheDocument());
     // The form that gateMut.isSuccess would otherwise gate is gone.
+    expect(screen.queryByText(/Human gatekeeper sign-offs/i)).not.toBeInTheDocument();
+  });
+
+  it("transitions to the terminal screen after clicking Sync run, without a page reload", async () => {
+    // Regression test for a real bug (found 2026-09-19, right after the
+    // fields above were added): get_story_context correctly reported
+    // `deployed` once the backend marked the story deployed, but nothing
+    // ever told the frontend's own story-context query to refetch after a
+    // sync succeeded — so a user who clicked "Sync run" saw the success
+    // banner elsewhere on the page, and the toast saying it synced, but
+    // stayed stuck on the same input form indefinitely, since the cached
+    // story-context data (fetched once, before the sync) was never
+    // invalidated and React Query had no reason to ask again.
+    await goToStageD();
+    await waitFor(() => expect(screen.getByText(/Human gatekeeper sign-offs/i)).toBeInTheDocument());
+    expect(screen.queryByText("Deployment Gate Passed")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Sync run/i }));
+
+    await waitFor(() => expect(screen.getByText("Deployment Gate Passed")).toBeInTheDocument());
     expect(screen.queryByText(/Human gatekeeper sign-offs/i)).not.toBeInTheDocument();
   });
 });
