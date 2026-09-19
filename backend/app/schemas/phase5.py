@@ -34,6 +34,8 @@ class StoryContextResponse(BaseModel):
     pipeline_detected: bool = False
     has_bug_report: bool
     fix_bolt_count: int
+    phase_status: str = ""
+    deployed: bool = False
 
 
 class InfraDeltaItemModel(BaseModel):

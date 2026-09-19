@@ -643,6 +643,8 @@ export type Phase5StoryContext = {
   pipeline_detected: boolean;
   has_bug_report: boolean;
   fix_bolt_count: number;
+  phase_status: string;
+  deployed: boolean;
 };
 
 export type InfraDeltaCategory = "env_var" | "migration" | "iac" | "ci_config" | "secret";

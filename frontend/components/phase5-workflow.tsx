@@ -1132,6 +1132,17 @@ function GithubActionsDeploymentPanel({
         </Callout>
       )}
 
+      {running && (
+        <div className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-amber-500", dark ? "border-amber-800/60 bg-amber-900/10" : "border-amber-200 bg-amber-50")}>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {t("phase5.githubDeployment.running")}
+        </div>
+      )}
+
+      {latest && !latest.run_id && (
+        <Callout>{t("phase5.githubDeployment.pendingHint")}</Callout>
+      )}
+
       {latest && (
         <div className={cn("rounded-lg border px-3 py-2 text-xs", dark ? "border-neutral-700 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-500")}>
           <div className="flex flex-wrap items-center gap-2">
@@ -1254,7 +1265,13 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
     );
   };
 
-  if (gateMut.isSuccess) {
+  // The GitHub Actions path marks a story deployed entirely server-side (the
+  // webhook calling record_github_deployment_run) - there is no client-side
+  // mutation success flag for that path the way gateMut.isSuccess is for a
+  // manual "Record Manual Deployment" click. get_story_context now reports
+  // the story's real phase_status (and stays readable, rather than raising,
+  // once a story is deployed) so this terminal screen shows for either path.
+  if (gateMut.isSuccess || ctx?.deployed) {
     return (
       <div className="space-y-5">
         <div className={cn(

@@ -251,6 +251,27 @@ def test_story_context_rejects_unknown_story():
         _svc().get_story_context(_ctx(), 999)
 
 
+def test_story_context_still_qa_passed_reports_not_deployed():
+    data = _svc().get_story_context(_ctx(), 10)
+    assert data["phase_status"] == "qa_passed"
+    assert data["deployed"] is False
+
+
+def test_story_context_reads_without_raising_once_deployed():
+    """A story marked deployed server-side (the GitHub Actions webhook path)
+    must stay readable here instead of raising Phase5ValidationError -
+    StageD keeps polling/reading this endpoint to learn about that
+    transition, since it has no client-side mutation to key off for that
+    path the way the manual gate's gateMut.isSuccess does."""
+    ctx_service = FakeContextService(index=_story_index(status="deployed"))
+    data = _svc(context=ctx_service).get_story_context(_ctx(), 10)
+    assert data["phase_status"] == "deployed"
+    assert data["deployed"] is True
+    # Every other field is still populated normally - this is not a stub response.
+    assert data["title"] == "User Login"
+    assert data["gherkin"] == _FAKE_GHERKIN
+
+
 # ---------------------------------------------------------------------------
 # infra delta
 # ---------------------------------------------------------------------------
@@ -538,11 +559,15 @@ def test_gate_records_missing_matrix():
 
 class FakeGithubActionsClient:
     dispatched = []
+    # created_at is far in the future so it always compares as "at or after"
+    # any dispatched_at computed during a test run - the tests that care about
+    # exact created_at filtering set client.runs themselves.
     runs = [{
         "id": 123,
         "html_url": "https://github.com/acme/widgets/actions/runs/123",
         "status": "queued",
         "conclusion": None,
+        "created_at": "2099-01-01T00:00:00Z",
     }]
     run_detail = {
         "id": 123,
@@ -589,6 +614,7 @@ def test_dispatch_github_deployment_records_queued_run(monkeypatch):
 
     FakeGithubActionsClient.dispatched = []
     monkeypatch.setattr(p5, "GithubActionsClient", FakeGithubActionsClient)
+    monkeypatch.setattr(p5.time, "sleep", lambda *_a: None)
     ctx_service = FakeContextService()
     ctx_service.save_deployment_config({
         "workflow_id": ".github/workflows/deploy.yml",
@@ -622,6 +648,133 @@ def test_dispatch_github_deployment_requires_confirmation():
     svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
     with pytest.raises(Phase5ValidationError, match="Confirm"):
         svc.dispatch_github_deployment(_ctx(), 10, confirmed=False)
+
+
+# ---------------------------------------------------------------------------
+# Dispatch race condition: workflow_dispatch returns 204 with no run object,
+# so a zero-delay list_runs() right after dispatching returns the OLD run
+# that existed before this dispatch, not the one just triggered.
+# ---------------------------------------------------------------------------
+
+
+class SequencedGithubActionsClient(FakeGithubActionsClient):
+    """list_runs returns a different page on each call, simulating GitHub's
+    run record only showing up a few polls after the dispatch call returns."""
+
+    call_count = 0
+    pages: list[list[dict]] = []
+
+    def list_runs(self, workflow_id, *, branch="", event="workflow_dispatch", per_page=10):
+        idx = min(type(self).call_count, len(type(self).pages) - 1)
+        type(self).call_count += 1
+        return list(type(self).pages[idx])
+
+
+_OLD_RUN = {
+    "id": 100,
+    "html_url": "https://github.com/acme/widgets/actions/runs/100",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2000-01-01T00:00:00Z",
+}
+_NEW_RUN = {
+    "id": 200,
+    "html_url": "https://github.com/acme/widgets/actions/runs/200",
+    "status": "queued",
+    "conclusion": None,
+    "created_at": "2099-01-01T00:00:00Z",
+}
+
+
+def test_dispatch_skips_stale_run_and_retries_until_new_run_appears(monkeypatch):
+    import backend.app.services.phase5_service as p5
+
+    SequencedGithubActionsClient.call_count = 0
+    SequencedGithubActionsClient.dispatched = []
+    # First two polls only see the pre-existing (old) run; the third poll is
+    # where GitHub's run record for the new dispatch has finally shown up.
+    SequencedGithubActionsClient.pages = [
+        [_OLD_RUN],
+        [_OLD_RUN],
+        [_NEW_RUN, _OLD_RUN],
+    ]
+    monkeypatch.setattr(p5, "GithubActionsClient", SequencedGithubActionsClient)
+    monkeypatch.setattr(p5.time, "sleep", lambda *_a: None)
+
+    ctx_service = FakeContextService()
+    ctx_service.save_deployment_config({"workflow_id": "deploy.yml", "ref": "main"})
+    svc = _svc(context=ctx_service)
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
+
+    deployment = svc.dispatch_github_deployment(_ctx(), 10, confirmed=True)
+
+    # Must not return the old run just because it was the first thing found.
+    assert deployment["run_id"] == 200
+    assert deployment["run_url"] == "https://github.com/acme/widgets/actions/runs/200"
+    assert deployment["status"] == "queued"
+    assert SequencedGithubActionsClient.call_count == 3
+
+
+def test_dispatch_gives_up_gracefully_when_no_new_run_appears(monkeypatch):
+    import backend.app.services.phase5_service as p5
+
+    SequencedGithubActionsClient.call_count = 0
+    SequencedGithubActionsClient.dispatched = []
+    # Every poll only ever turns up the pre-existing old run - the new run
+    # never shows up inside the polling window.
+    SequencedGithubActionsClient.pages = [[_OLD_RUN]]
+    monkeypatch.setattr(p5, "GithubActionsClient", SequencedGithubActionsClient)
+    monkeypatch.setattr(p5.time, "sleep", lambda *_a: None)
+
+    ctx_service = FakeContextService()
+    ctx_service.save_deployment_config({"workflow_id": "deploy.yml", "ref": "main"})
+    svc = _svc(context=ctx_service)
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
+
+    # Must not raise, and must not present the stale old run as if it were
+    # the one just dispatched.
+    deployment = svc.dispatch_github_deployment(_ctx(), 10, confirmed=True)
+
+    assert deployment["run_id"] is None
+    assert deployment["run_url"] == ""
+    assert deployment["status"] == "queued"
+    assert deployment["conclusion"] == ""
+    assert SequencedGithubActionsClient.call_count == p5._DISPATCH_POLL_ATTEMPTS
+
+
+def test_dispatch_poll_filter_compares_z_and_offset_suffixes_correctly():
+    """Direct unit check of the timestamp filter itself, independent of wall
+    clock time or sleeping: GitHub's created_at uses a trailing "Z", Apex's
+    own utc_now_iso() uses "+00:00" - both must compare correctly as plain
+    strings for an "at or after" check, including at the exact same second.
+    """
+    svc = _svc()
+    client = FakeGithubActionsClient(pat="x", repo="acme/widgets")
+
+    # Same wall-clock second, different suffix styles - must still count as
+    # "at or after" the dispatch instant.
+    client.runs = [{**_NEW_RUN, "id": 1, "created_at": "2026-01-01T12:00:00Z"}]
+    matched = svc._poll_dispatched_run(
+        client, "deploy.yml", ref="main",
+        dispatched_at="2026-01-01T12:00:00+00:00", attempts=1, delay_seconds=0,
+    )
+    assert matched is not None and matched["id"] == 1
+
+    # A run truly created a second BEFORE dispatch must be excluded.
+    client.runs = [{**_OLD_RUN, "id": 2, "created_at": "2026-01-01T11:59:59Z"}]
+    matched = svc._poll_dispatched_run(
+        client, "deploy.yml", ref="main",
+        dispatched_at="2026-01-01T12:00:00+00:00", attempts=1, delay_seconds=0,
+    )
+    assert matched is None
+
+    # A run created a second AFTER dispatch must be included.
+    client.runs = [{**_NEW_RUN, "id": 3, "created_at": "2026-01-01T12:00:01Z"}]
+    matched = svc._poll_dispatched_run(
+        client, "deploy.yml", ref="main",
+        dispatched_at="2026-01-01T12:00:00+00:00", attempts=1, delay_seconds=0,
+    )
+    assert matched is not None and matched["id"] == 3
 
 
 def test_sync_successful_github_run_marks_story_deployed(monkeypatch):

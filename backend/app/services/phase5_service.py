@@ -10,6 +10,7 @@ story deployed after a matching successful run.
 import hashlib
 import json
 import logging
+import time
 
 from backend.app.services.ai_service import AiService
 from backend.app.services.ai_grounding import context_file_is_populated, extra_context_block
@@ -20,6 +21,12 @@ from backend.app.services.request_context import RequestContext
 _logger = logging.getLogger("apex.phase5_service")
 
 _PREVIEW_CHARS = 600
+
+# workflow_dispatch returns 204 with no run object - GitHub creates the actual
+# run record asynchronously, typically a few seconds later. Poll a handful of
+# times, a second or so apart, rather than hang the dispatch call indefinitely.
+_DISPATCH_POLL_ATTEMPTS = 5
+_DISPATCH_POLL_DELAY_SECONDS = 1.5
 
 # Substrings that, if present in the synced repo context, indicate a deployment
 # pipeline / containerisation / IaC already exists (case-insensitive).
@@ -106,9 +113,18 @@ class Phase5Service:
 
     def get_story_context(self, ctx: RequestContext, story_id: int) -> dict:
         self.configure_request(ctx)
-        entry = self._eligible_entry(story_id)
+        # "deployed" is accepted here (unlike every other _eligible_entry call
+        # in this service) because StageD keeps polling/reading this endpoint
+        # after a story has already been marked deployed - via the GitHub
+        # Actions path, that can happen entirely server-side (the webhook),
+        # with no client-side mutation to key a UI transition off. Raising
+        # here instead would break the terminal "deployed" screen for that
+        # path and surface a spurious error toast on an otherwise normal
+        # revisit of an already-finished story.
+        entry = self._eligible_entry(story_id, allowed=("qa_passed", "deployed"))
         github_context = self.context.read_context_file("github-context.md")
         synced = context_file_is_populated(github_context)
+        status = entry.get("phase_status", "")
         return {
             "story_id": story_id,
             "title": entry.get("title", ""),
@@ -121,6 +137,8 @@ class Phase5Service:
             "pipeline_detected": self._pipeline_detected(github_context),
             "has_bug_report": entry.get("has_bug_report", False),
             "fix_bolt_count": entry.get("fix_bolt_count", 0),
+            "phase_status": status,
+            "deployed": status == "deployed",
         }
 
     # ── Step 1: infra delta check ───────────────────────────────────────────
@@ -403,7 +421,7 @@ class Phase5Service:
             raise Phase5ValidationError("Configured GitHub Actions workflow was not found.")
         dispatched_at = utc_now_iso()
         client.dispatch(workflow_id, ref=ref, inputs=inputs)
-        run = self._latest_dispatch_run(client, workflow_id, ref=ref)
+        run = self._poll_dispatched_run(client, workflow_id, ref=ref, dispatched_at=dispatched_at)
         deployment = {
             "status": (run or {}).get("status") or "queued",
             "conclusion": (run or {}).get("conclusion") or "",
@@ -436,6 +454,49 @@ class Phase5Service:
     def _latest_dispatch_run(self, client: GithubActionsClient, workflow_id: str, *, ref: str) -> dict | None:
         runs = client.list_runs(workflow_id, branch=ref, event="workflow_dispatch", per_page=10)
         return runs[0] if runs else None
+
+    def _poll_dispatched_run(
+        self,
+        client: GithubActionsClient,
+        workflow_id: str,
+        *,
+        ref: str,
+        dispatched_at: str,
+        attempts: int = _DISPATCH_POLL_ATTEMPTS,
+        delay_seconds: float = _DISPATCH_POLL_DELAY_SECONDS,
+    ) -> dict | None:
+        """Find the run created by the dispatch just issued.
+
+        A zero-delay list_runs call right after dispatching almost always
+        returns whatever run existed before this dispatch, because GitHub
+        creates the run record asynchronously. So instead of taking
+        list_runs()[0] immediately, poll a bounded number of times and only
+        accept a run whose created_at is at or after dispatched_at.
+
+        Both timestamps are ISO8601 UTC and compare correctly as plain
+        strings for this "at or after" check even though they use different
+        suffix styles - GitHub's created_at ends in "Z", Apex's own
+        utc_now_iso() ends in "+00:00". For the same wall-clock second,
+        "...12:00:00Z" >= "...12:00:00+00:00" is True because "Z" (0x5A)
+        sorts after "+" (0x2B) at that character position, and for any
+        earlier second the date/time digits themselves differ first and sort
+        correctly regardless of suffix. The one residual edge case is a
+        pre-existing run created within the exact same UTC second as the
+        dispatch, which would also pass this filter - accepted here given
+        GitHub's one-second timestamp resolution and that a genuinely new run
+        sorts first (list_runs returns newest first).
+
+        Returns None (never raises) if no matching run appears within
+        attempts * delay_seconds - callers already tolerate a falsy run.
+        """
+        for _ in range(attempts):
+            time.sleep(delay_seconds)
+            runs = client.list_runs(workflow_id, branch=ref, event="workflow_dispatch", per_page=10)
+            for candidate in runs:
+                created_at = str(candidate.get("created_at") or "")
+                if created_at and created_at >= dispatched_at:
+                    return candidate
+        return None
 
     def sync_github_deployment_run(self, ctx: RequestContext, story_id: int, run_id: int | None = None) -> dict:
         self.configure_request(ctx)
