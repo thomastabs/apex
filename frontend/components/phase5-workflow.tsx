@@ -1425,15 +1425,13 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         </div>
       )}
 
-      {canApprove && (
-        <Textarea
-          value={manualDeployNote}
-          onChange={(e) => setManualDeployNote(e.target.value)}
-          placeholder={t("phase5.manualDeployNotePlaceholder")}
-          rows={2}
-          disabled={gateMut.isPending}
-        />
-      )}
+      <Textarea
+        value={manualDeployNote}
+        onChange={(e) => setManualDeployNote(e.target.value)}
+        placeholder={t("phase5.manualDeployNotePlaceholder")}
+        rows={2}
+        disabled={gateMut.isPending}
+      />
 
       <div className="flex gap-3">
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={gateMut.isPending}>
