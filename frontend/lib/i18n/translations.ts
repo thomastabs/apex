@@ -874,6 +874,7 @@ export const translations = {
     "phase5.recording": "Recording…",
     "phase5.approveAndDeploy": "Approve & Deploy",
     "phase5.recordManualDeployment": "Record Manual Deployment",
+    "phase5.manualDeployNotePlaceholder": "Why manual, not GitHub Actions? (optional — saved to the permanent deployment log)",
     "phase5.download": "Download",
     "phase5.close": "Close",
 
@@ -2781,6 +2782,7 @@ export const translations = {
     "phase5.recording": "A registar…",
     "phase5.approveAndDeploy": "Aprovar e Implantar",
     "phase5.recordManualDeployment": "Registar Deployment Manual",
+    "phase5.manualDeployNotePlaceholder": "Porquê manual e não GitHub Actions? (opcional — guardado no registo de deployment permanente)",
     "phase5.download": "Transferir",
     "phase5.close": "Fechar",
 

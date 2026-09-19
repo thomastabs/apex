@@ -1189,8 +1189,10 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   const techLeadApproved = usePhase5Store((s) => s.techLeadApproved);
   const devopsApproved = usePhase5Store((s) => s.devopsApproved);
   const rejectionFeedback = usePhase5Store((s) => s.rejectionFeedback);
+  const manualDeployNote = usePhase5Store((s) => s.manualDeployNote);
   const setSignOffs = usePhase5Store((s) => s.setSignOffs);
   const setRejectionFeedback = usePhase5Store((s) => s.setRejectionFeedback);
+  const setManualDeployNote = usePhase5Store((s) => s.setManualDeployNote);
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
   const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
   const logDecision = useLogDecision();
@@ -1423,6 +1425,16 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         </div>
       )}
 
+      {canApprove && (
+        <Textarea
+          value={manualDeployNote}
+          onChange={(e) => setManualDeployNote(e.target.value)}
+          placeholder={t("phase5.manualDeployNotePlaceholder")}
+          rows={2}
+          disabled={gateMut.isPending}
+        />
+      )}
+
       <div className="flex gap-3">
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={gateMut.isPending}>
           <ChevronLeft className="h-4 w-4" /> {t("common.back")}
@@ -1430,7 +1442,10 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         <Button
           onClick={() => {
             if (!window.confirm(t("phase5.confirmRecordManualDeploy", { storyId }))) return;
-            gateMut.mutate({ storyId, techLeadApproved, devopsApproved });
+            gateMut.mutate(
+              { storyId, techLeadApproved, devopsApproved, notes: manualDeployNote },
+              { onSuccess: () => setManualDeployNote("") },
+            );
           }}
           disabled={!canApprove || gateMut.isPending}
           variant="secondary"

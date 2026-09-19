@@ -27,6 +27,12 @@ type Phase5State = {
   techLeadApproved: boolean;
   devopsApproved: boolean;
   rejectionFeedback: string;
+  // Why a manual deployment was recorded instead of an Actions dispatch (or
+  // anything else worth explaining about the decision) - appended to the
+  // gate notes alongside the automatic traceability summary, so the
+  // permanent deployment-log.md entry carries the human's own reasoning,
+  // not just the mechanical record.
+  manualDeployNote: string;
 
   setSelectedStoryId: (id: number | null) => void;
   setCurrentStoryMeta: (title: string, epicTitle: string) => void;
@@ -37,6 +43,7 @@ type Phase5State = {
   setPackSaved: (saved: boolean) => void;
   setSignOffs: (techLead: boolean, devops: boolean) => void;
   setRejectionFeedback: (feedback: string) => void;
+  setManualDeployNote: (note: string) => void;
   clearPhase5Draft: () => void;
 };
 
@@ -52,6 +59,7 @@ const EMPTY_DRAFT = {
   techLeadApproved: false,
   devopsApproved: false,
   rejectionFeedback: "",
+  manualDeployNote: "",
 };
 
 export const usePhase5Store = create<Phase5State>()(
@@ -87,6 +95,8 @@ export const usePhase5Store = create<Phase5State>()(
         set({ techLeadApproved, devopsApproved }),
 
       setRejectionFeedback: (rejectionFeedback) => set({ rejectionFeedback }),
+
+      setManualDeployNote: (manualDeployNote) => set({ manualDeployNote }),
 
       clearPhase5Draft: () => set({ ...EMPTY_DRAFT }),
     }),
