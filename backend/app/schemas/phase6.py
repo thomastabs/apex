@@ -5,6 +5,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 from backend.app.schemas.grounding import ExtraContextMixin
+from backend.app.schemas.phase1 import ExistingEpicSchema
 
 
 class EligibleConformanceStory(BaseModel):
@@ -179,3 +180,22 @@ class SeveritySuggestionResponse(BaseModel):
 
 class MaintenanceLogResponse(BaseModel):
     maintenance_log_md: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Maintenance → Phase 1: change-request placement (advisory, never auto-applies)
+# ---------------------------------------------------------------------------
+
+class ClassifyPlacementRequest(ExtraContextMixin):
+    # Same shape/limits as Phase 1's AnalyzeGapsRequest.existing_epics - the
+    # frontend already builds this snapshot for gap analysis and reuses it here.
+    existing_epics: list[ExistingEpicSchema] = Field(default_factory=list, max_length=200)
+
+
+class ChangeRequestPlacementResponse(BaseModel):
+    is_new_epic: bool
+    matched_epic_title: Optional[str] = None
+    rationale: str = ""
+    suggested_epic_title: Optional[str] = None
+    suggested_story_title: str = ""
+    suggested_story_description: str = ""

@@ -1,5 +1,7 @@
 import { ApiError, apiRequest } from "./client";
+import type { ExistingEpicInput } from "./phase1";
 import type {
+  ChangeRequestPlacement,
   ConformanceEligibleStoriesResponse,
   ConformanceReport,
   MaintenanceItem,
@@ -127,5 +129,23 @@ export function resolveMaintenanceItem(
 ) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/resolve`, {
     method: "POST", context, body: { root_cause: rootCause, resolution_summary: resolutionSummary },
+  });
+}
+
+// Advisory only - never mutates the maintenance item. The human reviews/edits
+// the suggestion in Phase 1 before anything is created there.
+export function classifyPlacement(
+  context: RequestContext,
+  itemId: number,
+  existingEpics: ExistingEpicInput[],
+  signal?: AbortSignal,
+  extraContextFiles: string[] = [],
+) {
+  return apiRequest<ChangeRequestPlacement>(`${M}/items/${itemId}/classify-placement`, {
+    method: "POST",
+    context,
+    body: { existing_epics: existingEpics, ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}) },
+    timeoutMs: PHASE6_AI_TIMEOUT_MS,
+    signal,
   });
 }

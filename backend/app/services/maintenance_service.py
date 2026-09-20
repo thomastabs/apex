@@ -3,7 +3,7 @@
 import logging
 
 from backend.app.services.ai_service import AiService
-from backend.app.services.ai_grounding import extra_context_block
+from backend.app.services.ai_grounding import extra_context_block, with_extra_context
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
@@ -194,6 +194,29 @@ class MaintenanceService:
     def get_log(self, ctx: RequestContext) -> str:
         self.configure_request(ctx)
         return self.context.get_maintenance_log()
+
+    # ── Maintenance → Phase 1: change-request placement (advisory) ──────────
+
+    def classify_placement(
+        self, ctx: RequestContext, item_id: int, existing_epics: list[dict],
+        extra_context_files: list[str] | None = None,
+    ) -> dict:
+        """Advisory placement decision for a change-request item: new epic, or
+        a new story under an existing one. Never mutates the item - the human
+        still confirms/edits the suggestion in Phase 1 before anything is
+        created there, same posture as every other AI-assisted step."""
+        self.configure_request(ctx)
+        item = self._require(item_id)
+        concept = self._concept_with_extra(extra_context_files)
+        return self.ai.classify_change_request_placement(
+            concept, existing_epics, item["subject"], item.get("description", ""),
+        )
+
+    def _concept_with_extra(self, filenames: list[str] | None) -> str:
+        try:
+            return with_extra_context(self.context, self.context.project_concept(), filenames)
+        except ValueError as exc:
+            raise MaintenanceValidationError(str(exc)) from exc
 
     def _spec_excerpt_with_extra(self, item: dict, filenames: list[str] | None) -> str:
         try:

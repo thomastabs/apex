@@ -42,3 +42,26 @@ export function buildOnboardingProjectConcept(draft: Phase1OnboardingDraft) {
     section("Optional Seed Notes", draft.seedDocs),
   ].join("\n");
 }
+
+// Maintenance -> Phase 1 handoff: format the (possibly user-edited) placement
+// review as an NL draft in the same "[SIZE] Title" shape generate-nl-stories
+// emits (see format_nl_draft in ai_engine.py), so it reads naturally in the
+// same textarea and compiles the same way through /api/phase1/compile-gherkin.
+// The change request's own subject/description are always folded in as a
+// Scenario line so nothing from the original signal is lost, even when the
+// AI placement step failed or was skipped entirely.
+export function buildMaintenanceIntakeNlDraft(input: {
+  storyTitle: string;
+  storyDescription: string;
+  subject: string;
+  description: string;
+}) {
+  const lines = [`[M] ${input.storyTitle.trim() || input.subject.trim()}`, ""];
+  if (input.storyDescription.trim()) {
+    lines.push(input.storyDescription.trim(), "");
+  }
+  lines.push(`Scenario: ${input.subject.trim()}`);
+  if (input.description.trim()) lines.push(input.description.trim());
+  lines.push("", "---");
+  return lines.join("\n").trim();
+}

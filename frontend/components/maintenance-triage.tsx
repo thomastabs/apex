@@ -11,6 +11,7 @@ import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/u
 import { CancelButton } from "@/components/ui/cancel-button";
 import {
   useClassifyItem,
+  useClassifyPlacement,
   useCreateMaintenanceItem,
   useDeleteMaintenanceItem,
   useDiagnoseItem,
@@ -19,10 +20,14 @@ import {
   useResolveItem,
   useRouteItem,
 } from "@/lib/hooks/use-phase6";
+import { usePhase1Epics } from "@/lib/hooks/use-phase1";
+import type { ExistingEpicInput } from "@/lib/api/phase1";
 import { suggestLane } from "@/lib/api/phase6";
 import { getAnalyticsSummary } from "@/lib/api/analytics";
 import { useApiContext, useFigmaContext, useGithubContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { usePhase1IntakeStore } from "@/lib/stores/phase1-intake-store";
+import { buildMaintenanceIntakeNlDraft } from "@/lib/phase1-onboarding";
 import { useT } from "@/lib/i18n/use-translation";
 import { cn, errMsg } from "@/lib/utils";
 import type { ExternalIssue } from "@/lib/api/github-browser";
@@ -61,6 +66,10 @@ export function MaintenanceTriage() {
   const fixBrief = useFixBriefItem();
   const route = useRouteItem();
   const resolve = useResolveItem();
+  const classifyPlacement = useClassifyPlacement();
+  // Same query as phase1-workflow.tsx's usePhase1Epics() - shares the cache
+  // key, so this never fetches the board a second way.
+  const epics = usePhase1Epics();
 
   const items = useMemo(() => itemsQuery.data?.items ?? [], [itemsQuery.data]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -79,7 +88,21 @@ export function MaintenanceTriage() {
   const [triageExtraContext, setTriageExtraContext] = useState<string[]>([]);
   const [diagnosisExtraContext, setDiagnosisExtraContext] = useState<string[]>([]);
   const [fixBriefExtraContext, setFixBriefExtraContext] = useState<string[]>([]);
+  const [placementExtraContext, setPlacementExtraContext] = useState<string[]>([]);
   const availableGroundingFiles = useGroundingFiles();
+
+  // Path A: change-request placement review - an editable proposal, never
+  // auto-applied. null = not yet reviewed (show the Analyze/Skip actions);
+  // non-null = the human-reviewable form, seeded either by the AI or by the
+  // no-AI fallback, shown right up until "Continue to Phase 1".
+  const [placementReview, setPlacementReview] = useState<{
+    isNewEpic: boolean;
+    matchedEpicTitle: string;
+    epicTitle: string;
+    storyTitle: string;
+    storyDescription: string;
+    rationale: string;
+  } | null>(null);
 
   // issue import
   const [issues, setIssues] = useState<{ source: "github" | "taiga" | "plane" | "figma"; list: ExternalIssue[] } | null>(null);
@@ -200,6 +223,87 @@ export function MaintenanceTriage() {
     );
   }
 
+  // Same truncation caps as phase1-workflow.tsx's runGapAnalysis - this is
+  // the same "existing epics" snapshot shape the backend's ExistingEpicSchema
+  // enforces (title 500, description 20_000, 200 stories per epic).
+  function existingEpicsSnapshot(): ExistingEpicInput[] {
+    return (epics.data ?? []).map((epic) => ({
+      title: (epic.subject ?? "").slice(0, 500),
+      description: (epic.description ?? "").slice(0, 20_000),
+      stories: epic.stories.slice(0, 200).map((s) => s.subject),
+    }));
+  }
+
+  // No-AI fallback: the raw item content, proposed as a new epic. Used both
+  // when the human explicitly skips AI placement and when the AI call fails -
+  // either way the review form still appears, seeded from real content,
+  // never a silently blank handoff.
+  function fallbackPlacement(item: MaintenanceItem) {
+    return {
+      isNewEpic: true,
+      matchedEpicTitle: epics.data?.[0]?.subject ?? "",
+      epicTitle: item.subject,
+      storyTitle: item.subject,
+      storyDescription: item.description,
+      rationale: "",
+    };
+  }
+
+  function analyzePlacement() {
+    if (!selected) return;
+    classifyPlacement.mutate(
+      { itemId: selected.id, existingEpics: existingEpicsSnapshot(), extraContextFiles: placementExtraContext },
+      {
+        onSuccess: (result) => {
+          // Grounding safety net: never trust a "matched" epic title the AI
+          // returned if it isn't actually one of the epics we gave it.
+          const matched = result.matched_epic_title
+            && epics.data?.some((e) => e.subject === result.matched_epic_title)
+            ? result.matched_epic_title
+            : null;
+          setPlacementReview({
+            isNewEpic: result.is_new_epic || !matched,
+            matchedEpicTitle: matched ?? (epics.data?.[0]?.subject ?? ""),
+            epicTitle: result.suggested_epic_title || selected.subject,
+            storyTitle: result.suggested_story_title || selected.subject,
+            storyDescription: result.suggested_story_description || selected.description,
+            rationale: result.rationale,
+          });
+        },
+        // Global error toast already fires (meta.errorLabel); this is the
+        // non-toast local-state fallback so the user is never left staring
+        // at a dead end when the AI call itself fails.
+        onError: () => setPlacementReview(fallbackPlacement(selected)),
+      },
+    );
+  }
+
+  function skipAiPlacement() {
+    if (!selected) return;
+    setPlacementReview(fallbackPlacement(selected));
+  }
+
+  function continueToPhase1() {
+    if (!placementReview || !selected) return;
+    const matchedEpic = !placementReview.isNewEpic
+      ? epics.data?.find((e) => e.subject === placementReview.matchedEpicTitle)
+      : undefined;
+    const nlDraft = buildMaintenanceIntakeNlDraft({
+      storyTitle: placementReview.storyTitle,
+      storyDescription: placementReview.storyDescription,
+      subject: selected.subject,
+      description: selected.description,
+    });
+    usePhase1IntakeStore.getState().setPending({
+      mode: matchedEpic ? "load" : "create",
+      epicId: matchedEpic ? matchedEpic.id : null,
+      epicTitle: matchedEpic ? matchedEpic.subject : placementReview.epicTitle,
+      nlDraft,
+      fromMaintenanceItemId: selected.id,
+    });
+    router.push("/phase1");
+  }
+
   const busy = classify.isPending || diagnose.isPending || fixBrief.isPending;
   const muted = dark ? "text-neutral-500" : "text-slate-400";
   const cardBorder = dark ? "border-neutral-800" : "border-slate-200";
@@ -293,7 +397,7 @@ export function MaintenanceTriage() {
             {items.map((it) => (
               <button
                 key={it.id}
-                onClick={() => { setSelectedId(it.id); setLaneHint(null); setSnippet(""); }}
+                onClick={() => { setSelectedId(it.id); setLaneHint(null); setSnippet(""); setPlacementReview(null); classifyPlacement.reset(); }}
                 className={cn(
                   "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition",
                   selectedId === it.id ? "border-violet-500 bg-violet-500/10"
@@ -355,13 +459,119 @@ export function MaintenanceTriage() {
                 </div>
               ) : null}
 
-              {/* Path A */}
+              {/* Path A: routed to discovery - propose a placement, human reviews/edits, then hand off to Phase 1 */}
               {selected.classification === "change_request" ? (
                 <Callout>
-                  Routed to discovery — a change request never gets patched directly.{" "}
-                  <button className="font-semibold text-violet-500 hover:underline" onClick={() => router.push("/phase1")}>
-                    Open in Phase 1 <ArrowRight className="inline h-3 w-3" />
-                  </button>
+                  <div className="space-y-3">
+                    <p>{t("phase6.placement.routedNotice")}</p>
+
+                    {!placementReview ? (
+                      <>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Button onClick={analyzePlacement} disabled={classifyPlacement.isPending}>
+                            {classifyPlacement.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                            {classifyPlacement.isPending ? t("common.analyzing") : t("phase6.placement.analyzeButton")}
+                          </Button>
+                          {classifyPlacement.isPending && <CancelButton onCancel={() => classifyPlacement.cancel()} />}
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-violet-500 hover:underline disabled:opacity-50"
+                            onClick={skipAiPlacement}
+                            disabled={classifyPlacement.isPending}
+                          >
+                            {t("phase6.placement.skipAi")}
+                          </button>
+                        </div>
+                        <AiGroundingNote
+                          files={AI_GROUNDING.maintenancePlacement}
+                          dark={dark}
+                          availableFiles={availableGroundingFiles}
+                          selectedExtraFiles={placementExtraContext}
+                          onSelectedExtraFilesChange={setPlacementExtraContext}
+                        />
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className={cn("text-sm", dark ? "text-neutral-300" : "text-slate-700")}>
+                          <span className="font-semibold">
+                            {placementReview.isNewEpic
+                              ? t("phase6.placement.newEpicVerdict", { title: placementReview.epicTitle || t("phase6.placement.untitled") })
+                              : t("phase6.placement.existingEpicVerdict", { title: placementReview.matchedEpicTitle })}
+                          </span>
+                          {placementReview.rationale ? <> - {placementReview.rationale}</> : null}
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className={cn(
+                              "rounded border px-2 py-1 text-xs font-semibold",
+                              placementReview.isNewEpic ? "border-violet-500 text-violet-500" : cardBorder,
+                            )}
+                            onClick={() => setPlacementReview((p) => (p ? { ...p, isNewEpic: true } : p))}
+                          >
+                            {t("phase6.placement.newEpicOption")}
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(
+                              "rounded border px-2 py-1 text-xs font-semibold disabled:opacity-40",
+                              !placementReview.isNewEpic ? "border-violet-500 text-violet-500" : cardBorder,
+                            )}
+                            disabled={!epics.data?.length}
+                            title={!epics.data?.length ? t("phase6.placement.noEpicsHint") : undefined}
+                            onClick={() =>
+                              setPlacementReview((p) =>
+                                p ? { ...p, isNewEpic: false, matchedEpicTitle: p.matchedEpicTitle || epics.data?.[0]?.subject || "" } : p,
+                              )
+                            }
+                          >
+                            {t("phase6.placement.existingEpicOption")}
+                          </button>
+                        </div>
+                        {!epics.data?.length ? <p className={cn("text-xs", muted)}>{t("phase6.placement.noEpicsHint")}</p> : null}
+
+                        {placementReview.isNewEpic ? (
+                          <Input
+                            placeholder={t("phase6.placement.epicTitleLabel")}
+                            value={placementReview.epicTitle}
+                            onChange={(e) => setPlacementReview((p) => (p ? { ...p, epicTitle: e.target.value } : p))}
+                          />
+                        ) : (
+                          <select
+                            className={cn("w-full rounded border bg-transparent px-2 py-1.5 text-sm", cardBorder)}
+                            value={placementReview.matchedEpicTitle}
+                            onChange={(e) => setPlacementReview((p) => (p ? { ...p, matchedEpicTitle: e.target.value } : p))}
+                          >
+                            {(epics.data ?? []).map((epic) => (
+                              <option key={epic.id} value={epic.subject}>{epic.subject}</option>
+                            ))}
+                          </select>
+                        )}
+
+                        <Input
+                          placeholder={t("phase6.placement.storyTitleLabel")}
+                          value={placementReview.storyTitle}
+                          onChange={(e) => setPlacementReview((p) => (p ? { ...p, storyTitle: e.target.value } : p))}
+                        />
+                        <Textarea
+                          rows={2}
+                          placeholder={t("phase6.placement.storyDescriptionLabel")}
+                          value={placementReview.storyDescription}
+                          onChange={(e) => setPlacementReview((p) => (p ? { ...p, storyDescription: e.target.value } : p))}
+                        />
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button onClick={continueToPhase1}>
+                            {t("phase6.placement.continueButton")} <ArrowRight className="inline h-3 w-3" />
+                          </Button>
+                          <Button variant="secondary" onClick={() => setPlacementReview(null)}>
+                            {t("common.cancel")}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </Callout>
               ) : null}
 

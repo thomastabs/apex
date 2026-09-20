@@ -8,6 +8,8 @@ from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.ai_errors import handle_ai_error
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase6 import (
+    ChangeRequestPlacementResponse,
+    ClassifyPlacementRequest,
     ConformanceReportResponse,
     CreateMaintenanceItemRequest,
     DiagnoseRequest,
@@ -265,5 +267,26 @@ def get_maintenance_log(
 ):
     try:
         return {"maintenance_log_md": service.get_log(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/maintenance/items/{item_id}/classify-placement", response_model=ChangeRequestPlacementResponse)
+def classify_placement_maintenance_item(
+    item_id: int,
+    payload: ClassifyPlacementRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: MaintenanceService = Depends(get_maintenance_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    """Advisory-only: suggest whether a change request is a new epic or a new
+    story under an existing one. Never mutates the maintenance item; the human
+    reviews/edits the suggestion in Phase 1 before anything is created there."""
+    try:
+        return service.classify_placement(
+            ctx, item_id,
+            existing_epics=[e.model_dump() for e in payload.existing_epics],
+            extra_context_files=payload.extra_context_files,
+        )
     except Exception as exc:
         _handle_error(exc)

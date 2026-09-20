@@ -1740,6 +1740,79 @@ def analyze_requirement_gaps(
 
 
 # ---------------------------------------------------------------------------
+# Maintenance -> Phase 1 · Change Request Placement - Requirements Analyst persona
+# ---------------------------------------------------------------------------
+# Narrower sibling of the gap-analysis sweep above: instead of auditing the
+# whole project for missing coverage, this classifies exactly ONE incoming
+# signal (a single Maintenance change request's subject + description) against
+# the project's CURRENT epics, and decides whether it belongs as a brand-new
+# epic or as a new story under an epic that already exists. Advisory only -
+# the human reviews/edits the suggestion in Phase 1 before anything is created.
+
+class ChangeRequestPlacement(BaseModel):
+    is_new_epic: bool = Field(description="True if this request needs a brand-new epic; False if it extends an existing one")
+    matched_epic_title: str | None = Field(
+        default=None,
+        description="The EXACT title of the existing epic this belongs under, copied verbatim from the given list. "
+                     "Must be None when is_new_epic is true, and must never name an epic that isn't in the given list.",
+    )
+    rationale: str = Field(description="1-3 sentences: why this placement, tied to the concept and (if matched) the existing epic's scope")
+    suggested_epic_title: str | None = Field(
+        default=None,
+        description="Title for the new epic, 4-8 words, title case. Only set when is_new_epic is true, otherwise None.",
+    )
+    suggested_story_title: str = Field(description="A concrete, testable user-story title for this request")
+    suggested_story_description: str = Field(description="1-3 sentences describing the story: who wants it and why")
+
+
+_CHANGE_REQUEST_PLACEMENT_SYSTEM = """\
+You are an experienced Requirements Analyst operating within the Apex Framework.
+You are given a project concept, the project's CURRENT set of epics and their
+stories, and ONE incoming change request (a signal routed here from Maintenance
+triage because it is a feature change, not a bug). Your job is a single
+placement decision: does this request extend an epic that already exists, or
+does it need a brand-new one?
+
+Rules you MUST follow:
+- Ground the decision in the actual list of existing epics you were given. Never
+  invent an epic that is not in that list, and never name one as "matched" that
+  is not there verbatim.
+- Prefer matching an existing epic when the request is a natural extension of
+  that epic's existing scope - most change requests refine or add to something
+  that already exists.
+- Only propose a brand-new epic when the request represents a genuinely distinct
+  feature area that none of the existing epics reasonably cover.
+- Tie your rationale to the project concept, and to the matched epic's scope
+  when you matched one.
+- Always produce a concrete, testable suggested story title and a short
+  description, regardless of which placement you choose - this seeds the
+  natural-language draft the human will review in Phase 1.
+- This is exactly one classification for exactly one input. Do not hedge with
+  multiple candidate epics or a list of options - pick one placement.
+"""
+
+
+def classify_change_request_placement(
+    project_concept: str,
+    existing_epics: list[dict],
+    subject: str,
+    description: str,
+) -> ChangeRequestPlacement:
+    human = "Project Concept:\n" + fence_user_content(project_concept) + "\n\n"
+    human += "Current epics and stories:\n" + fence_user_content(_format_existing_epics(existing_epics)) + "\n\n"
+    human += "Change request subject:\n" + fence_user_content(subject) + "\n\n"
+    human += "Change request description:\n" + fence_user_content(description) + "\n\n"
+    human += (
+        "Decide whether this change request belongs under an existing epic or "
+        "needs a brand-new one, and give a concrete story title/description for it."
+    )
+    return _invoke_structured_with_progress(
+        _CHANGE_REQUEST_PLACEMENT_SYSTEM, human, get_model(), ChangeRequestPlacement,
+        max_tokens=1024, temperature=0.2,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Phase 1 · Constraints — cross-cutting quality requirements in EARS notation
 # ---------------------------------------------------------------------------
 # Gherkin captures *behaviour*; it cannot express cross-cutting quality

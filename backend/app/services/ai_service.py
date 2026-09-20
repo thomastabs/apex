@@ -25,6 +25,13 @@ class AiService:
             "gaps": [g.model_dump() for g in result.gaps],
         }
 
+    def classify_change_request_placement(
+        self, project_concept: str, existing_epics: list[dict], subject: str, description: str,
+    ) -> dict:
+        """Classify one Maintenance change request as a new epic or a story under an existing one."""
+        result = ai_engine.classify_change_request_placement(project_concept, existing_epics, subject, description)
+        return result.model_dump()
+
     def generate_nl_stories(
         self,
         epic_subject: str,

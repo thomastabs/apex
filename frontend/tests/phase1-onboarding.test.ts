@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildOnboardingProjectConcept, hasMeaningfulProjectConcept, shouldShowPhase1Onboarding } from "@/lib/phase1-onboarding";
+import {
+  buildMaintenanceIntakeNlDraft,
+  buildOnboardingProjectConcept,
+  hasMeaningfulProjectConcept,
+  shouldShowPhase1Onboarding,
+} from "@/lib/phase1-onboarding";
 import type { ContextFile, EpicWithStories } from "@/lib/api/types";
 
 const conceptFile = (content: string): ContextFile => ({
@@ -36,5 +41,29 @@ describe("phase1 onboarding helpers", () => {
     expect(md).toContain("Coordinate incident response.");
     expect(md).toContain("## Primary Actors");
     expect(md).toContain("## Optional Seed Notes");
+  });
+
+  it("formats a Maintenance change request as a Phase 1 NL draft, never dropping the raw subject/description", () => {
+    const nlDraft = buildMaintenanceIntakeNlDraft({
+      storyTitle: "Export report as CSV",
+      storyDescription: "As a user I want to export a report as CSV.",
+      subject: "Add CSV export",
+      description: "Users keep asking for a way to export reports.",
+    });
+    expect(nlDraft).toContain("[M] Export report as CSV");
+    expect(nlDraft).toContain("As a user I want to export a report as CSV.");
+    expect(nlDraft).toContain("Scenario: Add CSV export");
+    expect(nlDraft).toContain("Users keep asking for a way to export reports.");
+  });
+
+  it("falls back to the raw subject as the title when no story title is given", () => {
+    const nlDraft = buildMaintenanceIntakeNlDraft({
+      storyTitle: "",
+      storyDescription: "",
+      subject: "General slowness",
+      description: "",
+    });
+    expect(nlDraft).toContain("[M] General slowness");
+    expect(nlDraft).toContain("Scenario: General slowness");
   });
 });

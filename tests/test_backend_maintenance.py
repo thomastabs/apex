@@ -27,6 +27,14 @@ class FakeAiService:
     def suggest_severity_lane(self, diagnosis_md, patch_scope=""):
         return {"lane": self.lane, "rationale": "touches auth"}
 
+    def classify_change_request_placement(self, project_concept, existing_epics, subject, description):
+        self.placement_args = (project_concept, existing_epics, subject, description)
+        return {
+            "is_new_epic": False, "matched_epic_title": "Login", "rationale": "extends login flows",
+            "suggested_epic_title": None, "suggested_story_title": "Add export button",
+            "suggested_story_description": "As a user I want to export my data.",
+        }
+
 
 class FakeContextService:
     def __init__(self, index=None):
@@ -39,6 +47,9 @@ class FakeContextService:
 
     def set_active(self, ctx):
         self.project_id = ctx.project_id
+
+    def project_concept(self):
+        return "A project that helps small teams track their expenses."
 
     def story_index(self):
         return self.index
@@ -208,3 +219,41 @@ def test_net_new_item_routes_without_story(ctx):
     svc.route_lane(ctx, item["id"], "secure")
     assert c.items[item["id"]]["lane"] == "secure"
     assert not c.deployments  # nothing to route
+
+
+def test_classify_placement_returns_ai_result(ctx):
+    ai = FakeAiService()
+    svc, c = _svc(ai=ai, context=FakeContextService())
+    item = svc.create_item(ctx, subject="Add CSV export", description="Users want to export data.")
+    existing_epics = [{"title": "Login", "description": "auth flows", "stories": ["Sign in"]}]
+    out = svc.classify_placement(ctx, item["id"], existing_epics)
+    assert out["matched_epic_title"] == "Login"
+    assert out["is_new_epic"] is False
+    assert out["suggested_story_title"] == "Add export button"
+
+
+def test_classify_placement_does_not_mutate_item(ctx):
+    svc, c = _svc()
+    item = svc.create_item(ctx, subject="Add CSV export", description="Users want to export data.")
+    before = dict(c.items[item["id"]])
+    svc.classify_placement(ctx, item["id"], [])
+    assert c.items[item["id"]] == before
+
+
+def test_classify_placement_forwards_concept_and_epics(ctx):
+    ai = FakeAiService()
+    svc, c = _svc(ai=ai)
+    item = svc.create_item(ctx, subject="Add CSV export", description="Users want to export their data.")
+    existing_epics = [{"title": "Login", "description": "auth flows", "stories": ["Sign in"]}]
+    svc.classify_placement(ctx, item["id"], existing_epics)
+    concept, epics, subject, description = ai.placement_args
+    assert "expenses" in concept
+    assert epics == existing_epics
+    assert subject == "Add CSV export"
+    assert description == "Users want to export their data."
+
+
+def test_classify_placement_unknown_item_raises(ctx):
+    svc, _ = _svc()
+    with pytest.raises(MaintenanceValidationError):
+        svc.classify_placement(ctx, 999, [])

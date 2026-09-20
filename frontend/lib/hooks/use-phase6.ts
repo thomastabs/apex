@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   acknowledgeRegression,
   classifyMaintenanceItem,
+  classifyPlacement,
   createMaintenanceItem,
   deleteMaintenanceItem,
   diagnoseMaintenanceItem,
@@ -17,6 +18,7 @@ import {
   scanRegressions,
   verifyConformance,
 } from "@/lib/api/phase6";
+import type { ExistingEpicInput } from "@/lib/api/phase1";
 import { useApiContext } from "@/lib/stores/session-store";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
@@ -245,6 +247,20 @@ export function useRouteItem() {
     },
     meta: { errorLabel: "op.routeItem" },
   });
+}
+
+// Advisory only - does not touch the maintenance-items cache, since
+// classify-placement never mutates the item server-side either.
+export function useClassifyPlacement() {
+  const context = useApiContext();
+  return useCancellableMutation(
+    (
+      { itemId, existingEpics, extraContextFiles = [] }:
+      { itemId: number; existingEpics: ExistingEpicInput[]; extraContextFiles?: string[] },
+      signal,
+    ) => classifyPlacement(context!, itemId, existingEpics, signal, extraContextFiles),
+    { meta: { errorLabel: "op.classifyPlacement" } },
+  );
 }
 
 export function useResolveItem() {

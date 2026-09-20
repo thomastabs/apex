@@ -27,9 +27,19 @@ const ITEMS = vi.hoisted(() => ({
   ],
 }));
 
+const PLACEMENT = vi.hoisted(() => ({
+  is_new_epic: false,
+  matched_epic_title: "Reporting",
+  rationale: "Fits the existing reporting epic.",
+  suggested_epic_title: null,
+  suggested_story_title: "Export report as CSV",
+  suggested_story_description: "As a user I want to export a report as CSV.",
+}));
+
 vi.mock("@/lib/api/phase6", () => ({
   listMaintenanceItems: vi.fn().mockResolvedValue({ items: ITEMS.list }),
   classifyMaintenanceItem: vi.fn().mockResolvedValue(ITEMS.list[0]),
+  classifyPlacement: vi.fn().mockResolvedValue(PLACEMENT),
   diagnoseMaintenanceItem: vi.fn(),
   fixBriefMaintenanceItem: vi.fn(),
   routeMaintenanceItem: vi.fn().mockResolvedValue(ITEMS.list[0]),
@@ -38,8 +48,15 @@ vi.mock("@/lib/api/phase6", () => ({
   suggestLane: vi.fn(),
 }));
 
+vi.mock("@/lib/api/phase1", () => ({
+  listPhase1Epics: vi.fn().mockResolvedValue([
+    { id: 9, ref: 9, subject: "Reporting", description: "Reporting epic", tags: [], stories: [] },
+  ]),
+}));
+
 import { MaintenanceTriage } from "@/components/maintenance-triage";
-import { classifyMaintenanceItem, routeMaintenanceItem } from "@/lib/api/phase6";
+import { classifyMaintenanceItem, classifyPlacement, routeMaintenanceItem } from "@/lib/api/phase6";
+import { usePhase1IntakeStore } from "@/lib/stores/phase1-intake-store";
 
 function renderTriage() {
   const qc = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } });
@@ -50,6 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   push.mockClear();
   vi.stubGlobal("confirm", vi.fn(() => true));
+  usePhase1IntakeStore.getState().clearPending();
 });
 
 describe("MaintenanceTriage", () => {
@@ -67,13 +85,52 @@ describe("MaintenanceTriage", () => {
     await waitFor(() => expect(vi.mocked(classifyMaintenanceItem)).toHaveBeenCalledWith(expect.anything(), 2, expect.anything()));
   });
 
-  it("Path A change request offers Open in Phase 1", async () => {
+  it("Path A change request: AI placement review drives the Phase 1 handoff", async () => {
     renderTriage();
     await waitFor(() => expect(screen.getAllByText(/Add export/).length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByText(/Add export/)[0]); // list button
-    const link = await screen.findByText(/Open in Phase 1/i);
-    fireEvent.click(link);
+
+    const analyzeBtn = await screen.findByRole("button", { name: /Analyze placement/i });
+    fireEvent.click(analyzeBtn);
+    await waitFor(() => expect(vi.mocked(classifyPlacement)).toHaveBeenCalledWith(
+      expect.anything(), 1, expect.any(Array), expect.anything(), expect.any(Array),
+    ));
+
+    // AI verdict rendered as an editable, human-reviewable proposal.
+    await screen.findByText(/Add to existing epic: "Reporting"/i);
+    await screen.findByDisplayValue("Export report as CSV");
+
+    const continueBtn = await screen.findByRole("button", { name: /Continue to Phase 1/i });
+    fireEvent.click(continueBtn);
+
     expect(push).toHaveBeenCalledWith("/phase1");
+    expect(usePhase1IntakeStore.getState().pending).toEqual({
+      mode: "load",
+      epicId: 9,
+      epicTitle: "Reporting",
+      nlDraft: expect.stringContaining("Export report as CSV"),
+      fromMaintenanceItemId: 1,
+    });
+  });
+
+  it("Path A change request: skipping AI still seeds a full handoff (dead-link fix)", async () => {
+    renderTriage();
+    await waitFor(() => expect(screen.getAllByText(/Add export/).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText(/Add export/)[0]);
+
+    const skipBtn = await screen.findByRole("button", { name: /Skip AI/i });
+    fireEvent.click(skipBtn);
+    expect(vi.mocked(classifyPlacement)).not.toHaveBeenCalled();
+
+    const continueBtn = await screen.findByRole("button", { name: /Continue to Phase 1/i });
+    fireEvent.click(continueBtn);
+
+    expect(push).toHaveBeenCalledWith("/phase1");
+    const pending = usePhase1IntakeStore.getState().pending;
+    expect(pending?.mode).toBe("create");
+    expect(pending?.fromMaintenanceItemId).toBe(1);
+    // The raw item subject/description must never vanish, even with no AI call.
+    expect(pending?.nlDraft).toContain("Add export");
   });
 
   it("routes a fix-ready item down the Secure Lane", async () => {

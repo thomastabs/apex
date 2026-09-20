@@ -21,6 +21,7 @@ export const AI_GROUNDING = {
   maintenanceTriage: ["maintenance item", "linked story", "functional-spec.md"],
   maintenanceDiagnosis: ["maintenance item", "linked story", "isolated code snippet"],
   maintenanceFixBrief: ["diagnosis.md", "fix-log.md", "linked story"],
+  maintenancePlacement: ["maintenance item", "project-concept.md", "PM epics/stories"],
   autopilotSetup: ["project-concept.md", "figma-context.md", "guide-the-ai note"],
   autopilotRun: ["locked phase artifacts", "project-concept.md", "functional-spec.md", "technical-spec.md", "runtime-spec.md", "github-context.md"],
 } as const;

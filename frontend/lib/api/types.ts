@@ -902,3 +902,15 @@ export type MaintenanceItem = {
 
 export type MaintenanceItemsResponse = { items: MaintenanceItem[] };
 export type SeveritySuggestion = { lane: "fast" | "secure"; rationale: string };
+
+// Maintenance → Phase 1: advisory placement decision for a routed change
+// request. Never applied automatically - the human reviews/edits it in
+// Phase 1 before anything is created there.
+export type ChangeRequestPlacement = {
+  is_new_epic: boolean;
+  matched_epic_title: string | null;
+  rationale: string;
+  suggested_epic_title: string | null;
+  suggested_story_title: string;
+  suggested_story_description: string;
+};

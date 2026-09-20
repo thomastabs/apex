@@ -26,6 +26,7 @@ import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel"
 import { GuideTheAI } from "@/components/guide-the-ai";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { usePhase1IntakeStore } from "@/lib/stores/phase1-intake-store";
 import { useT } from "@/lib/i18n/use-translation";
 import type { ClarifyingQuestion, CompiledStory, EpicSuggestion, QaPair, RequirementGapReport } from "@/lib/api/types";
 import { cn, errMsg } from "@/lib/utils";
@@ -185,6 +186,9 @@ export function Phase1Workflow() {
   const [earsOpen, setEarsOpen] = useState(false);
   const [onboardingDraft, setOnboardingDraft] = useState<Phase1OnboardingDraft>(EMPTY_ONBOARDING);
   const [onboardingSaved, setOnboardingSaved] = useState(false);
+  // Set when this mount picked up a pending Maintenance -> Phase 1 handoff
+  // (see phase1-intake-store.ts) - drives the one-time dismissible banner.
+  const [maintenanceIntakeId, setMaintenanceIntakeId] = useState<number | null>(null);
   const draftRestored = useRef(false);
 
   const epics = usePhase1Epics();
@@ -226,6 +230,27 @@ export function Phase1Workflow() {
 
   useEffect(() => {
     if (draftRestored.current) return;
+    // A Maintenance -> Phase 1 handoff (see maintenance-triage.tsx's "Continue
+    // to Phase 1") takes priority over a stale local draft on THIS mount -
+    // it's a single, deliberately-confirmed payload, not idle localStorage
+    // state. Note this does not touch or delete the local draft on disk
+    // (loadDraft below is simply skipped this time), so a genuinely-unsaved
+    // different draft the user was mid-way through elsewhere is preserved
+    // and will restore normally on a later visit that has no pending intake.
+    const pendingIntake = usePhase1IntakeStore.getState().consumePending();
+    if (pendingIntake) {
+      setMode(pendingIntake.mode);
+      setEpicId(pendingIntake.epicId);
+      setEpicTitle(pendingIntake.epicTitle);
+      if (pendingIntake.mode === "load" && pendingIntake.epicId !== null) {
+        setSelectedLoadEpicId(pendingIntake.epicId);
+      }
+      setNlDraft(pendingIntake.nlDraft);
+      setStep(3);
+      setMaintenanceIntakeId(pendingIntake.fromMaintenanceItemId);
+      draftRestored.current = true;
+      return;
+    }
     const saved = loadDraft(context?.projectId ?? null);
     if (saved) {
       setNlDraft(saved.nlDraft);
@@ -490,6 +515,23 @@ export function Phase1Workflow() {
           </button>
         ) : null}
       </div>
+
+      {maintenanceIntakeId !== null ? (
+        <div className="mb-6">
+          <Callout>
+            <div className="flex items-center justify-between gap-3">
+              <span>{t("phase1.intake.banner", { id: maintenanceIntakeId })}</span>
+              <button
+                type="button"
+                className={cn("shrink-0 text-xs font-semibold hover:underline", dark ? "text-neutral-400" : "text-slate-500")}
+                onClick={() => setMaintenanceIntakeId(null)}
+              >
+                {t("phase1.dismiss")}
+              </button>
+            </div>
+          </Callout>
+        </div>
+      ) : null}
 
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
         <button

@@ -2222,6 +2222,50 @@ class TestFormatExistingEpics:
         assert "gap analysis" in captured["sys"].lower()
 
 
+class TestClassifyChangeRequestPlacement:
+    def test_prompt_includes_concept_epics_and_request(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+
+        def fake(sys, human, *a, **k):
+            captured["sys"] = sys
+            captured["human"] = human
+            return ai.ChangeRequestPlacement(
+                is_new_epic=False, matched_epic_title="Auth", rationale="extends login",
+                suggested_epic_title=None, suggested_story_title="Add SSO login",
+                suggested_story_description="As a user I want SSO so I can log in with my company account.",
+            )
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        result = ai.classify_change_request_placement(
+            "Concept text", [{"title": "Auth", "stories": ["Sign in"]}],
+            "Add SSO", "Users want single sign-on via their company account.",
+        )
+        assert "Concept text" in captured["human"]
+        assert "Auth" in captured["human"] and "Sign in" in captured["human"]
+        assert "Add SSO" in captured["human"]
+        assert "single sign-on" in captured["human"]
+        assert "requirements analyst" in captured["sys"].lower()
+        assert result.matched_epic_title == "Auth"
+        assert result.is_new_epic is False
+
+    def test_new_epic_placement_round_trips(self, monkeypatch):
+        import src.ai_engine as ai
+
+        monkeypatch.setattr(
+            ai, "_invoke_structured_with_progress",
+            lambda *a, **k: ai.ChangeRequestPlacement(
+                is_new_epic=True, matched_epic_title=None, rationale="distinct feature area",
+                suggested_epic_title="Billing Exports", suggested_story_title="Export invoices as CSV",
+                suggested_story_description="As an admin I want to export invoices so I can reconcile books.",
+            ),
+        )
+        result = ai.classify_change_request_placement("Concept", [], "Export invoices", "Need CSV export.")
+        assert result.is_new_epic is True
+        assert result.suggested_epic_title == "Billing Exports"
+        assert result.matched_epic_title is None
+
+
 class TestGenerateEdgeCases:
     def test_invokes_with_scenario_and_spec(self, monkeypatch):
         import src.ai_engine as ai
