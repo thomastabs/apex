@@ -89,4 +89,14 @@ test("Phase 6 Spec Drift: verify conformance and scan for regressions", async ({
   await waitForToastsGone(page);
   await page.getByRole("button", { name: /Scan for regressions/i }).click();
   await expect(page.getByText(/No regressions/i)).toBeVisible({ timeout: 15_000 });
+
+  // Export the conformance data/reports, same pattern as Analytics.
+  await waitForToastsGone(page);
+  const csvDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Export CSV/i }).click();
+  expect((await csvDownload).suggestedFilename()).toBe("apex-spec-drift.csv");
+
+  const mdDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Export Markdown/i }).click();
+  expect((await mdDownload).suggestedFilename()).toBe("apex-spec-drift.md");
 });

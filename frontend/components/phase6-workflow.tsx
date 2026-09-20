@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, ChevronRight, GitBranch, Info, Loader2, RefreshCw, Scale, TrendingDown, Zap } from "lucide-react";
+import { ArrowRight, ChevronRight, Download, GitBranch, Info, Loader2, RefreshCw, Scale, TrendingDown, Zap } from "lucide-react";
 import { CancelButton } from "@/components/ui/cancel-button";
 import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
 import { MaintenanceTriage } from "@/components/maintenance-triage";
@@ -50,6 +50,91 @@ const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
   not_found: "phase6.status.notFound",
   unknown: "phase6.status.unknown",
 };
+
+function blobDownload(content: string, filename: string, type = "text/plain") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// English-only, same as Analytics' own export - data artifacts stay
+// locale-independent regardless of the UI language.
+function toConformanceCsv(stories: ConformanceEligibleStory[]): string {
+  const lines = ["story_id,title,epic,phase_status,checked,score"];
+  for (const s of stories) {
+    const title = `"${s.title.replaceAll('"', '""')}"`;
+    const epic = `"${s.epic_title.replaceAll('"', '""')}"`;
+    lines.push(`${s.story_id},${title},${epic},${s.phase_status},${s.has_conformance},${s.score ?? ""}`);
+  }
+  return lines.join("\n");
+}
+
+function toConformanceMarkdown(
+  stories: ConformanceEligibleStory[],
+  report: ConformanceReport | null,
+  scanReport: ScanReport | null,
+): string {
+  const lines = [
+    "# Apex Spec Drift - Code Conformance",
+    "",
+    "## Stories",
+    "",
+    "| Story | Epic | Status | Checked | Score |",
+    "|---|---|---|---|---|",
+    ...stories.map((s) =>
+      `| US#${s.story_id} ${s.title} | ${s.epic_title} | ${s.phase_status} | ${s.has_conformance ? "yes" : "no"} | ${s.score ?? "-"} |`,
+    ),
+    "",
+  ];
+
+  if (report) {
+    lines.push(
+      `## Selected Story: US#${report.story_id} ${report.title}`,
+      "",
+      `Epic: ${report.epic_title} - Score: ${report.score}/100 - Layer: ${report.layer} - Generated: ${report.generated_at.slice(0, 16).replace("T", " ")}`,
+      "",
+    );
+    if (report.summary) lines.push(report.summary, "");
+
+    const section = (heading: string, rows: { label: string; status: string; loc: string; detail: string }[]) => {
+      lines.push(`### ${heading} (${rows.length})`, "");
+      if (rows.length === 0) {
+        lines.push("None in spec.", "");
+        return;
+      }
+      lines.push("| Status | Item | Notes |", "|---|---|---|");
+      for (const r of rows) {
+        lines.push(`| ${r.status} | ${r.label}${r.loc ? ` (${r.loc})` : ""} | ${r.detail.replaceAll("\n", " ")} |`);
+      }
+      lines.push("");
+    };
+
+    section("Endpoint Contracts", report.endpoints.map((e) => ({ label: e.contract, status: e.status, loc: e.location, detail: e.notes })));
+    section("Behavioural Scenarios", report.scenarios.map((s) => ({ label: s.scenario, status: s.status, loc: s.test_location, detail: s.notes })));
+    section("Constraints (Advisory)", report.constraints.map((c) => ({ label: c.constraint_id, status: c.status, loc: "", detail: c.evidence })));
+  }
+
+  if (scanReport) {
+    lines.push(
+      "## Regression Scan",
+      "",
+      `${scanReport.regressed_ids.length}/${scanReport.results.length} stories regressed.`,
+      "",
+      "| Story | Old Score | New Score | Regressed | Worsened |",
+      "|---|---|---|---|---|",
+      ...scanReport.results.map((r) =>
+        `| US#${r.story_id} ${r.title} | ${r.old_score ?? "-"} | ${r.new_score} | ${r.regressed ? "yes" : "no"} | ${r.worsened_rows.map((w) => `${w.kind} ${w.ref}: ${w.old_status}->${w.new_status}`).join("; ")} |`,
+      ),
+      "",
+    );
+  }
+
+  return lines.join("\n");
+}
 
 const LOOP_CARDS: {
   icon: typeof TrendingDown;
@@ -458,6 +543,30 @@ function TraceabilityPanel() {
                 </Button>
                 {verify.isPending && <CancelButton onCancel={() => verify.cancel()} />}
                 {scan.isPending && <CancelButton onCancel={() => scan.cancel()} />}
+                <Button
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={() => {
+                    blobDownload(toConformanceCsv(stories), "apex-spec-drift.csv", "text/csv");
+                    toast.success(t("phase6.toast.csvExported"));
+                  }}
+                  disabled={stories.length === 0}
+                  title={t("phase6.exportCsvTitle")}
+                >
+                  <Download className="h-4 w-4" /> {t("phase6.exportCsv")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={() => {
+                    blobDownload(toConformanceMarkdown(stories, report, scanReport), "apex-spec-drift.md", "text/markdown");
+                    toast.success(t("phase6.toast.markdownExported"));
+                  }}
+                  disabled={stories.length === 0}
+                  title={t("phase6.exportMarkdownTitle")}
+                >
+                  <Download className="h-4 w-4" /> {t("phase6.exportMarkdown")}
+                </Button>
               </div>
             </div>
             <AiGroundingNote
