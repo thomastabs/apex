@@ -880,6 +880,10 @@ export const translations = {
     "phase5.manualDeployNotePlaceholder": "Why manual, not GitHub Actions? (optional — saved to the permanent deployment log)",
     "phase5.download": "Download",
     "phase5.close": "Close",
+    "phase5.viewDeploymentLog": "View Deployment Log",
+    "phase5.deploymentLogTitle": "Deployment Log",
+    "phase5.deploymentLogEmpty": "No deployments recorded yet.",
+    "phase5.deploymentLogError": "Could not load the deployment log.",
 
     // ── phase6 (Maintenance) ──
     "phase6.heading": "Maintenance",
@@ -2791,6 +2795,10 @@ export const translations = {
     "phase5.manualDeployNotePlaceholder": "Porquê manual e não GitHub Actions? (opcional — guardado no registo de deployment permanente)",
     "phase5.download": "Transferir",
     "phase5.close": "Fechar",
+    "phase5.viewDeploymentLog": "Ver Registo de Deployment",
+    "phase5.deploymentLogTitle": "Registo de Deployment",
+    "phase5.deploymentLogEmpty": "Ainda não há deployments registados.",
+    "phase5.deploymentLogError": "Não foi possível carregar o registo de deployment.",
 
     "phase6.heading": "Manutenção",
     "phase6.subtitle": "Controle desvios da spec depois do deployment: verifique código implantado, classifique feedback e encaminhe cada sinal para a fase certa do SDLC.",

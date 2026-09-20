@@ -253,6 +253,15 @@ class GithubSyncStatusResponse(BaseModel):
     context_synced_at: str | None = None
 
 
+class DeploymentLogResponse(BaseModel):
+    # deployment-log.md — an append-only audit trail written by Phase5Service
+    # (manual gate passes and GitHub Actions dispatch/sync results), never
+    # exposed through the generic context-files list because it is a log,
+    # not an editable spec artefact (no lock/version/wiki-sync semantics).
+    content: str
+    last_modified: str | None = None
+
+
 class ConfigResponse(BaseModel):
     # int for Taiga, str (UUID) for Plane — widened alongside SaveConfigRequest
     # (phase 5a) once save_config actually started persisting a Plane project's

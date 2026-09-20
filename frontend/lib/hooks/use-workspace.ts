@@ -22,6 +22,7 @@ import {
   getBoltConfig,
   saveBoltConfig,
   getContextFiles,
+  getDeploymentLog,
   getContextWikiStatus,
   getFigmaToken,
   getGithubPat,
@@ -193,6 +194,16 @@ export function useContextFiles() {
     queryFn: () => getContextFiles(context!),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
+  });
+}
+
+export function useDeploymentLog(enabled: boolean) {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "deployment-log", context?.projectId],
+    queryFn: () => getDeploymentLog(context!),
+    enabled: Boolean(context) && enabled,
+    staleTime: 10 * 1000,
   });
 }
 

@@ -31,6 +31,7 @@ from backend.app.schemas.workspace import (
     ContextWikiStatusResponse,
     ContextWikiSyncRequest,
     ContextWikiSyncResponse,
+    DeploymentLogResponse,
     FigmaTokenResponse,
     GithubPackConfigResponse,
     GithubPatResponse,
@@ -597,6 +598,24 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "is_custom": _is_custom_context_filename(filename),
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
+
+
+@router.get("/deployment-log", response_model=DeploymentLogResponse)
+def get_deployment_log(ctx: RequestContext = Depends(get_request_context)):
+    import datetime
+
+    context = ContextService()
+    context.set_active(ctx)
+    content = context.read_context_file("deployment-log.md")
+    last_modified: str | None = None
+    try:
+        fpath = context.file_path("deployment-log.md")
+        if fpath.exists():
+            mtime = fpath.stat().st_mtime
+            last_modified = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).isoformat()
+    except Exception as _stat_exc:
+        _logger.debug("deployment-log: could not read mtime: %s", _stat_exc)
+    return {"content": content, "last_modified": last_modified}
 
 
 def _selected_context_file_labels(context: ContextService, filenames: list[str] | None = None) -> list[tuple[str, str]]:

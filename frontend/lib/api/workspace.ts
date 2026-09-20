@@ -5,6 +5,7 @@ import type { CreateProjectOptions, PmAuthContext, PmRequestContext } from "./pm
 import type {
   AuthContext,
   ContextFilesResponse,
+  DeploymentLogResponse,
   RequestContext,
 } from "./types";
 
@@ -231,6 +232,13 @@ export function deleteProject(context: AuthContext, projectId: number | string) 
 
 export function getContextFiles(context: RequestContext) {
   return apiRequest<ContextFilesResponse>("/api/workspace/context-files", { context });
+}
+
+// deployment-log.md — the audit trail Phase 5 appends to on every manual
+// gate pass and GitHub Actions dispatch/sync, never listed in the generic
+// context-files response (it's a log, not an editable spec artefact).
+export function getDeploymentLog(context: RequestContext) {
+  return apiRequest<DeploymentLogResponse>("/api/workspace/deployment-log", { context });
 }
 
 export type ContextWikiPage = {

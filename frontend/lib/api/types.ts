@@ -101,6 +101,11 @@ export type ExtraContextRequest = {
   extra_context_files?: string[];
 };
 
+export type DeploymentLogResponse = {
+  content: string;
+  last_modified: string | null;
+};
+
 export type Membership = {
   // Opaque membership key: a stringified numeric Taiga id — callers must
   // treat it as an opaque string, never parse or do arithmetic on it.

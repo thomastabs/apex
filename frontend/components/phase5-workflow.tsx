@@ -20,6 +20,7 @@ import {
   Plus,
   RefreshCw,
   Rocket,
+  ScrollText,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
@@ -51,7 +52,7 @@ import { useUpdatePmStoryStatus } from "@/lib/hooks/use-phase4";
 import { getDeployPack } from "@/lib/api/phase5";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
-import { useLogDecision } from "@/lib/hooks/use-workspace";
+import { useDeploymentLog, useLogDecision } from "@/lib/hooks/use-workspace";
 import { downloadZip } from "@/lib/utils/zip";
 import { SignInRequired } from "@/components/sign-in-required";
 import { StoryBreadcrumb } from "@/components/story-breadcrumb";
@@ -1549,6 +1550,8 @@ export function Phase5Workflow() {
   const context = useApiContext();
   const [stage, setStage] = useState<Stage>("A");
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [viewingLog, setViewingLog] = useState(false);
+  const deploymentLog = useDeploymentLog(viewingLog);
   const selectedStoryId = usePhase5Store((s) => s.selectedStoryId);
   const currentStoryMeta = usePhase5Store((s) => s.currentStoryMeta);
   const setSelectedStoryId = usePhase5Store((s) => s.setSelectedStoryId);
@@ -1579,17 +1582,93 @@ export function Phase5Workflow() {
   return (
     <section className="px-8 py-8">
       {/* Phase header */}
-      <div className="mb-7">
-        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 5 })}</p>
-        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          {t("phase5.heading")}
-        </h1>
-        <p className={cn("mt-2", mutedClass)}>
-          {t("phase5.subtitle")}
-        </p>
+      <div className="mb-7 flex items-start justify-between gap-4">
+        <div>
+          <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 5 })}</p>
+          <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+            {t("phase5.heading")}
+          </h1>
+          <p className={cn("mt-2", mutedClass)}>
+            {t("phase5.subtitle")}
+          </p>
+        </div>
+        {context && (
+          <Button
+            variant="secondary"
+            className="mt-1 shrink-0 gap-1.5"
+            onClick={() => setViewingLog(true)}
+          >
+            <ScrollText className="h-4 w-4" />
+            {t("phase5.viewDeploymentLog")}
+          </Button>
+        )}
       </div>
 
       {!context ? <SignInRequired unlocks={t("phase5.signInUnlocks")} /> : null}
+
+      {viewingLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setViewingLog(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("phase5.deploymentLogTitle")}
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+            onKeyDown={(e) => { if (e.key === "Escape") setViewingLog(false); }}
+            className={cn(
+              "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl outline-none",
+              dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
+              <ScrollText className="size-4 text-violet-400" />
+              <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
+                {t("phase5.deploymentLogTitle")}
+              </span>
+              {deploymentLog.data?.content && (
+                <>
+                  <button
+                    className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600")}
+                    title={t("phase5.download")}
+                    onClick={() => blobDownload(deploymentLog.data!.content, "deployment-log.md")}
+                  >
+                    <Download className="size-4" />
+                  </button>
+                  <button
+                    className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600")}
+                    title={t("common.copy")}
+                    onClick={() => { void navigator.clipboard.writeText(deploymentLog.data!.content); toast.success(t("common.copied")); }}
+                  >
+                    <Copy className="size-4" />
+                  </button>
+                </>
+              )}
+              <button
+                className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-red-400" : "text-slate-400 hover:text-red-500")}
+                title={t("phase5.close")}
+                onClick={() => setViewingLog(false)}
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto p-5">
+              {deploymentLog.isLoading && (
+                <p className={mutedClass}>{t("common.loading")}</p>
+              )}
+              {deploymentLog.isError && (
+                <p className="text-red-500">{t("phase5.deploymentLogError")}</p>
+              )}
+              {deploymentLog.data && !deploymentLog.data.content.trim() && (
+                <p className={mutedClass}>{t("phase5.deploymentLogEmpty")}</p>
+              )}
+              {deploymentLog.data?.content ? (
+                <MarkdownPreview content={deploymentLog.data.content} dark={dark} className="border-0 !bg-transparent !p-0" />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>

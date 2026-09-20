@@ -16,6 +16,7 @@ from backend.app.api.workspace import (
     get_ai_config,
     get_config,
     get_context_files,
+    get_deployment_log,
     get_figma_token,
     generate_agent_file,
     get_github_pat,
@@ -990,6 +991,31 @@ def test_log_decision_appends_and_lists_in_context_files(ctx):
     assert decisions["label"] == "Decision Log"
     assert "Discarded regen" in decisions["content"]
     assert "Kept previous" in decisions["content"]
+
+
+# ── get_deployment_log ────────────────────────────────────────────────────────
+
+
+def test_get_deployment_log_empty_before_any_deployment(ctx):
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    result = get_deployment_log(rc)
+    assert result["content"] == ""
+    assert result["last_modified"] is None
+
+
+def test_get_deployment_log_returns_recorded_entries(ctx):
+    ctx.append_deployment_record(
+        10, "User Login", bypass=False, pack_present=True, sign_offs=["tech_lead", "devops"],
+    )
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    result = get_deployment_log(rc)
+    assert "Deployment — Story 10" in result["content"]
+    assert "User Login" in result["content"]
+    assert result["last_modified"] is not None
+    # Not exposed through the generic context-files list — it's a log, not
+    # an editable spec artefact (no lock/version/wiki-sync semantics).
+    files = get_context_files(rc)
+    assert all(f["filename"] != "deployment-log.md" for f in files["files"])
 
 
 def test_stats_lists_trace_flags(ctx):
