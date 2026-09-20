@@ -62,11 +62,12 @@ test("Phase 6 Maintenance Triage: intake → classify → diagnose → fix brief
   await expect(page.getByText(/Fast Lane — deploy record/i)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(/Routed:.*fast.*lane/i)).toBeVisible({ timeout: 10_000 });
 
-  // Resolve (Fix Log)
+  // Resolve (Fix Log) — relocated next to Delete, labelled by classification.
   await waitForToastsGone(page);
-  await page.getByRole("button", { name: /Resolve \(record fix\)/i }).click();
-  await expect(page.getByText(/Resolved — fix logged/i)).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText(/Resolved — fix recorded in fix-log\.md/i)).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: /Record Fix/i }).click();
+  await expect(page.getByText(/Resolved - fix logged/i)).toBeVisible({ timeout: 10_000 });
+  // Both the header badge and the list item's status chip now read "Resolved".
+  await expect(page.getByText("Resolved", { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 });
 
 test("Phase 6 Spec Drift: verify conformance and scan for regressions", async ({ page }) => {
