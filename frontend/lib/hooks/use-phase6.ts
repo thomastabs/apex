@@ -271,7 +271,7 @@ export function useResolveItem() {
       resolveMaintenanceItem(context!, itemId, rootCause, resolutionSummary),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] });
-      toast.success("Resolved — fix logged");
+      toast.success("Resolved - fix logged");
     },
     meta: { errorLabel: "op.resolveItem" },
   });

@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowRight, Figma, GitBranch, Github, Loader2, Plus, ShieldCheck, Trash2, Zap,
+  ArrowRight, CheckCircle2, Figma, GitBranch, Github, Loader2, Plus, ShieldCheck, Trash2, Zap,
 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { CancelButton } from "@/components/ui/cancel-button";
@@ -421,16 +421,43 @@ export function MaintenanceTriage() {
                   <h3 className={cn("text-base font-bold", dark ? "text-white" : "text-slate-900")}><span className="font-mono">#{selected.id}</span> {selected.subject}</h3>
                   {selected.description ? <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-600")}>{selected.description}</p> : null}
                 </div>
-                <Button
-                  variant="danger"
-                  onClick={() => deleteItem(selected)}
-                  disabled={del.isPending}
-                  title="Delete this maintenance item"
-                  className="shrink-0"
-                >
-                  {del.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  Delete
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {selected.status === "resolved" ? (
+                    <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-500">
+                      Resolved
+                    </span>
+                  ) : selected.classification !== "unclassified" ? (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        const isChangeRequest = selected.classification === "change_request";
+                        if (!window.confirm(
+                          isChangeRequest
+                            ? "Mark this change request resolved? This writes a permanent record to fix-log.md - use this once the Phase 1 work it produced has shipped."
+                            : "Mark this item resolved? This writes a permanent record to fix-log.md.",
+                        )) return;
+                        resolve.mutate({
+                          itemId: selected.id,
+                          resolutionSummary: isChangeRequest ? "Resolved via Phase 1 discovery." : undefined,
+                        });
+                      }}
+                      disabled={resolve.isPending}
+                      title="Record this item's fix or change as resolved"
+                    >
+                      {resolve.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      {selected.classification === "change_request" ? "Record Change" : "Record Fix"}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="danger"
+                    onClick={() => deleteItem(selected)}
+                    disabled={del.isPending}
+                    title="Delete this maintenance item"
+                  >
+                    {del.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Delete
+                  </Button>
+                </div>
               </div>
 
               {/* F1 classify */}
@@ -674,20 +701,6 @@ export function MaintenanceTriage() {
                 </div>
               ) : null}
 
-              {/* resolve (Fix Log) */}
-              {selected.status !== "resolved" && selected.classification === "bug" ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    if (!window.confirm("Mark this item resolved? This writes a permanent record to fix-log.md.")) return;
-                    resolve.mutate({ itemId: selected.id });
-                  }}
-                  disabled={resolve.isPending}
-                >
-                  {resolve.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Resolve (record fix)
-                </Button>
-              ) : null}
-              {selected.status === "resolved" ? <Callout variant="success">Resolved — fix recorded in fix-log.md.</Callout> : null}
             </div>
           ) : null}
         </div>

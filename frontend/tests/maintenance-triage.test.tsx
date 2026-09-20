@@ -55,7 +55,7 @@ vi.mock("@/lib/api/phase1", () => ({
 }));
 
 import { MaintenanceTriage } from "@/components/maintenance-triage";
-import { classifyMaintenanceItem, classifyPlacement, routeMaintenanceItem } from "@/lib/api/phase6";
+import { classifyMaintenanceItem, classifyPlacement, resolveMaintenanceItem, routeMaintenanceItem } from "@/lib/api/phase6";
 import { usePhase1IntakeStore } from "@/lib/stores/phase1-intake-store";
 
 function renderTriage() {
@@ -131,6 +131,22 @@ describe("MaintenanceTriage", () => {
     expect(pending?.fromMaintenanceItemId).toBe(1);
     // The raw item subject/description must never vanish, even with no AI call.
     expect(pending?.nlDraft).toContain("Add export");
+  });
+
+  it("records a change request as resolved next to Delete, confirming Phase 1 progress", async () => {
+    renderTriage();
+    await waitFor(() => expect(screen.getAllByText(/Add export/).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText(/Add export/)[0]);
+
+    // Available immediately once classified - no diagnose/fix-brief detour
+    // required, unlike a bug's path to resolution.
+    const recordBtn = await screen.findByRole("button", { name: /Record Change/i });
+    expect(screen.getByRole("button", { name: /^Delete$/i })).toBeInTheDocument();
+
+    fireEvent.click(recordBtn);
+    await waitFor(() => expect(vi.mocked(resolveMaintenanceItem)).toHaveBeenCalledWith(
+      expect.anything(), 1, undefined, "Resolved via Phase 1 discovery.",
+    ));
   });
 
   it("routes a fix-ready item down the Secure Lane", async () => {
