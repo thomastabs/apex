@@ -25,7 +25,16 @@ from src.storage import StoragePath as Path
 _logger = logging.getLogger("apex.context_manager")
 
 _BASE_CONTEXTSPEC = Path("contextspec")
-_CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
+# A bare filename, not a precomputed Path - every other config-file constant in
+# this module (_INSTANCE_CONFIG_FILE, _PROJECT_GITHUB_CONFIG_FILE, ...) is
+# joined against its directory function at each call site for the same
+# reason: _BASE_CONTEXTSPEC / ".apex-config.json" evaluated once here, at
+# import time, would freeze in the real _BASE_CONTEXTSPEC before tests get a
+# chance to monkeypatch it, silently pointing every test at this repo's own
+# real contextspec/.apex-config.json instead of the test's isolated tmp_path
+# (found 2026-09-21: a stale real pm_tool="plane" in that file was making
+# test_route_reconstruct_happy take the Plane branch and fail).
+_CONFIG_FILENAME = ".apex-config.json"
 
 # Workspace config cache (audit H4). In Azure mode the config lives on the File
 # Share, so an uncached load_config() is a network round-trip — and deps.py /
@@ -382,10 +391,11 @@ def load_usage_events(days: int = 30) -> list[dict]:
 
 def _read_config_file() -> dict:
     """Read and parse the config file directly, bypassing the cache. {} if missing/corrupt."""
-    if not _CONFIG_FILE.exists():
+    config_file = _BASE_CONTEXTSPEC / _CONFIG_FILENAME
+    if not config_file.exists():
         return {}
     try:
-        return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+        return json.loads(config_file.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         _logger.warning("load_config: config file is corrupt (%s) — returning empty config", exc)
         return {}
@@ -421,7 +431,7 @@ def _update_config(mutate, *, log_label: str) -> None:
             _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
             data = _read_config_file()
             mutate(data)
-            _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            (_BASE_CONTEXTSPEC / _CONFIG_FILENAME).write_text(json.dumps(data, indent=2), encoding="utf-8")
             _prime_config_cache(data)
     except TimeoutError as exc:
         # A distributed-lock timeout is an OSError subclass, so it used to be

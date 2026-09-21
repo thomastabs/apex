@@ -1188,7 +1188,6 @@ class TestConfig:
     def test_save_and_load_round_trip(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
         cm.save_config(1786966)
         assert cm.load_config()["project_id"] == 1786966
 
@@ -1198,7 +1197,6 @@ class TestConfig:
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
         cfg_file = tmp_path / ".apex-config.json"
-        monkeypatch.setattr(cm, "_CONFIG_FILE", cfg_file)
         # Simulate a stale file that has an auth_token from an older version.
         cfg_file.write_text(json.dumps({"project_id": 1, "auth_token": "stale-tok"}))
         cm.save_config(42)
@@ -1208,14 +1206,14 @@ class TestConfig:
 
     def test_load_returns_empty_when_file_missing(self, tmp_path, monkeypatch):
         from src import context_manager as cm
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
         assert cm.load_config() == {}
 
     def test_load_returns_empty_on_corrupt_file(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         f = tmp_path / ".apex-config.json"
         f.write_text("{broken json", encoding="utf-8")
-        monkeypatch.setattr(cm, "_CONFIG_FILE", f)
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
         assert cm.load_config() == {}
 
     def test_set_active_project_does_not_write_config(self, tmp_path, monkeypatch):
@@ -1224,7 +1222,6 @@ class TestConfig:
         file. Persistence is the frontend's explicit POST /workspace/config."""
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
         token = cm._active_project_id.set(0)
         try:
             cm.set_active_project(42)
@@ -1242,7 +1239,7 @@ class TestConfig:
         from src import context_manager as cm
         f = tmp_path / ".apex-config.json"
         f.write_text(json.dumps({"project_id": 1}), encoding="utf-8")
-        monkeypatch.setattr(cm, "_CONFIG_FILE", f)
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
 
         assert cm.load_config()["project_id"] == 1
         # Edit the file behind the cache's back; within TTL the cached value stands.
@@ -1259,7 +1256,7 @@ class TestConfig:
         from src import context_manager as cm
         f = tmp_path / ".apex-config.json"
         f.write_text(json.dumps({"project_id": 1}), encoding="utf-8")
-        monkeypatch.setattr(cm, "_CONFIG_FILE", f)
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
 
         first = cm.load_config()
         first["mutated"] = True
@@ -1268,7 +1265,6 @@ class TestConfig:
     def test_save_primes_cache_with_written_value(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
         cm.save_pm_config(pm_tool="taiga", taiga_url="https://acme.example.com/api/v1")
         cfg = cm.load_config()
         assert cfg["pm_tool"] == "taiga"
@@ -1278,7 +1274,6 @@ class TestConfig:
         """Serialised read-modify-write: one save must not drop another's field."""
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
         cm.save_config(42)
         cm.save_pm_config(pm_tool="taiga")
         cm.save_pm_config(taiga_url="https://acme.example.com/api/v1")
