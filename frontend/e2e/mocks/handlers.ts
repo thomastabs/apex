@@ -145,6 +145,23 @@ const FAKE_STORY_CONTEXT = {
   design_bundle: "## UX Brief\n- Login screen\n## Endpoints\n- POST /auth/login\n## Data Model\n### User",
 };
 
+// Shared by POST /conformance, GET /conformance/10, and /conformance-all -
+// all three represent the same verified story 10 report at different points
+// in its lifecycle (just-verified, re-fetched after an invalidation, and
+// bulk-exported), so they must stay in sync with each other.
+const SPEC_DRIFT_REPORT = {
+  story_id: 10,
+  title: "User Login",
+  epic_title: "Authentication",
+  layer: "single",
+  score: 92,
+  summary: "Login endpoint matches the spec.",
+  endpoints: [{ contract: "POST /auth/login", status: "present", location: "backend/app/api/auth.py", notes: "" }],
+  scenarios: [{ scenario: "Successful login", status: "tested", test_location: "tests/test_auth.py", notes: "" }],
+  constraints: [],
+  generated_at: "2026-07-01T00:00:00Z",
+};
+
 const FAKE_NL_DRAFT =
   "1. As a registered user, I want to log in with my email and password so I can access the system.\n\n2. As a user, I want to reset my password via email so I can regain access if I forget it.";
 
@@ -552,26 +569,26 @@ export async function applyMocks(page: Page) {
     route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "No conformance report yet." }) }),
   );
 
+  // Real GET /conformance/{id} re-serves the saved report once verified (the
+  // scan-regressions success handler invalidates this query, forcing a
+  // refetch) - registered AFTER the blanket 404 above so it wins for story
+  // 10 specifically (last-registered route wins), same as the 500-override
+  // pattern in analytics-dashboard.spec.ts.
+  await page.route(`${api}/api/phase6/conformance/10`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(SPEC_DRIFT_REPORT),
+    }),
+  );
+
   // The "export all stories" CSV/Markdown buttons fetch this on click -
   // mirrors whatever /conformance currently returns, once verified.
   await page.route(`${api}/api/phase6/conformance-all`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        reports: [{
-          story_id: 10,
-          title: "User Login",
-          epic_title: "Authentication",
-          layer: "single",
-          score: 92,
-          summary: "Login endpoint matches the spec.",
-          endpoints: [{ contract: "POST /auth/login", status: "present", location: "backend/app/api/auth.py", notes: "" }],
-          scenarios: [{ scenario: "Successful login", status: "tested", test_location: "tests/test_auth.py", notes: "" }],
-          constraints: [],
-          generated_at: "2026-07-01T00:00:00Z",
-        }],
-      }),
+      body: JSON.stringify({ reports: [SPEC_DRIFT_REPORT] }),
     }),
   );
 
@@ -579,18 +596,7 @@ export async function applyMocks(page: Page) {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        story_id: 10,
-        title: "User Login",
-        epic_title: "Authentication",
-        layer: "single",
-        score: 92,
-        summary: "Login endpoint matches the spec.",
-        endpoints: [{ contract: "POST /auth/login", status: "present", location: "backend/app/api/auth.py", notes: "" }],
-        scenarios: [{ scenario: "Successful login", status: "tested", test_location: "tests/test_auth.py", notes: "" }],
-        constraints: [],
-        generated_at: "2026-07-01T00:00:00Z",
-      }),
+      body: JSON.stringify(SPEC_DRIFT_REPORT),
     }),
   );
 
