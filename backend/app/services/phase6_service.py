@@ -52,6 +52,25 @@ class Phase6Service:
             })
         return sorted(stories, key=lambda s: s["story_id"])
 
+    def get_all_conformance(self, ctx: RequestContext) -> list[dict]:
+        """Every eligible story's saved conformance report, for a full export
+        (CSV/Markdown) covering all stories checked so far - not just the one
+        currently selected in the Spec Drift panel. Skips stories never
+        verified rather than padding the export with empty reports."""
+        self.configure_request(ctx)
+        index = self.context.story_index()
+        reports = []
+        for entry in index.values():
+            if entry.get("phase_status", "") not in _CONFORMANCE_STATUSES:
+                continue
+            story_id = entry.get("story_id")
+            if not story_id:
+                continue
+            report = self.context.load_conformance(story_id)
+            if report:
+                reports.append(report)
+        return sorted(reports, key=lambda r: r["story_id"])
+
     def _story_inputs(self, story_id: int) -> dict:
         index = self.context.story_index()
         entry = index.get(str(story_id)) or {}

@@ -549,6 +549,29 @@ export async function applyMocks(page: Page) {
     route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "No conformance report yet." }) }),
   );
 
+  // The "export all stories" CSV/Markdown buttons fetch this on click -
+  // mirrors whatever /conformance currently returns, once verified.
+  await page.route(`${api}/api/phase6/conformance-all`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        reports: [{
+          story_id: 10,
+          title: "User Login",
+          epic_title: "Authentication",
+          layer: "single",
+          score: 92,
+          summary: "Login endpoint matches the spec.",
+          endpoints: [{ contract: "POST /auth/login", status: "present", location: "backend/app/api/auth.py", notes: "" }],
+          scenarios: [{ scenario: "Successful login", status: "tested", test_location: "tests/test_auth.py", notes: "" }],
+          constraints: [],
+          generated_at: "2026-07-01T00:00:00Z",
+        }],
+      }),
+    }),
+  );
+
   await page.route(`${api}/api/phase6/conformance`, (route) =>
     route.fulfill({
       status: 200,

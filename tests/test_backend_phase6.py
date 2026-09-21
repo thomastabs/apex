@@ -139,6 +139,22 @@ def test_eligible_stories_filters_and_reports_score(ctx):
     assert by[3]["has_conformance"] is False and by[3]["score"] is None
 
 
+def test_get_all_conformance_returns_full_reports_for_every_verified_eligible_story(ctx):
+    # Regression test for the "export all stories, not just the selected one"
+    # feature: get_all_conformance must return the FULL saved report (not just
+    # the score summary get_eligible_stories exposes), for every eligible
+    # story that has one, skipping both ineligible stories and eligible ones
+    # never verified.
+    svc, _, context = _service()
+    svc.verify_conformance(ctx, 1, ai=False)  # story 2 (design_locked) stays ineligible
+    # Story 3 is eligible (deployed) but never verified - no saved report yet.
+    reports = svc.get_all_conformance(ctx)
+    assert [r["story_id"] for r in reports] == [1]
+    assert reports[0]["title"] == "Login"
+    assert reports[0]["score"] == 40
+    assert reports[0]["endpoints"] == []  # full report shape, not the summary one
+
+
 def test_verify_deterministic_only_no_ai(ctx):
     svc, ai, context = _service()
     report = svc.verify_conformance(ctx, 1, ai=False)

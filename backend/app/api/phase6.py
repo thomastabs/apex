@@ -8,6 +8,7 @@ from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.ai_errors import handle_ai_error
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase6 import (
+    AllConformanceReportsResponse,
     ChangeRequestPlacementResponse,
     ClassifyPlacementRequest,
     ConformanceReportResponse,
@@ -54,6 +55,20 @@ def eligible_stories(
 ):
     try:
         return {"stories": service.get_eligible_stories(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/conformance-all", response_model=AllConformanceReportsResponse)
+def get_all_conformance(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase6Service = Depends(get_phase6_service),
+):
+    """Every eligible story's saved report, for the full CSV/Markdown export -
+    distinct path (not /conformance/{story_id}) so "all" can never be parsed
+    as a story id."""
+    try:
+        return {"reports": service.get_all_conformance(ctx)}
     except Exception as exc:
         _handle_error(exc)
 

@@ -1,6 +1,7 @@
 import { ApiError, apiRequest } from "./client";
 import type { ExistingEpicInput } from "./phase1";
 import type {
+  AllConformanceReportsResponse,
   ChangeRequestPlacement,
   ConformanceEligibleStoriesResponse,
   ConformanceReport,
@@ -47,6 +48,13 @@ export async function getConformanceReport(
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;
   }
+}
+
+// Every eligible story's full saved report, for the "export everything checked
+// so far" CSV/Markdown - distinct from getConformanceEligibleStories, which
+// only carries the score summary, not endpoints/scenarios/constraints.
+export function getAllConformanceReports(context: RequestContext) {
+  return apiRequest<AllConformanceReportsResponse>("/api/phase6/conformance-all", { context });
 }
 
 // Re-verifies every story with a prior report — a full re-verify each, so allow the long timeout.

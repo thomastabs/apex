@@ -26,6 +26,7 @@ import type {
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
 import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
+import { getAllConformanceReports } from "@/lib/api/phase6";
 
 const STATUS_STYLE: Record<string, string> = {
   present: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -63,21 +64,45 @@ function blobDownload(content: string, filename: string, type = "text/plain") {
 
 // English-only, same as Analytics' own export - data artifacts stay
 // locale-independent regardless of the UI language.
-function toConformanceCsv(stories: ConformanceEligibleStory[]): string {
-  const lines = ["story_id,title,epic,phase_status,checked,score"];
+//
+// Both exports cover EVERY eligible story's full report, not just the one
+// currently selected in the panel - one row/section per finding (endpoint,
+// scenario, constraint) across all stories checked so far, joined against
+// the eligible-stories list so a never-verified story still shows up with
+// its status and an empty score, rather than being silently dropped.
+function toConformanceCsv(stories: ConformanceEligibleStory[], allReports: ConformanceReport[]): string {
+  const byId = new Map(allReports.map((r) => [r.story_id, r]));
+  const esc = (s: string) => `"${s.replaceAll('"', '""')}"`;
+  const lines = ["story_id,title,epic,phase_status,score,kind,ref,status,location,notes"];
   for (const s of stories) {
-    const title = `"${s.title.replaceAll('"', '""')}"`;
-    const epic = `"${s.epic_title.replaceAll('"', '""')}"`;
-    lines.push(`${s.story_id},${title},${epic},${s.phase_status},${s.has_conformance},${s.score ?? ""}`);
+    const report = byId.get(s.story_id);
+    const base = `${s.story_id},${esc(s.title)},${esc(s.epic_title)},${s.phase_status},${report?.score ?? ""}`;
+    if (!report) {
+      lines.push(`${base},,,,,`);
+      continue;
+    }
+    const rows = [
+      ...report.endpoints.map((e) => ({ kind: "endpoint", ref: e.contract, status: e.status, loc: e.location, notes: e.notes })),
+      ...report.scenarios.map((sc) => ({ kind: "scenario", ref: sc.scenario, status: sc.status, loc: sc.test_location, notes: sc.notes })),
+      ...report.constraints.map((c) => ({ kind: "constraint", ref: c.constraint_id, status: c.status, loc: "", notes: c.evidence })),
+    ];
+    if (rows.length === 0) {
+      lines.push(`${base},,,,`);
+      continue;
+    }
+    for (const r of rows) {
+      lines.push(`${base},${r.kind},${esc(r.ref)},${r.status},${esc(r.loc)},${esc(r.notes)}`);
+    }
   }
   return lines.join("\n");
 }
 
 function toConformanceMarkdown(
   stories: ConformanceEligibleStory[],
-  report: ConformanceReport | null,
+  allReports: ConformanceReport[],
   scanReport: ScanReport | null,
 ): string {
+  const byId = new Map(allReports.map((r) => [r.story_id, r]));
   const lines = [
     "# Apex Spec Drift - Code Conformance",
     "",
@@ -91,31 +116,42 @@ function toConformanceMarkdown(
     "",
   ];
 
-  if (report) {
+  const section = (heading: string, rows: { label: string; status: string; loc: string; detail: string }[]) => {
+    lines.push(`#### ${heading} (${rows.length})`, "");
+    if (rows.length === 0) {
+      lines.push("None in spec.", "");
+      return;
+    }
+    lines.push("| Status | Item | Notes |", "|---|---|---|");
+    for (const r of rows) {
+      lines.push(`| ${r.status} | ${r.label}${r.loc ? ` (${r.loc})` : ""} | ${r.detail.replaceAll("\n", " ")} |`);
+    }
+    lines.push("");
+  };
+
+  for (const s of stories) {
+    const report = byId.get(s.story_id);
+    if (!report) continue;
     lines.push(
-      `## Selected Story: US#${report.story_id} ${report.title}`,
+      `## US#${report.story_id} ${report.title}`,
       "",
       `Epic: ${report.epic_title} - Score: ${report.score}/100 - Layer: ${report.layer} - Generated: ${report.generated_at.slice(0, 16).replace("T", " ")}`,
       "",
     );
     if (report.summary) lines.push(report.summary, "");
-
-    const section = (heading: string, rows: { label: string; status: string; loc: string; detail: string }[]) => {
-      lines.push(`### ${heading} (${rows.length})`, "");
-      if (rows.length === 0) {
-        lines.push("None in spec.", "");
-        return;
-      }
-      lines.push("| Status | Item | Notes |", "|---|---|---|");
-      for (const r of rows) {
-        lines.push(`| ${r.status} | ${r.label}${r.loc ? ` (${r.loc})` : ""} | ${r.detail.replaceAll("\n", " ")} |`);
-      }
-      lines.push("");
-    };
-
     section("Endpoint Contracts", report.endpoints.map((e) => ({ label: e.contract, status: e.status, loc: e.location, detail: e.notes })));
-    section("Behavioural Scenarios", report.scenarios.map((s) => ({ label: s.scenario, status: s.status, loc: s.test_location, detail: s.notes })));
+    section("Behavioural Scenarios", report.scenarios.map((sc) => ({ label: sc.scenario, status: sc.status, loc: sc.test_location, detail: sc.notes })));
     section("Constraints (Advisory)", report.constraints.map((c) => ({ label: c.constraint_id, status: c.status, loc: "", detail: c.evidence })));
+  }
+
+  const unverified = stories.filter((s) => !byId.has(s.story_id));
+  if (unverified.length > 0) {
+    lines.push(
+      "## Not Yet Verified",
+      "",
+      ...unverified.map((s) => `- US#${s.story_id} ${s.title} (${s.phase_status})`),
+      "",
+    );
   }
 
   if (scanReport) {
@@ -378,6 +414,7 @@ function TraceabilityPanel() {
   const verify = useVerifyConformance();
   const scan = useScanRegressions();
   const [scanReport, setScanReport] = useState<ScanReport | null>(null);
+  const [exportingReports, setExportingReports] = useState<"csv" | "markdown" | null>(null);
   const [conformanceExtraContext, setConformanceExtraContext] = useState<string[]>([]);
   const availableGroundingFiles = useGroundingFiles();
 
@@ -410,6 +447,28 @@ function TraceabilityPanel() {
       { panel: false, extraContextFiles: conformanceExtraContext },
       { onSuccess: (report: ScanReport) => setScanReport(report) },
     );
+  }
+
+  // Fetches every eligible story's full saved report on demand (not kept warm
+  // like the score-only summary), so the export always reflects everything
+  // checked so far - not just whichever story happens to be selected.
+  async function exportAllReports(kind: "csv" | "markdown") {
+    if (!context) return;
+    setExportingReports(kind);
+    try {
+      const { reports: allReports } = await getAllConformanceReports(context);
+      if (kind === "csv") {
+        blobDownload(toConformanceCsv(stories, allReports), "apex-spec-drift.csv", "text/csv");
+        toast.success(t("phase6.toast.csvExported"));
+      } else {
+        blobDownload(toConformanceMarkdown(stories, allReports, scanReport), "apex-spec-drift.md", "text/markdown");
+        toast.success(t("phase6.toast.markdownExported"));
+      }
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setExportingReports(null);
+    }
   }
 
   // #1 v2: fetch a single file and re-verify with it in context — resolves `unknown` rows.
@@ -546,26 +605,22 @@ function TraceabilityPanel() {
                 <Button
                   variant="secondary"
                   className="gap-1.5"
-                  onClick={() => {
-                    blobDownload(toConformanceCsv(stories), "apex-spec-drift.csv", "text/csv");
-                    toast.success(t("phase6.toast.csvExported"));
-                  }}
-                  disabled={stories.length === 0}
+                  onClick={() => void exportAllReports("csv")}
+                  disabled={stories.length === 0 || exportingReports !== null}
                   title={t("phase6.exportCsvTitle")}
                 >
-                  <Download className="h-4 w-4" /> {t("phase6.exportCsv")}
+                  {exportingReports === "csv" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {t("phase6.exportCsv")}
                 </Button>
                 <Button
                   variant="secondary"
                   className="gap-1.5"
-                  onClick={() => {
-                    blobDownload(toConformanceMarkdown(stories, report, scanReport), "apex-spec-drift.md", "text/markdown");
-                    toast.success(t("phase6.toast.markdownExported"));
-                  }}
-                  disabled={stories.length === 0}
+                  onClick={() => void exportAllReports("markdown")}
+                  disabled={stories.length === 0 || exportingReports !== null}
                   title={t("phase6.exportMarkdownTitle")}
                 >
-                  <Download className="h-4 w-4" /> {t("phase6.exportMarkdown")}
+                  {exportingReports === "markdown" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {t("phase6.exportMarkdown")}
                 </Button>
               </div>
             </div>

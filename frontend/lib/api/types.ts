@@ -868,6 +868,10 @@ export type ScanResultRow = {
   worsened_rows: WorsenedRow[];
 };
 
+export type AllConformanceReportsResponse = {
+  reports: ConformanceReport[];
+};
+
 export type ScanReport = {
   results: ScanResultRow[];
   regressed_ids: number[];

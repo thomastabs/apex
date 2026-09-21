@@ -7,6 +7,7 @@ from backend.app.api.deps import get_request_context
 from backend.app.api.phase6 import (
     acknowledge_regression,
     eligible_stories,
+    get_all_conformance,
     get_conformance,
     scan_regressions,
     verify_conformance,
@@ -44,6 +45,9 @@ class StubPhase6Service:
 
     def get_conformance(self, ctx, story_id):
         return {**_REPORT, "story_id": story_id} if story_id == 10 else None
+
+    def get_all_conformance(self, ctx):
+        return [{**_REPORT, "story_id": 10}]
 
     def scan_regressions(self, ctx, *, panel=False):
         return {
@@ -113,6 +117,12 @@ def test_acknowledge_regression_route():
 def test_get_conformance_route():
     result = get_conformance(story_id=10, ctx=_ctx(), service=StubPhase6Service())
     assert result["story_id"] == 10 and result["score"] == 75
+
+
+def test_get_all_conformance_route():
+    result = get_all_conformance(ctx=_ctx(), service=StubPhase6Service())
+    assert result["reports"][0]["story_id"] == 10
+    assert result["reports"][0]["score"] == 75
 
 
 def test_get_conformance_404_when_absent():

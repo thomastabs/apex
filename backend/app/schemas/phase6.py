@@ -70,6 +70,12 @@ class ConformanceReportResponse(BaseModel):
     panel_meta: Optional[PanelMetaSchema] = None
 
 
+class AllConformanceReportsResponse(BaseModel):
+    # Every eligible story's saved report - the full CSV/Markdown export reads
+    # this instead of the single selected story's ConformanceReportResponse.
+    reports: list[ConformanceReportResponse] = Field(default_factory=list)
+
+
 class SupplementalFile(BaseModel):
     path: str = Field(max_length=300)
     content: str = Field(max_length=100_000)
