@@ -90,13 +90,23 @@ test("Phase 6 Spec Drift: verify conformance and scan for regressions", async ({
   await page.getByRole("button", { name: /Scan for regressions/i }).click();
   await expect(page.getByText(/No regressions/i)).toBeVisible({ timeout: 15_000 });
 
-  // Export the conformance data/reports, same pattern as Analytics.
+  // Per-story export: the selected story's own report only.
   await waitForToastsGone(page);
-  const csvDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: /Export CSV/i }).click();
-  expect((await csvDownload).suggestedFilename()).toBe("apex-spec-drift.csv");
+  const storyCsvDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV", exact: true }).click();
+  expect((await storyCsvDownload).suggestedFilename()).toBe("apex-spec-drift-us10.csv");
 
-  const mdDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: /Export Markdown/i }).click();
-  expect((await mdDownload).suggestedFilename()).toBe("apex-spec-drift.md");
+  const storyMdDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export Markdown", exact: true }).click();
+  expect((await storyMdDownload).suggestedFilename()).toBe("apex-spec-drift-us10.md");
+
+  // Export All: every verified story, always visible next to the header -
+  // same pattern as Analytics' own all-stories export.
+  const allCsvDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Export All CSV/i }).click();
+  expect((await allCsvDownload).suggestedFilename()).toBe("apex-spec-drift.csv");
+
+  const allMdDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Export All Markdown/i }).click();
+  expect((await allMdDownload).suggestedFilename()).toBe("apex-spec-drift.md");
 });

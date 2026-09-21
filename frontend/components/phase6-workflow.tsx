@@ -64,37 +64,85 @@ function blobDownload(content: string, filename: string, type = "text/plain") {
 
 // English-only, same as Analytics' own export - data artifacts stay
 // locale-independent regardless of the UI language.
-//
-// Both exports cover EVERY eligible story's full report, not just the one
-// currently selected in the panel - one row/section per finding (endpoint,
-// scenario, constraint) across all stories checked so far, joined against
-// the eligible-stories list so a never-verified story still shows up with
-// its status and an empty score, rather than being silently dropped.
+
+const csvEsc = (s: string) => `"${s.replaceAll('"', '""')}"`;
+
+// Flat kind/ref/status/location/notes rows for one report - shared by both
+// the single-story CSV and the all-stories one.
+function reportFindingRows(report: ConformanceReport) {
+  return [
+    ...report.endpoints.map((e) => ({ kind: "endpoint", ref: e.contract, status: e.status, loc: e.location, notes: e.notes })),
+    ...report.scenarios.map((sc) => ({ kind: "scenario", ref: sc.scenario, status: sc.status, loc: sc.test_location, notes: sc.notes })),
+    ...report.constraints.map((c) => ({ kind: "constraint", ref: c.constraint_id, status: c.status, loc: "", notes: c.evidence })),
+  ];
+}
+
+function toSingleReportCsv(report: ConformanceReport): string {
+  const lines = ["kind,ref,status,location,notes"];
+  for (const r of reportFindingRows(report)) {
+    lines.push(`${r.kind},${csvEsc(r.ref)},${r.status},${csvEsc(r.loc)},${csvEsc(r.notes)}`);
+  }
+  return lines.join("\n");
+}
+
+// Every eligible story's full report, not just the one currently selected -
+// one row per finding across all stories checked so far, joined against the
+// eligible-stories list so a never-verified story still shows up with its
+// status and an empty score, rather than being silently dropped.
 function toConformanceCsv(stories: ConformanceEligibleStory[], allReports: ConformanceReport[]): string {
   const byId = new Map(allReports.map((r) => [r.story_id, r]));
-  const esc = (s: string) => `"${s.replaceAll('"', '""')}"`;
   const lines = ["story_id,title,epic,phase_status,score,kind,ref,status,location,notes"];
   for (const s of stories) {
     const report = byId.get(s.story_id);
-    const base = `${s.story_id},${esc(s.title)},${esc(s.epic_title)},${s.phase_status},${report?.score ?? ""}`;
-    if (!report) {
-      lines.push(`${base},,,,,`);
-      continue;
-    }
-    const rows = [
-      ...report.endpoints.map((e) => ({ kind: "endpoint", ref: e.contract, status: e.status, loc: e.location, notes: e.notes })),
-      ...report.scenarios.map((sc) => ({ kind: "scenario", ref: sc.scenario, status: sc.status, loc: sc.test_location, notes: sc.notes })),
-      ...report.constraints.map((c) => ({ kind: "constraint", ref: c.constraint_id, status: c.status, loc: "", notes: c.evidence })),
-    ];
+    const base = `${s.story_id},${csvEsc(s.title)},${csvEsc(s.epic_title)},${s.phase_status},${report?.score ?? ""}`;
+    const rows = report ? reportFindingRows(report) : [];
     if (rows.length === 0) {
       lines.push(`${base},,,,`);
       continue;
     }
     for (const r of rows) {
-      lines.push(`${base},${r.kind},${esc(r.ref)},${r.status},${esc(r.loc)},${esc(r.notes)}`);
+      lines.push(`${base},${r.kind},${csvEsc(r.ref)},${r.status},${csvEsc(r.loc)},${csvEsc(r.notes)}`);
     }
   }
   return lines.join("\n");
+}
+
+// Header + summary + the three finding tables for one report - shared by
+// both the single-story Markdown export and the all-stories one.
+function reportMarkdownSection(report: ConformanceReport, headingLevel: "##" | "#"): string[] {
+  const lines = [
+    `${headingLevel} US#${report.story_id} ${report.title}`,
+    "",
+    `Epic: ${report.epic_title} - Score: ${report.score}/100 - Layer: ${report.layer} - Generated: ${report.generated_at.slice(0, 16).replace("T", " ")}`,
+    "",
+  ];
+  if (report.summary) lines.push(report.summary, "");
+
+  const section = (heading: string, rows: { label: string; status: string; loc: string; detail: string }[]) => {
+    lines.push(`${headingLevel}### ${heading} (${rows.length})`, "");
+    if (rows.length === 0) {
+      lines.push("None in spec.", "");
+      return;
+    }
+    lines.push("| Status | Item | Notes |", "|---|---|---|");
+    for (const r of rows) {
+      lines.push(`| ${r.status} | ${r.label}${r.loc ? ` (${r.loc})` : ""} | ${r.detail.replaceAll("\n", " ")} |`);
+    }
+    lines.push("");
+  };
+
+  section("Endpoint Contracts", report.endpoints.map((e) => ({ label: e.contract, status: e.status, loc: e.location, detail: e.notes })));
+  section("Behavioural Scenarios", report.scenarios.map((sc) => ({ label: sc.scenario, status: sc.status, loc: sc.test_location, detail: sc.notes })));
+  section("Constraints (Advisory)", report.constraints.map((c) => ({ label: c.constraint_id, status: c.status, loc: "", detail: c.evidence })));
+  return lines;
+}
+
+function toSingleReportMarkdown(report: ConformanceReport): string {
+  return [
+    "# Apex Spec Drift - Code Conformance",
+    "",
+    ...reportMarkdownSection(report, "#"),
+  ].join("\n");
 }
 
 function toConformanceMarkdown(
@@ -116,32 +164,10 @@ function toConformanceMarkdown(
     "",
   ];
 
-  const section = (heading: string, rows: { label: string; status: string; loc: string; detail: string }[]) => {
-    lines.push(`#### ${heading} (${rows.length})`, "");
-    if (rows.length === 0) {
-      lines.push("None in spec.", "");
-      return;
-    }
-    lines.push("| Status | Item | Notes |", "|---|---|---|");
-    for (const r of rows) {
-      lines.push(`| ${r.status} | ${r.label}${r.loc ? ` (${r.loc})` : ""} | ${r.detail.replaceAll("\n", " ")} |`);
-    }
-    lines.push("");
-  };
-
   for (const s of stories) {
     const report = byId.get(s.story_id);
     if (!report) continue;
-    lines.push(
-      `## US#${report.story_id} ${report.title}`,
-      "",
-      `Epic: ${report.epic_title} - Score: ${report.score}/100 - Layer: ${report.layer} - Generated: ${report.generated_at.slice(0, 16).replace("T", " ")}`,
-      "",
-    );
-    if (report.summary) lines.push(report.summary, "");
-    section("Endpoint Contracts", report.endpoints.map((e) => ({ label: e.contract, status: e.status, loc: e.location, detail: e.notes })));
-    section("Behavioural Scenarios", report.scenarios.map((sc) => ({ label: sc.scenario, status: sc.status, loc: sc.test_location, detail: sc.notes })));
-    section("Constraints (Advisory)", report.constraints.map((c) => ({ label: c.constraint_id, status: c.status, loc: "", detail: c.evidence })));
+    lines.push(...reportMarkdownSection(report, "##"));
   }
 
   const unverified = stories.filter((s) => !byId.has(s.story_id));
@@ -471,6 +497,17 @@ function TraceabilityPanel() {
     }
   }
 
+  // The selected story's own already-loaded report - no fetch needed.
+  function exportSingleReport(kind: "csv" | "markdown") {
+    if (!report) return;
+    if (kind === "csv") {
+      blobDownload(toSingleReportCsv(report), `apex-spec-drift-us${report.story_id}.csv`, "text/csv");
+    } else {
+      blobDownload(toSingleReportMarkdown(report), `apex-spec-drift-us${report.story_id}.md`, "text/markdown");
+    }
+    toast.success(t(kind === "csv" ? "phase6.toast.csvExported" : "phase6.toast.markdownExported"));
+  }
+
   // #1 v2: fetch a single file and re-verify with it in context — resolves `unknown` rows.
   async function fetchAndReverify() {
     if (selectedId === null || !supPath.trim() || !github) return;
@@ -506,20 +543,20 @@ function TraceabilityPanel() {
             className="gap-1.5"
             onClick={() => void exportAllReports("csv")}
             disabled={stories.length === 0 || exportingReports !== null}
-            title={t("phase6.exportCsvTitle")}
+            title={t("phase6.exportAllCsvTitle")}
           >
             {exportingReports === "csv" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {t("phase6.exportCsv")}
+            {t("phase6.exportAllCsv")}
           </Button>
           <Button
             variant="secondary"
             className="gap-1.5"
             onClick={() => void exportAllReports("markdown")}
             disabled={stories.length === 0 || exportingReports !== null}
-            title={t("phase6.exportMarkdownTitle")}
+            title={t("phase6.exportAllMarkdownTitle")}
           >
             {exportingReports === "markdown" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {t("phase6.exportMarkdown")}
+            {t("phase6.exportAllMarkdown")}
           </Button>
         </div>
       </div>
@@ -628,6 +665,24 @@ function TraceabilityPanel() {
                 </Button>
                 {verify.isPending && <CancelButton onCancel={() => verify.cancel()} />}
                 {scan.isPending && <CancelButton onCancel={() => scan.cancel()} />}
+                <Button
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={() => exportSingleReport("csv")}
+                  disabled={!report}
+                  title={t("phase6.exportStoryCsvTitle")}
+                >
+                  <Download className="h-4 w-4" /> {t("phase6.exportCsv")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={() => exportSingleReport("markdown")}
+                  disabled={!report}
+                  title={t("phase6.exportStoryMarkdownTitle")}
+                >
+                  <Download className="h-4 w-4" /> {t("phase6.exportMarkdown")}
+                </Button>
               </div>
             </div>
             <AiGroundingNote
