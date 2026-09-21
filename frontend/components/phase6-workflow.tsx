@@ -493,10 +493,36 @@ function TraceabilityPanel() {
 
   return (
     <div className="space-y-6">
-      <SectionHeading>{t("phase6.explorerHeading")}</SectionHeading>
-      <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
-        {t("phase6.explorerDesc")}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <SectionHeading>{t("phase6.explorerHeading")}</SectionHeading>
+          <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
+            {t("phase6.explorerDesc")}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            variant="secondary"
+            className="gap-1.5"
+            onClick={() => void exportAllReports("csv")}
+            disabled={stories.length === 0 || exportingReports !== null}
+            title={t("phase6.exportCsvTitle")}
+          >
+            {exportingReports === "csv" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {t("phase6.exportCsv")}
+          </Button>
+          <Button
+            variant="secondary"
+            className="gap-1.5"
+            onClick={() => void exportAllReports("markdown")}
+            disabled={stories.length === 0 || exportingReports !== null}
+            title={t("phase6.exportMarkdownTitle")}
+          >
+            {exportingReports === "markdown" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {t("phase6.exportMarkdown")}
+          </Button>
+        </div>
+      </div>
 
       {eligible.isLoading ? (
         <Callout>{t("common.loadingStories")}</Callout>
@@ -602,26 +628,6 @@ function TraceabilityPanel() {
                 </Button>
                 {verify.isPending && <CancelButton onCancel={() => verify.cancel()} />}
                 {scan.isPending && <CancelButton onCancel={() => scan.cancel()} />}
-                <Button
-                  variant="secondary"
-                  className="gap-1.5"
-                  onClick={() => void exportAllReports("csv")}
-                  disabled={stories.length === 0 || exportingReports !== null}
-                  title={t("phase6.exportCsvTitle")}
-                >
-                  {exportingReports === "csv" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {t("phase6.exportCsv")}
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="gap-1.5"
-                  onClick={() => void exportAllReports("markdown")}
-                  disabled={stories.length === 0 || exportingReports !== null}
-                  title={t("phase6.exportMarkdownTitle")}
-                >
-                  {exportingReports === "markdown" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {t("phase6.exportMarkdown")}
-                </Button>
               </div>
             </div>
             <AiGroundingNote
