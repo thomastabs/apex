@@ -23,8 +23,8 @@ vi.mock("@/lib/api/phase4", () => ({
 vi.mock("@/lib/api/analytics", () => ({
   getAnalyticsSummary: vi.fn().mockResolvedValue({
     stories: [
-      { story_id: 5, title: "Login", epic_title: "Auth", phase_status: "implementation", fix_bolt_count: 0, total_cycle_hours: null, chain_resolved: false, risk: { level: "none", score: 0, reasons: [] } },
-      { story_id: 9, title: "Deploy config", epic_title: "Deployment", phase_status: "implementation", fix_bolt_count: 0, total_cycle_hours: null, chain_resolved: false, risk: { level: "none", score: 0, reasons: [] } },
+      { story_id: 5, title: "Login", epic_title: "Auth", phase_status: "implementation", fix_bolt_count: 0, total_cycle_hours: null, chain_resolved: false, chain_incomplete_reasons: [], risk: { level: "none", score: 0, reasons: [] } },
+      { story_id: 9, title: "Deploy config", epic_title: "Deployment", phase_status: "implementation", fix_bolt_count: 0, total_cycle_hours: null, chain_resolved: false, chain_incomplete_reasons: [], risk: { level: "none", score: 0, reasons: [] } },
     ],
   }),
 }));

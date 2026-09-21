@@ -195,6 +195,7 @@ export const FAKE_ANALYTICS_SUMMARY = {
       fix_bolt_count: 2,
       total_cycle_hours: 48.0,
       chain_resolved: true,
+      chain_incomplete_reasons: [],
       risk: { level: "high", score: 5, reasons: ["2 Fix-Bolts — defect-prone"] },
     },
     {
@@ -205,6 +206,7 @@ export const FAKE_ANALYTICS_SUMMARY = {
       fix_bolt_count: 1,
       total_cycle_hours: 30.0,
       chain_resolved: false,
+      chain_incomplete_reasons: ["Phase 5's infra delta check was never saved for this story."],
       risk: { level: "low", score: 1, reasons: ["1 Fix-Bolt logged"] },
     },
     {
@@ -215,6 +217,7 @@ export const FAKE_ANALYTICS_SUMMARY = {
       fix_bolt_count: 0,
       total_cycle_hours: null,
       chain_resolved: false,
+      chain_incomplete_reasons: [],
       risk: { level: "none", score: 0, reasons: [] },
     },
   ],

@@ -228,6 +228,31 @@ def test_traceability_requires_chain_not_flagged_broken():
     assert resolved_by_id == {1: False, 2: False, 3: True}
 
 
+def test_chain_incomplete_reasons_list_every_failing_leg():
+    """A story failing multiple legs at once must get every reason listed,
+    not just the first one found -- so it can be fixed in one pass instead
+    of an iterative re-check-after-each-fix loop."""
+    log = "# Deployment Log\n\n## Deployment — Story 2 — 2026-06-11T00:00:00+00:00\n\n- ok\n"
+    index = {
+        # Fails has_gherkin, has_infra_delta, and not-logged, all at once.
+        "1": _entry(1, "deployed", has_gherkin=False, has_bdd=True, has_infra_delta=False),
+        # Fully resolved, for contrast -- must have an empty reasons list.
+        "2": _entry(2, "deployed", has_bdd=True, has_infra_delta=True),
+    }
+    verifications = {1: {"complete": True}, 2: {"complete": True}}
+    svc = AnalyticsService(context=FakeContextService(
+        index=index, deployment_log=log, verifications=verifications,
+    ))
+    summary = svc.summary(_ctx())
+    reasons_by_id = {r["story_id"]: r["chain_incomplete_reasons"] for r in summary["stories"]}
+    assert reasons_by_id[2] == []
+    story1_reasons = reasons_by_id[1]
+    assert len(story1_reasons) == 3  # has_gherkin, has_infra_delta, not in deployment-log
+    assert any("Gherkin" in r for r in story1_reasons)
+    assert any("infra delta" in r for r in story1_reasons)
+    assert any("deployment-log.md" in r for r in story1_reasons)
+
+
 def test_defect_proxy_stats():
     index = {
         "1": _entry(1, "deployed", fix_bolt_count=2),

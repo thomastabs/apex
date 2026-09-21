@@ -5,7 +5,7 @@ records: Cycle time per story-level gate transition (gherkin_locked through
 deployed) plus the real per-task Bolt Cycle Time (pack_ready -> done, tracked
 independently in each story's `bolts` map), a Context Traceability Rate that
 requires the chain to actually RESOLVE, not just exist (see
-`_chain_resolved`'s docstring), the Fix-Bolt proxy (QA-caught, pre-deploy
+`_chain_status`'s docstring), the Fix-Bolt proxy (QA-caught, pre-deploy
 defects — `defects` below), and a real AI Defect Escape Rate (`escape` below)
 from PM-issue-tracker items linked to a story after it deployed — see
 `_escape`'s docstring for what "real" means here and its limits.
@@ -75,10 +75,10 @@ class AnalyticsService:
         # aggregate and the per-story rows (the reads are network calls in
         # Azure mode).
         deployed = [e for e in entries if e.get("phase_status") == "deployed"]
-        complete_by_id = {
-            e.get("story_id"): self._chain_resolved(e, deployed_ids) for e in deployed
+        chain_by_id = {
+            e.get("story_id"): self._chain_status(e, deployed_ids) for e in deployed
         }
-        complete = sum(1 for done in complete_by_id.values() if done)
+        complete = sum(1 for resolved, _reasons in chain_by_id.values() if resolved)
         traceability = {
             "deployed": len(deployed),
             "complete": complete,
@@ -103,7 +103,7 @@ class AnalyticsService:
         cycle_threshold = _p90(cohort_hours) if len(cohort_hours) >= 4 else None
 
         stories = sorted(
-            (self._story_row(e, complete_by_id, cycle_threshold) for e in entries if e.get("story_id")),
+            (self._story_row(e, chain_by_id, cycle_threshold) for e in entries if e.get("story_id")),
             key=lambda r: r["story_id"],
         )
         return {
@@ -252,7 +252,7 @@ class AnalyticsService:
         log = self.context.read_context_file("deployment-log.md")
         return {int(m.group(1)) for m in re.finditer(r"^## Deployment — Story (\d+) —", log, re.MULTILINE)}
 
-    def _chain_resolved(self, entry: dict, deployed_ids: set[int]) -> bool:
+    def _chain_status(self, entry: dict, deployed_ids: set[int]) -> tuple[bool, list[str]]:
         """Context Traceability Rate's per-story predicate: does this deployed
         story's context chain actually RESOLVE right now, not just exist.
 
@@ -261,13 +261,13 @@ class AnalyticsService:
         derived from, and to the Unit of Work that motivated it." Three legs:
 
         1. Deployed artefact -> Unit of Work (the PM story): resolved by
-           construction — every story-index entry IS keyed by the PM tool's
+           construction - every story-index entry IS keyed by the PM tool's
            own story id, so this leg needs no check.
         2. Functional spec -> Unit of Work: `has_gherkin` (its scenarios are
-           written directly under this story's own `## Story N:` heading —
+           written directly under this story's own `## Story N:` heading -
            exact per-story attribution, see `parse_gherkin_scenario_ids`).
         3. Deployed artefact -> locked technical spec: this is the leg that
-           can silently break AFTER artifacts first existed — a story can
+           can silently break AFTER artifacts first existed - a story can
            have every file present and still be running against a spec that
            no longer describes it. Two things the system already detects
            for exactly this: `trace_flag` (a downstream failure pointed back
@@ -275,30 +275,46 @@ class AnalyticsService:
            `conformance_regressed` (a later code change broke what used to
            match the locked spec, unacknowledged). Either one means the
            chain does NOT currently resolve, whatever the presence booleans
-           below say — so both gate this predicate to False, distinct from
+           below say - so both gate this predicate to False, distinct from
            (and stricter than) mere artifact presence.
 
         What this deliberately does NOT attempt: per-endpoint/entity
         attribution from a deployed story back to specific technical-spec.md
         bullets. That ownership doesn't exist anywhere in the system (see
-        amend_locked_spec's docstring / the spec-drift revival) — claiming to
+        amend_locked_spec's docstring / the spec-drift revival) - claiming to
         resolve it here would be the same fabricated precision, just spent on
         a different metric. `has_tech_spec` + the two break-detectors above
         are what's honestly provable without it.
+
+        Returns (resolved, reasons): every failing leg is collected, not just
+        the first one found, so a story can be fixed in one pass - the
+        drill-down would otherwise show one reason, get it fixed, re-render,
+        and reveal a second reason that was true all along.
         """
         story_id = entry.get("story_id")
-        if not (entry.get("has_gherkin") and entry.get("has_bdd") and entry.get("has_infra_delta")):
-            return False
+        reasons: list[str] = []
+        if not entry.get("has_gherkin"):
+            reasons.append("No Gherkin scenarios attributed to this story (functional spec leg).")
+        if not entry.get("has_bdd"):
+            reasons.append("No test/BDD evidence recorded for this story.")
+        if not entry.get("has_infra_delta"):
+            reasons.append("Phase 5's infra delta check was never saved for this story.")
         if story_id not in deployed_ids:
-            return False
-        if entry.get("trace_flag") or entry.get("conformance_regressed"):
-            return False
+            reasons.append("Not found in deployment-log.md - no recorded deployment for this story id.")
+        if entry.get("trace_flag"):
+            reasons.append("Unresolved backward-trace flag from a downstream failure.")
+        if entry.get("conformance_regressed"):
+            reasons.append("Code has drifted from the locked spec (conformance regression), unacknowledged.")
         # Fast path: completeness mirrored into the index at save time (no file read).
         if "verification_complete" in entry:
-            return bool(entry["verification_complete"])
-        # Fallback for indexes rebuilt before the mirror existed.
-        verification = self.context.load_verification(story_id)
-        return bool(verification and verification.get("complete"))
+            verified = bool(entry["verification_complete"])
+        else:
+            # Fallback for indexes rebuilt before the mirror existed.
+            verification = self.context.load_verification(story_id)
+            verified = bool(verification and verification.get("complete"))
+        if not verified:
+            reasons.append("Phase 4 QA verification is not marked complete for this story.")
+        return (len(reasons) == 0, reasons)
 
     def _total_cycle_hours(self, entry: dict) -> float | None:
         history = entry.get("status_history") or {}
@@ -354,9 +370,10 @@ class AnalyticsService:
         level = "high" if score >= 5 else "medium" if score >= 3 else "low" if score >= 1 else "none"
         return {"level": level, "score": score, "reasons": reasons}
 
-    def _story_row(self, entry: dict, complete_by_id: dict[int, bool],
+    def _story_row(self, entry: dict, chain_by_id: dict[int, tuple[bool, list[str]]],
                    cycle_threshold: float | None = None) -> dict:
         total_hours = self._total_cycle_hours(entry)
+        resolved, reasons = chain_by_id.get(entry.get("story_id"), (False, []))
         return {
             "story_id": entry.get("story_id"),
             "title": entry.get("title", ""),
@@ -364,6 +381,11 @@ class AnalyticsService:
             "phase_status": entry.get("phase_status", ""),
             "fix_bolt_count": int(entry.get("fix_bolt_count", 0)),
             "total_cycle_hours": total_hours,
-            "chain_resolved": complete_by_id.get(entry.get("story_id"), False),
+            "chain_resolved": resolved,
+            # Only meaningful for a deployed story chain_status was actually
+            # run against - a non-deployed story (not in chain_by_id) isn't
+            # eligible for this metric at all, so it gets no reasons rather
+            # than a misleading "not deployed" one.
+            "chain_incomplete_reasons": reasons,
             "risk": self._story_risk(entry, total_hours, cycle_threshold),
         }

@@ -30,6 +30,9 @@ export type StoryAnalyticsRow = {
   // Not just "artifacts present" -- "the chain currently resolves" (also
   // false when trace_flag or conformance_regressed is set).
   chain_resolved: boolean;
+  // Why chain_resolved is false, every failing leg listed (not just the
+  // first); empty when chain_resolved is true or the story isn't deployed.
+  chain_incomplete_reasons: string[];
   risk: StoryRisk;
 };
 
