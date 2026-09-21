@@ -246,10 +246,19 @@ export async function applyMocks(page: Page) {
   const taiga = `${api}/api/pm/taiga`;
 
   // Mutable state shared between route handlers (allows stateful mock transitions).
-  const mockState: { techStackDefined: boolean; maintenanceItems: Record<string, unknown>[]; nextMaintenanceId: number } = {
+  const mockState: {
+    techStackDefined: boolean;
+    maintenanceItems: Record<string, unknown>[];
+    nextMaintenanceId: number;
+    // Story 10 has no report until POST /conformance (Verify) actually runs -
+    // GET /conformance/10 must 404 before that, same as a real never-checked
+    // story, or the page loads already showing "Re-verify" instead of "Verify".
+    conformanceVerified: boolean;
+  } = {
     techStackDefined: false,
     maintenanceItems: [],
     nextMaintenanceId: 1,
+    conformanceVerified: false,
   };
 
   // ── Health check (app-shell on mount) ─────────────────────────────────────
@@ -573,14 +582,15 @@ export async function applyMocks(page: Page) {
   // scan-regressions success handler invalidates this query, forcing a
   // refetch) - registered AFTER the blanket 404 above so it wins for story
   // 10 specifically (last-registered route wins), same as the 500-override
-  // pattern in analytics-dashboard.spec.ts.
-  await page.route(`${api}/api/phase6/conformance/10`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(SPEC_DRIFT_REPORT),
-    }),
-  );
+  // pattern in analytics-dashboard.spec.ts. Stateful: 404 until POST
+  // /conformance actually runs, so the page still loads on "Verify" (not
+  // "Re-verify") before the story has ever been checked.
+  await page.route(`${api}/api/phase6/conformance/10`, (route) => {
+    if (!mockState.conformanceVerified) {
+      return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "No conformance report yet." }) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(SPEC_DRIFT_REPORT) });
+  });
 
   // The "export all stories" CSV/Markdown buttons fetch this on click -
   // mirrors whatever /conformance currently returns, once verified.
@@ -592,13 +602,10 @@ export async function applyMocks(page: Page) {
     }),
   );
 
-  await page.route(`${api}/api/phase6/conformance`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(SPEC_DRIFT_REPORT),
-    }),
-  );
+  await page.route(`${api}/api/phase6/conformance`, (route) => {
+    mockState.conformanceVerified = true;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(SPEC_DRIFT_REPORT) });
+  });
 
   await page.route(`${api}/api/phase6/scan-regressions`, (route) =>
     route.fulfill({
