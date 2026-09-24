@@ -19,9 +19,15 @@ wins.
 > the record. It is superseded by §1a-bis's revised targets, which are in turn
 > superseded by the 2026-09-01 numbers in that section, superseded by
 > §1a-ter's 2026-09-10 numbers, superseded by §1a-quater's 2026-09-14 numbers,
-> superseded by §1a-quinquies's 2026-09-15 account** - read §1a-quinquies for
-> the current state and the Chapter 8/10 page budgets it sets, not the table
-> immediately below.
+> superseded by §1a-quinquies's 2026-09-15 account, superseded by
+> §1a-sexies's 2026-09-23 pre-cut account, superseded by §1a-septies's
+> 2026-09-23 post-cut account, superseded by §1a-octies's 2026-09-24
+> account, superseded by §1a-nonies's 2026-09-24 account** - read
+> §1a-nonies for the current state, after the real-material cutting pass
+> that followed §1a-octies's format-conversion and deep-dive passes, which
+> followed §1a-septies's first cutting
+> pass that followed Chapters 8 and 10 being
+> written, not the table immediately below.
 
 ## 1. The page limit - currently violated
 
@@ -307,6 +313,297 @@ gap, once Chapter 8 and 10 are actually written and the real total is
 known, will most likely need one more targeted cut, not a budgeting trick.
 The two budgets above exist to stop a second uncontrolled Chapter-9-style
 overrun, not to guarantee compliance on their own.
+
+## 1a-sexies. Chapters 8 and 10 written, both ceilings breached again, 2026-09-23
+
+Chapter 8 (Demonstration) and Chapter 10 (Conclusion), the last two `\todo`
+chapters in the document, are now both fully written from real fieldwork
+(Outfolio: nine epics, fifty stories, nine calendar days, deployed) and real
+evaluation data. Per the user's explicit instruction this session, page
+budget was not a constraint while writing either chapter - "don't worry
+about the page limit for now, we'll worry about pages and cutting content
+after we are done building the best version of the demonstration possible."
+This section records the resulting arithmetic honestly; it does not act on
+it, since trimming remains deliberately deferred.
+
+**Measured 2026-09-23, from the rendered PDF (`ist1103641-tomas-taborda-dissertacao.pdf`,
+chapter boundaries taken from `\newlabel` entries in the `.aux` file and the
+Bibliography/Appendix entries in the `.toc`, same method as prior sections):**
+
+| # | Ceiling | Applies to | State |
+|---|---|---|---|
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 98, **over by 18** |
+| 2 | **80 pages** | main text **plus bibliography** | 104, **over by 24** |
+| 3 | **100 pages** | the whole assembled PDF | 127, **over by 27** |
+
+All three ceilings are breached, and by more than at any point since the
+2026-08-19 baseline. Front matter: 12 pages (unchanged). Bibliography: 6
+pages. Appendices: 11 pages (A: 5, B: 6).
+
+| Chapter | Now (2026-09-23) | Now (2026-09-14) | Budget (§1a-quinquies) | Delta vs budget |
+|---|---|---|---|---|
+| 1 Introduction | 2 | 2 | - | - |
+| 2 Research Methodology | 3 | 3 | - | - |
+| 3 Research Background | 3 | 4 | - | - |
+| 4 Systematic Literature Review | 13 | 13 | - | - |
+| 5 Research Problem | 2 | 2 | - | - |
+| 6 Research Proposal | 14 | 13 | - | - |
+| 7 Implementation | 16 | 12 | - | - |
+| 8 Demonstration | 17 | 5 (skeleton) | 9 max | **+8 over budget** |
+| 9 Evaluation | 19 | 20 | - | - |
+| 10 Conclusion | 9 | 2 (skeleton) | 5 max | **+4 over budget** |
+| **Main text** | **98** | **76** | | **+22 vs the 2026-09-14 state** |
+
+Chapters 1 through 6 moved by a page or so each since 2026-09-14 (Chapter 7's
++4 is the recent figure-decomposition rework recorded in git history, not
+this session's work); none of that movement is this session's doing. The
+whole overage is Chapters 8 and 10 landing well past the explicit budgets
+§1a-quinquies set for them, for the same reason Chapter 9 blew its own
+budget on 2026-09-14: a `\todo` placeholder's page count reflects having
+nothing to say, and finishing a chapter from real evidence with five real
+figures (Chapter 8) and a fully worked Future Work section with two
+data-grounded new items (Chapter 10) cost more pages than the budget
+anticipated, once the instruction was to build the strongest content first
+and cut second.
+
+**Nothing here is a surprise relative to §1a-quinquies's own warning**: "even
+at these budgets, the document does not clear ceiling 3 with margin... closing
+that last gap will most likely need one more targeted cut, not a budgeting
+trick." That cut has not been made. The 27-page whole-document overage is the
+real, current number a redundancy/cut pass has to close, and Chapters 4, 6, 7
+and 9, the largest chapters, remain the most likely sources of it, the same
+conclusion §1a and the earlier redundancy passes already reached. This is
+recorded here for when that pass is scheduled; it is not scheduled by this
+entry.
+
+## 1a-septies. First cutting pass, 2026-09-23: 2 pages recovered, structural cut still needed
+
+Following §1a-sexies's honest accounting, a first cutting pass ran the same
+day: prose trims in Chapters 4, 6 and 9 (each independently agent-analysed
+and agent- or hand-executed, verified citation-by-citation and label-by-label
+against the pre-edit set before being accepted); a figure-placement reorder
+in Chapter 7 (Figures 7.1/7.2 interleaved with the "five properties" prose
+instead of sitting back to back, letting both share a page with body text
+instead of each forcing a dedicated page); a real defect fix in Chapter 8
+(three of five demonstration screenshots were raw OS-desktop captures
+showing the GNOME taskbar and a Firefox tab strip with personal tab titles,
+cropped to the application viewport only, fixing a privacy issue and
+recovering a small amount of height at the same fixed print width); and
+small sentence-level restatement trims in Chapters 8 and 10.
+
+Every edit was independently verified before being counted: citation-key
+and label sets diffed before/after (identical in every file), a full
+en-dash/em-dash and emoji sweep (clean), and a full `latexmk` rebuild with
+`Reference.*undefined`/`Citation.*undefined` grepped at zero after each
+round, not only at the end.
+
+**Measured 2026-09-23, after the cutting pass:**
+
+| # | Ceiling | Applies to | Before this pass | After this pass |
+|---|---|---|---|---|
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 98, over by 18 | 96, **over by 16** |
+| 2 | **80 pages** | main text **plus bibliography** | 104, over by 24 | 102, **over by 22** |
+| 3 | **100 pages** | the whole assembled PDF | 127, over by 27 | 125, **over by 25** |
+
+Two pages recovered, all three ceilings still breached by roughly the same
+margin they were breached by that morning. This matches what every
+chapter-level analysis this pass produced independently: Chapters 4, 6, 8
+and 9 are already lean from prior redundancy passes and each yielded at most
+a fraction of a page once every genuine restatement was removed; Chapter 7's
+real lever was float placement, not prose, and is now spent; Chapters 8 and
+10 are the two most evidence-dense, least-padded chapters in the document by
+design, so their own analyses correctly refused to manufacture cuts against
+findings, numbers, or named incidents that are the point of writing them at
+all.
+
+**The honest conclusion, stated plainly:** redundancy-trimming has now been
+tried against every chapter in the document and is exhausted as a source of
+the remaining ~25-page whole-document overage. What is left is not fat; it
+is content, and closing the gap from here requires one of a small number of
+structural decisions this file does not make on its own: cutting real
+material from a chapter (most plausibly Chapters 4, 6, 7 or 9, the largest
+four), restructuring what lives in the main text versus the appendices, or
+accepting a supervisor-negotiated overage. That decision is Tomás's, not
+something a further redundancy pass can discover.
+
+## 1a-octies. Format-conversion and deep-dive passes, 2026-09-23/24: 127 to 119 pages
+
+Two further techniques closed most of the gap §1a-septies called exhausted,
+neither of them redundancy trimming. The first, proven on Chapter 10's
+Future Work section (2374 to 1006 words, saving 2 full pages alone), is
+converting genuinely list-shaped prose, paragraphs enumerating parallel,
+independent items, into bulleted `itemize` lists: bold lead-in per item,
+terse body, every citation, number and `\Cref` kept intact. Applied where
+the underlying content was actually a list (Chapter 10's Future Work and
+Limitations, Chapter 8's Observations incidents and rejection classes,
+Chapter 7's five architectural properties, Chapter 6's four positioned
+alternatives), it recovered real pages at no content cost. Applied
+mechanically to short, few-clause items it lost rather than gained space
+(itemize's own per-item vertical padding costs more than the connecting
+words it removes), and one such attempt (Chapter 8's four testing failures)
+was tried, measured and reverted the same session once that held.
+
+The second technique, "change-narration overhead", was found by five
+Opus-model deep-dive passes, one per chapter group, specifically hunting for
+text narrating THAT something changed or was corrected where only the
+current fact matters and the prior state carries no evidentiary weight.
+This is the inverse of Chapter 7 and Chapter 8's own load-bearing
+change-narration, which documents real corrections and rejections as the
+evidence itself and was explicitly protected in every pass. The distinction
+held: agents found genuine overhead (Chapter 9's finding of an
+eleven-times-repeated "reported rather than suppressed" rhetorical tic being
+the single largest, ~100 words, found only because no two instances were
+literal repeats) while correctly clearing three DRQ3/DRQ2 corrections in
+Chapter 7 and eight incidents plus four rejection classes in Chapter 8 as
+off limits. Two real correctness bugs also surfaced and were fixed
+regardless of page impact: a citation-count mismatch introduced by an
+earlier consolidation pass in a Chapter 4 table (`#`=6 against 5 listed
+references, corrected to 5), and two Chapter 9 wording bugs from the
+Table 9.2/9.4 move to Appendix B (a sentence implying two copies of the same
+table existed, and "P1 to Pn" where the range is P0 to P12).
+
+One attempted move was tried, measured, and reverted in the same session:
+moving Chapter 3's generic AI/GenAI definitions to a new Appendix A section
+cost the whole-document ceiling a page (main text has no slack to lose from
+a sub-page cut; the appendix does, since it starts each new section on a
+fresh page) for zero benefit to either main-text ceiling, so the content was
+deleted outright instead of relocated, which helped both.
+
+One further zero-content-loss lever, dropping Appendices A and B's
+remaining `\small` tables to `\footnotesize` (the same step already taken
+in Chapter 4's evidence tables), was applied to all ten tables across both
+appendices and confirmed rendering cleanly, but produced no page reduction
+this time - the tables tightened within their existing pages rather than
+across a boundary.
+
+**Measured 2026-09-24, after both passes and the Operational Playbooks
+section being restored (Tomás: kept regardless of page cost, see below):**
+
+| # | Ceiling | Applies to | State |
+|---|---|---|---|
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 89, **over by 9** |
+| 2 | **80 pages** | main text **plus bibliography** | 95, **over by 15** |
+| 3 | **100 pages** | the whole assembled PDF | 119, **over by 19** |
+
+One deliberate non-cut, on Tomás's explicit instruction: an earlier attempt
+to delete Chapter 6's Operational Playbooks section (six-playbook procedure
+table, ~1 page, zero downstream `\Cref`) was reverted at his request -
+"i dont see why you would erase it because of its relevancy" - and stays in
+the document regardless of what it costs the count. Recorded here so a
+later pass does not rediscover it as a candidate.
+
+One open, undecided lever: the bibliography currently renders at the
+document's default 1.5 line spacing; the guide's formatting rule states
+"1.5 line spacing" as a blanket requirement with an explicit, named
+exception only for footnotes (single-spaced, 9pt) - no exception is stated
+for bibliographies. Single-spacing it would likely recover real pages
+(IEEEtran numbered entries are already compact; spacing is most of their
+height) but unlike the extended abstract's Letter-vs-A4 precedent, Cruz's
+own accepted bibliography does not appear tighter than ours, so there is no
+matching precedent to point to if the deviation is ever questioned. Left
+untouched on Tomás's instruction ("leave it alone for now") pending his own
+decision, possibly after checking with the supervisor.
+
+**Where this leaves the honest arithmetic:** ceiling 1 (main text alone) is
+within 9 pages of compliance, the closest it has been all session. Ceiling 3
+(whole document) is 19 over, down from ~27 at the session's worst point but
+still real. Every technique tried this session, redundancy trimming, real
+content cuts, bulleted-format conversion, and change-narration removal, has
+now been applied to every chapter at least once. The two remaining paths
+named in §1a-septies still stand: cut real material from a chapter, or take
+the residual overage to the supervisor. The bibliography-spacing question
+above is a third, smaller lever, undecided rather than closed.
+
+## 1a-nonies. Real-material cutting pass, 2026-09-24: 119 to 116 pages, targeting ceiling 1 specifically
+
+§1a-octies asked whether real material, not redundancy, not narration, not
+format, could close ceiling 1's remaining 9-page gap. Five chapter-scoped
+analysis passes ranked what was left; Tomás reviewed every finding chapter
+by chapter before approving any of it, explicitly excluding every
+appendix-move option they proposed ("no more appendix moves, appendix is
+already way too big") and modifying one item (Chapter 7's QA section,
+proposed for outright deletion, executed instead as a two-paragraph
+summary, since "the QA of the implementation is not the point"). What was
+approved and executed, all real content reduction rather than prose
+tightening:
+
+- **Chapter 6:** Design Principles reduced from eight to seven, merging
+  "Hats, Not People" into "Explicit Responsibility and Accountability" as
+  "Functional, Not Positional, Accountability" - a visible reduction in the
+  framework's own stated principle count, not a wording change.
+- **Chapter 4:** two evidence-table rows folded into higher-citation
+  neighbours they already shared most citations with ("Ineffectiveness of
+  Existing Security Tools" into "Security Vulnerabilities in Generated
+  Code"; "AI-Assisted Pair Programming / Human Oversight" into "Human-In-
+  The-Loop (HITL) Paradigm") - every citation from both rows preserved in
+  the merged row, verified by key-set diff.
+- **Chapter 7:** §7.6 (Quality Assurance of the Implementation) compressed
+  from 573 to 168 words, two short paragraphs, on Tomás's explicit
+  instruction to summarise rather than delete; the protected coverage-badge
+  correction Chapter 9's DRQ2 answer depends on survives verbatim inside it.
+  The Design History section's OAuth reversion compressed to one sentence,
+  and one confirmed-uncited limitation cut from §7.7.
+- **Chapter 8:** the governance-metrics subsection's uncited statistical
+  detail cut from all four metric bullets (full percentile breakdowns,
+  story-ID lists, the 1,341-item conformance breakdown, the risk-model
+  taxonomy), keeping only the headline figures and the specific findings
+  Chapter 9 quotes by exact number - independently re-verified against
+  Chapters 9 and 10 before cutting, not just taken from the ranking report.
+  Two of the eight named incidents (the governance-surface self-diagnosis
+  chain, and "Two further frictions") cut entirely, reducing eight incidents
+  to six; the "caught only by a human" incident, which technically passed
+  every citation-safety check but carries the chapter's sharpest single
+  sentence, was explicitly flagged as a trap and left untouched.
+- **Chapter 9:** three small cuts (a DRQ3 sentence duplicating a
+  demonstration finding verbatim, one uncited interview point, two
+  decorative Threats-to-Validity phrases).
+- **Chapter 10:** Future Work reduced from seven items to six, dropping
+  "Longitudinal measurement of defect escape and maintainability" entirely -
+  the one item whose sole grounding was a single unquantified participant
+  mention, against specific counted findings anchoring the other six; a
+  real, MEDIUM-risk structural cut, approved knowingly rather than found
+  free. Future Work item 5's model-selection sub-mechanism compressed to one
+  sentence, keeping its two sibling sub-mechanisms fully developed. Two
+  genuine re-argument spots trimmed from the DRQ2/DRQ3 recap in Summary and
+  Contributions (a causal clause re-deriving Chapter 9's argument rather
+  than restating its conclusion; an analytical framing device around the
+  Bolt-Cycle-Time/spec-drift finding).
+
+One item was explicitly declined rather than executed: deleting Chapter 9's
+Table 9.3 (the NASA-TLX matrix, the chapter's self-declared "primary
+result") was re-examined specifically for this pass, since main-text-alone
+was now the actual target, but confirmed still not worth it - five of the
+six task rows are already individually cited by number in the surrounding
+prose, so a compact-table-plus-appendix version saves only ~0.03-0.05pp,
+and the only version with real yield is deleting the table outright
+(~0.3-0.35pp), which was reported as a flagged fallback, not a
+recommendation, and was not taken up.
+
+**Measured 2026-09-24, after this pass, all five files independently
+verified (citation/label sets, brace balance, dash/emoji sweep, and for
+Chapter 8 specifically, independent re-verification of every cut number
+against Chapters 9 and 10 rather than trusting the ranking report):**
+
+| # | Ceiling | Applies to | Before this pass | After this pass |
+|---|---|---|---|---|
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 89, over by 9 | 86, **over by 6** |
+| 2 | **80 pages** | main text **plus bibliography** | 95, over by 15 | 92, **over by 12** |
+| 3 | **100 pages** | the whole assembled PDF | 119, over by 19 | 116, **over by 16** |
+
+Three pages recovered, all three landing in main text specifically, which
+was the point of this pass. Ceiling 1 has never been closer - six pages
+over, down from a session high of eighteen. The honest ranking work behind
+this pass found roughly 2.5-3 pages of real-material options across the
+whole document when every option, including the costly ones, was totalled;
+6 of those pages were taken up here, leaving very little of that inventory
+unspent. What remains unexecuted and known: Chapter 9's Table 9.3 full
+deletion (~0.3-0.35pp, declined), and the bibliography single-spacing
+question from §1a-octies (still undecided). Beyond those two, the
+real-material inventory this session's five ranking passes could find is
+essentially exhausted. Six pages on ceiling 1, sixteen on ceiling 3, is
+where a further reduction would have to come from content this session's
+review explicitly protected, a structural chapter merge already declined,
+or a supervisor conversation about the residual.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 

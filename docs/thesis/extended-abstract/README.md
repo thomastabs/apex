@@ -87,12 +87,10 @@ Takeaways that shaped this scaffold, not the ACM sample's content:
 
 10-page hard ceiling; Cruz landed at 5; this scaffold targets **6 to 8** once
 results exist, per the task's guidance. Current compiled length is **7
-pages** (see "Verified build result (2026-09-15)" below): Chapters 7 and 9
-of the dissertation now have real content to draw from, so Sections 5 and
-the results half of Section 6 are drafted for real rather than placeholder
-text. Chapter 8's Application/Observations/Summary and Chapter 10 remain
-genuinely unwritten in the dissertation itself, so Sections 7-8 here are
-drafted as far as that source material allows and no further.
+pages** (see "Verified build result (2026-09-23)" below): Chapters 7, 8, 9
+and 10 of the dissertation all now have real content to draw from, so every
+section, including Section 8's synthesis paragraph, is drafted for real
+rather than as a placeholder.
 
 | Section | Status | Approx. current share |
 |---|---|---|
@@ -102,17 +100,16 @@ drafted as far as that source material allows and no further.
 | 3 Related Work (SLR findings) | Drafted from Chapter 4's Discussion + Chapter 3; staleness-checked against the corrected SLR funnel (117 duplicates, not 227), no stale number was actually present here to begin with | about 1/2 column |
 | 4 Proposed Framework (4.1-4.5) | Drafted from Chapter 6 in full, including the phase table; staleness-checked against current Chapter 6 (8 principles, 6 phases, Trio/hats, 5 gates, 3 metrics, Siddeeq figures), unchanged | the largest section, over a page, mirroring Cruz's §3 |
 | 5 Reference Implementation: Apex | **Drafted from Chapter 7**: the five architecture properties, a condensed DRQ3 construct-mechanism outcome count (10 realised / 1 proxy / 1 partial), the Spec-Anchored Continuity file-taxonomy liberty, and the practitioner-feedback design history | new, about a page |
-| 6 Demonstration, Evaluation Design, and Results | Design paragraph updated to name the two-settings-plus-abandoned-third framing; **results now drafted from Chapter 9** (participants, SUS, NASA-TLX, UX trust-calibration pair and lost gate-comprehension measure, analytical assessment), with the Apex-demonstration-narrative-vs-real-evaluation-data scope seam stated explicitly | new, about a page |
-| 7 Discussion and Threats to Validity | **Drafted from Chapter 9's Discussion/Threats and Chapter 8's researcher-role and abandoned-partner threats**: DRQ1/2/4 answered from Chapter 9, DRQ3 from Chapter 7's mapping, the demonstration boundary carried through explicitly | new, about 3/4 column |
-| 8 Conclusion | Intro paragraph tightened to the current contribution counts; synthesis paragraph **remains a placeholder on purpose**, since Chapter 8's Application/Observations/Summary and Chapter 10 are still genuinely unwritten in the dissertation - the placeholder now says precisely what is answerable today (DRQ3 fully, DRQ1/2/4 partially) and what is not | placeholder, updated wording only |
+| 6 Demonstration, Evaluation Design, and Results | Design paragraph updated to name the two-settings-plus-abandoned-third framing; results drafted from Chapter 9 (participants, SUS, NASA-TLX, UX trust-calibration pair and lost gate-comprehension measure, analytical assessment); closing paragraph **now also reports the completed Outfolio demonstration** from Chapter 8/9's real numbers (nine days, six to nine epics, fifty stories, the three governance metrics), replacing the earlier "remains unwritten pending fieldwork" framing | about a page |
+| 7 Discussion and Threats to Validity | Drafted from Chapter 9's Discussion/Threats and Chapter 8's researcher-role and abandoned-partner threats: DRQ1/2/4 answered from Chapter 9, DRQ3 from Chapter 7's mapping; the demonstration boundary now states plainly that Outfolio was observed (solo, one setting) rather than that no fieldwork happened at all | about 3/4 column |
+| 8 Conclusion | Intro paragraph tightened to the current contribution counts; synthesis paragraph **now drafted for real** from Chapter 10's Summary/Limitations/Communication content (headline DRQ synthesis, the three carried-forward limitations, the SLR/abstract/defence dissemination status), replacing the placeholder entirely | about 3/4 column |
 | References | 33 entries (30 plus Martins:2015SUS, Lewis:2009SUS, J.Pries-Heje:2008SD, added for the Section 6 results), all reused verbatim from the thesis bibliography | - |
 
-Remaining placeholders are limited to Section 8's synthesis paragraph, which
-stays a visible red `[PLACEHOLDER - WAITING ON DATA: ...]` block (the small
-custom command, not `todonotes`, see the "Known LaTeX issue" note below)
-naming exactly what it is blocked on (Chapter 8's fieldwork and Chapter 10's
-own drafting) and what it must contain once unblocked. Every other section
-is now drafted from real, current dissertation content.
+No placeholders remain. Section 8's synthesis paragraph, the last one, was
+replaced with real prose on 2026-09-23 once Chapter 8's fieldwork and
+Chapter 10's own drafting both existed; see "Verified build result
+(2026-09-23)" below. Every section is now drafted from real, current
+dissertation content.
 
 ## Build
 
@@ -209,6 +206,42 @@ placeholder since Chapter 8's Application/Observations/Summary and Chapter
   (`ist1103641-tomas-taborda-dissertacao.pdf`) was already the only filename
   referenced in this README; `main.tex` does not reference the dissertation's
   own PDF filename at all, so nothing needed fixing there either.
+
+### Verified build result (2026-09-23)
+
+Chapters 8 (Demonstration) and 10 (Conclusion) of the dissertation are now
+both fully written from real fieldwork and evaluation data. Five targeted
+edits followed: the abstract's closing clause, Section 6's closing
+paragraph, Section 7's boundary paragraph, and Section 8's synthesis
+paragraph were all updated to report the completed Outfolio demonstration
+(nine calendar days, six to nine epics, fifty stories, none abandoned;
+Context Traceability Rate 92.6 per cent, Spec Conformance 98.65 per cent, AI
+Defect Escape Rate 1.85 per cent; the Testing Gate and stale-context
+findings) in place of the earlier "remains unwritten pending fieldwork"
+framing, while keeping the genuine remaining limitation, that Outfolio is
+still a single operator in a single setting and no independent partner
+organisation was observed, stated explicitly rather than dropped. Section
+8's `\placeholder{}` block was deleted and replaced with three real
+paragraphs: a headline DRQ synthesis, the three limitations Chapter 10
+names, and the dissemination status of the SLR article, this extended
+abstract and the defence per the dissertation's Communication activity. No
+other section was touched. Full rebuild cycle (`pdflatex` -> `bibtex` ->
+`pdflatex` -> `pdflatex`) from this directory.
+
+- **Page count: 7** (unchanged from 2026-09-15; still within the 6-8 target
+  and 3 pages under the 10-page ceiling).
+- **LaTeX errors: 0. Undefined references: 0. Undefined citations: 0.**
+- **Dash check**: all matches for `[\x{2013}\x{2014}]` in the rendered PDF
+  fall inside the auto-generated References list (the same
+  `ACM-Reference-Format.bst` page-range rendering already described above);
+  none in authored prose, none introduced by this pass.
+- **Fact-checking**: every number added (Outfolio's epic/story/day counts,
+  the three governance-metric values, the Testing Gate and destructive-
+  command findings) was taken from the current text of
+  `Chapter_8-Demonstration.tex` and `Chapter_9-Evaluation.tex`'s
+  `sec:results_demonstration`, and the DRQ synthesis, limitations and
+  Communication content from the current text of `Chapter_10-Conclusion.tex`,
+  not carried over from an earlier draft.
 
 ### Known LaTeX issue found and worked around
 

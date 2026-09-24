@@ -24,7 +24,7 @@ here; this appendix is the instrument as administered, not its analysis.
 Completed first, before any task or questionnaire; the ethics position it
 rests on is stated in \Cref{sec:eval_participants}.
 
-{\small
+{\footnotesize
 \textbf{Study:} Evaluation of Apex, a tool supporting a process framework for
 human-AI collaboration in software development.
 \textbf{Researcher:} Tomás dos Santos Taborda, MEIC-T, Instituto Superior
@@ -93,7 +93,7 @@ workload, usability and \ac{UX} forms.
 \captionof{table}{Demographics items, collected on the consent form}
 \label{tab:appB_demographics}
 \centering
-\small
+\footnotesize
 \begin{tabular}{p{1.0cm} p{4.4cm} p{7.9cm}}
 \toprule
 \textbf{Item} & \textbf{Question} & \textbf{Options} \\
@@ -127,7 +127,7 @@ rather than fourth; both departures, and the reason for each, are stated in
 \captionof{table}{Raw NASA Task Load Index subscales, in the order presented}
 \label{tab:appB_tlx}
 \centering
-\small
+\footnotesize
 \begin{tabular}{>{\raggedright\arraybackslash}p{3.5cm} p{8.4cm} >{\raggedright\arraybackslash}p{2.4cm}}
 \toprule
 \textbf{Subscale} & \textbf{Description} & \textbf{Scale} \\
@@ -165,7 +165,7 @@ the Portuguese figures, are reported in \Cref{sec:sus}.
 \captionof{table}{System Usability Scale items, as administered}
 \label{tab:appB_sus}
 \centering
-\small
+\footnotesize
 \begin{tabular}{c p{12.6cm}}
 \toprule
 \textbf{\#} & \textbf{Item} \\
@@ -194,18 +194,15 @@ in \Cref{sec:apex_ux}. Administered last, scale \texttt{1 = Strongly
 disagree} \ldots{} \texttt{5 = Strongly agree} plus an explicit \emph{N/A -
 did not use this}. Items E2 and E3 evaluate the framework rather than the
 instantiation and are analysed separately from the rest. Seventeen items
-were administered; an item originally written to pair against a guaranteed
-task-8 refusal (\emph{when the tool refused to let me continue, I understood
-why}) was removed from both language versions before administration once
-that refusal trigger was redesigned out of task 8, for the reason given in
-\Cref{sec:apex_ux}, and is not reproduced below.
+were administered; the eighteenth was removed before administration for the
+reason given in \Cref{sec:apex_ux} and is not reproduced below.
 
 \medskip
 \noindent\begin{minipage}{\linewidth}
 \captionof{table}{Apex UX questionnaire items, by construct}
 \label{tab:appB_ux}
 \centering
-\small
+\footnotesize
 \begin{tabular}{c p{12.6cm}}
 \toprule
 \multicolumn{2}{l}{\textbf{A. Understanding where you are}} \\
@@ -256,6 +253,57 @@ Administered in Portuguese to participants selecting that language on G6,
 using the direct translations in \texttt{docs/thesis/evaluation/instrument-apex-ux.md}: same items, same five constructs, same three open questions,
 differing only in wording.
 
+\subsection*{Full item-by-item responses}
+
+Response counts for all seventeen administered items, with the medians
+\Cref{sec:results_ux} computes from them.
+
+{\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{l >{\raggedright\arraybackslash}p{8.2cm} c c c c c c c}
+\caption[Apex \acs{UX} questionnaire responses, item by item]{Apex \acs{UX} questionnaire responses, item by item, $N = 13$. Scale 1 = strongly disagree to 5 = strongly agree; the \emph{N/A} column counts participants who marked \emph{did not use this}, which is excluded from the median. Items E2 and E3 evaluate the framework, not the instantiation.}
+\label{tab:ux_items} \\
+\toprule
+& \textbf{Item} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{N/A} & \textbf{Mdn} \\
+\midrule
+\endfirsthead
+\toprule
+& \textbf{Item} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{N/A} & \textbf{Mdn} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{9}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+
+\multicolumn{9}{l}{\textit{A. Understanding where you are}} \\*
+A1 & Knew which phase of the process I was in & 0 & 0 & 3 & 4 & 6 & 0 & 4 \\*
+A2 & Understood what the tool expected next & 0 & 0 & 4 & 5 & 4 & 0 & 4 \\*
+A3 & Could tell finished work from unfinished & 0 & 0 & 4 & 7 & 2 & 0 & 4 \\ \addlinespace
+\multicolumn{9}{l}{\textit{B. Working with AI-generated content}} \\*
+B1 & Could tell generated content from my own & 0 & 2 & 0 & 3 & 7 & 1 & 5 \\*
+B2 & Reviewing took less effort than writing it & 0 & 0 & 2 & 6 & 5 & 0 & 4 \\*
+B3 & Felt able to reject or change the output & 0 & 0 & 0 & 1 & 11 & 1 & 5 \\*
+B4 & Trusted it enough to use in a real project & 0 & 0 & 3 & 8 & 2 & 0 & 4 \\*
+B5 & Could see what information the AI was given & 0 & 1 & 2 & 6 & 4 & 0 & 4 \\ \addlinespace
+\multicolumn{9}{l}{\textit{C. Control and reversibility}} \\*
+C1 & Felt in control of what the tool did & 0 & 1 & 3 & 8 & 1 & 0 & 4 \\*
+C2 & Confident I could undo or redo a step & 0 & 1 & 1 & 2 & 8 & 1 & 5 \\*
+C3 & Understood the consequences of locking a phase & 0 & 1 & 4 & 2 & 6 & 0 & 4 \\*
+C4 & Waiting for the AI to finish was acceptable & 0 & 0 & 0 & 4 & 9 & 0 & 5 \\ \addlinespace
+\multicolumn{9}{l}{\textit{D. Feedback and errors}} \\*
+D1 & Was told clearly what had happened when something went wrong & 0 & 1 & 6 & 4 & 2 & 0 & 3 \\*
+D2 & Messages said what to do next, not only what failed & 0 & 0 & 4 & 3 & 6 & 0 & 4 \\ \addlinespace
+\multicolumn{9}{l}{\textit{E. Fit to real work}} \\*
+E1 & The artefacts are ones my team would use & 0 & 1 & 3 & 5 & 1 & 3 & 4 \\*
+E2 & \textit{(framework)} The process fits how my team works & 0 & 2 & 2 & 6 & 0 & 3 & 4 \\*
+E3 & \textit{(framework)} The effort is worth what it produces & 0 & 0 & 2 & 5 & 6 & 0 & 4 \\
+\end{longtable}
+}
+
 % #############################################################################
 \section{Interview guides}
 \label{sec:appB_interviews}
@@ -304,11 +352,50 @@ interview concerns the method on paper, not the tool.
 \label{sec:appB_raw_scores}
 
 Every \ac{SUS} score is printed per participant, with both sub-scales, in
-\Cref{tab:sus_scores}; workload is reported as subscale means by task in
-\Cref{tab:tlx_matrix} and the \ac{UX} questionnaire as full response counts
-per item in \Cref{tab:ux_items}. The per-participant responses behind the
-latter two are not printed, a thirteen by six by six workload matrix and a
-thirteen by seventeen response matrix being out of proportion to their
-reporting value here. They are retained anonymised by the researcher, as
-\Cref{sec:appB_consent} states, and are available from the author on
-request.
+\Cref{tab:sus_scores} below; workload is reported as subscale means by task
+in \Cref{tab:tlx_matrix} in \Cref{chap:evaluation}, and the \ac{UX}
+questionnaire as full response counts per item in \Cref{tab:ux_items} above
+(\Cref{sec:appB_ux}). The per-participant responses behind the latter two
+are not printed (a thirteen by six by six workload matrix and a thirteen by
+seventeen response matrix, out of proportion to their reporting value here).
+
+{\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{6pt}
+\begin{longtable}{l c r r r}
+\caption[\acs{SUS} score and sub-scales, per participant]{\acs{SUS} score and the Usability and Learnability sub-scales, per participant, by language of administration. All three quantities run from 0 to 100 and none is a percentage.}
+\label{tab:sus_scores} \\
+\toprule
+\textbf{Participant} & \textbf{Language} & \textbf{\acs{SUS}} & \textbf{Usability} & \textbf{Learnability} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Participant} & \textbf{Language} & \textbf{\acs{SUS}} & \textbf{Usability} & \textbf{Learnability} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+
+P0 & EN & 42.5 & 50.00 & 12.5 \\*
+P1 & EN & 75.0 & 81.25 & 50.0 \\*
+P5 & EN & 80.0 & 87.50 & 50.0 \\*
+P6 & EN & 15.0 & 12.50 & 25.0 \\*
+P7 & EN & 62.5 & 71.88 & 25.0 \\*
+P8 & EN & 60.0 & 59.38 & 62.5 \\*
+P9 & EN & 60.0 & 65.63 & 37.5 \\*
+P10 & EN & 75.0 & 75.00 & 75.0 \\*
+P11 & EN & 65.0 & 56.25 & 100.0 \\*
+P12 & EN & 70.0 & 75.00 & 50.0 \\ \addlinespace
+P2 & PT & 37.5 & 46.88 & 0.0 \\*
+P3 & PT & 40.0 & 46.88 & 12.5 \\*
+P4 & PT & 55.0 & 50.00 & 75.0 \\ \addlinespace
+\midrule
+\textbf{Mean, all 13} & & \textbf{56.73} & \textbf{59.86} & \textbf{44.23} \\*
+Mean, English ($n = 10$) & & 60.50 & & \\*
+Mean, Portuguese ($n = 3$) & & 44.17 & & \\
+\end{longtable}
+}

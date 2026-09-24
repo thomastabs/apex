@@ -15,19 +15,14 @@ This chapter describes the execution of the systematic literature review, follow
 
 \section{Planning the Review}
 
-The planning stage establishes the motivation for the review, the research questions the search addresses, and the search method employed.
-
 \subsection{Motivation}
 
 AI, particularly LLMs and GenAI, is increasingly adopted across the SDLC to support code generation and completion, documentation, requirements engineering, automated bug fixing, and developer learning, and its use has been associated with productivity gains, improved efficiency, and support for complex development tasks \cite{Ahmed:2025ai, Zhang:2025ea, Durrani:2024ad, Jabrw:2025ss, Banh:2025cf, Farhanna:2025eu, KarlovsKarlovskis:2024ga, Terragni:2025fa}.
 
-Adoption has nevertheless outpaced the resolution of the challenges it raises, which motivates systematic investigation. The literature reports persistent concerns over the quality, reliability and trustworthiness of AI-generated artifacts, methodological barriers such as limited explainability and the black-box nature of advanced models, a heavy dependence on prompt formulation, and a concentration on isolated tasks that leaves several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
-
-This review therefore maps and synthesises existing research on AI and LLM use in software development, organising the evidence on benefits, limitations, methodologies, stakeholder perspectives, and application domains so that research gaps become identifiable.
+Adoption has nevertheless outpaced the resolution of the challenges it raises. The literature reports persistent concerns over the quality, reliability and trustworthiness of AI-generated artifacts, methodological barriers such as limited explainability and the black-box nature of advanced models, a heavy dependence on prompt formulation, and a concentration on isolated tasks that leaves several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
 
 \subsection{Research Questions}
-The topic admits many possible research questions; the five below were judged
-specific and relevant enough to answer with a systematic review:
+Five research questions structure the review:
 
 {\small
 \begin{longtable}{p{0.7cm} p{7.5cm} p{6.5cm}}
@@ -69,7 +64,7 @@ specific and relevant enough to answer with a systematic review:
 \end{longtable}}
 
 \subsection{Review Protocol}
-The review begins with a literature search: a search string is defined and executed against the chosen data source. The criteria used here, stated in \Cref{tab:review_protocol}, returned 646 articles.
+The criteria used for the literature search, stated in \Cref{tab:review_protocol}, returned 646 articles.
 
 {\small
 \centering
@@ -109,7 +104,7 @@ Results & 646 \\
 }
 
 
-The subject of this review can be expressed in many different ways, and the string had to absorb that variation. "Vibe Coding" is the most recent term for the practice, but the practice predates the term: querying it alone returned few relevant articles, because the same work is published under different expressions. Synonymous keywords were therefore added, and it is the combination of "code generation" and "application development" with "generative AI" and "AI models" that retrieves the intended body of work rather than any single term. The string was executed against the EBSCO Online Digital Library through its Advanced Search option, over the AB abstract field and the title, restricted to full-text-available results.
+"Vibe Coding" is the most recent term for the practice, but the practice predates the term, and querying it alone returned few relevant articles because the same work is published under different expressions. Synonymous keywords were added accordingly: it is the combination of "code generation" and "application development" with "generative AI" and "AI models" that retrieves the intended body of work, not any single term. The string was executed against the EBSCO Online Digital Library through its Advanced Search option, over the AB abstract field and the title, restricted to full-text-available results.
 
 \section{Conducting the Review}
 
@@ -128,7 +123,7 @@ The AI-powered systematic review management platform "Rayyan" was used to organi
      \label{fig:article_filtering}
 \end{figure}
 
-The content of those 64 articles was then read and each placed in one of four categories: Included, Maybe, Excluded and Skipped. Articles were "Skipped" when the introduction and conclusion showed them to be off-theme, insufficiently recent, which matters given how fast the field moves, or silent on all five research questions; 20 were skipped and excluded on those grounds. "Maybe" was used while it was unclear whether an article bore on the theme, and most were ultimately excluded in favour of more recent studies reflecting the state of the art.
+The content of those 64 articles was then read and each placed in one of four categories: Included, Maybe, Excluded and Skipped. Articles were "Skipped" when the introduction and conclusion showed them to be off-theme, outdated, or silent on all five research questions; 20 were skipped and excluded on those grounds. "Maybe" was used while it was unclear whether an article bore on the theme, and most were ultimately excluded in favour of more recent studies.
 
 An article that answered any of the five research questions clearly and explicitly was included. Where the information was unclear, insufficient, or too thin to confirm that an answer was given, the predefined criteria in \Cref{tab:inclusion_exclusion} decided eligibility. Of the 44 articles, 31 met the criteria and were retained for analysis.
 
@@ -176,7 +171,7 @@ An article that answered any of the five research questions clearly and explicit
 
 \subsection{Data Extraction Analysis}
 
-The retained articles were subdivided by venue and year of publication. None is categorised as conference material: every one is a peer-reviewed academic journal article as classified by EBSCO, distributed over time as shown in \Cref{fig:monthly_publications}.
+None is categorised as conference material: every one is a peer-reviewed academic journal article as classified by EBSCO, distributed over time as shown in \Cref{fig:monthly_publications}.
 
 \begin{figure}[htbp]
     \centering
@@ -189,7 +184,7 @@ The retained articles were subdivided by venue and year of publication. None is 
 
 \section{Reporting the Review}
 
-The third and last stage reports what the analysis of the retained articles established, answering each research question in turn. The venue of every retained study is listed in \Cref{sec:appA_corpus}; the corpus is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten and Information and Software Technology three, the remaining venues one each, consistent with a topic actively published across the field rather than owned by any single outlet.
+The third and last stage reports the analysis of the retained articles, research question by research question. The venue of every retained study is listed in \Cref{sec:appA_corpus}; the corpus is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten and Information and Software Technology three, the remaining venues one each, consistent with a topic actively published across the field rather than owned by any single outlet.
 
 
 
@@ -198,7 +193,7 @@ The third and last stage reports what the analysis of the retained articles esta
 
 The first research question concerns the benefits of AI and \ac{LLM} adoption for developers, companies and other stakeholders. \Cref{tab:benefits} collects those reported in the literature.
 
-{\small
+{\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
 \caption{Benefits of using AI and LLMs in Software Development}
 \label{tab:benefits} \\
@@ -221,38 +216,38 @@ The first research question concerns the benefits of AI and \ac{LLM} adoption fo
 \bottomrule
 \endlastfoot
 
-Improved Code Quality, Accuracy, and Traceability & "In practice, it has been proven that using Generative AI can increase efficiency and productivity by improving code quality and optimizing work with faster times." \cite{Farhanna:2025eu}. & 20 & \cite{Kim:2025is, Basha:2025tt, Gao:2025cc, Li:2025sc, Dong:2024sc, Jensen:2025me, Haque:2025la, Kim:2025ao, Qiu:2025ft, Farhanna:2025eu, Zhang:2025ea, Tkachuk:2025dc, Banh:2025cf, Bai:2025ci, Ahmed:2025ai, Ramos:2025aa, Jabrw:2025ss, Durrani:2024ad, Han:2025mg, Hemmat:2025rd} \\ \addlinespace
+Improved Code Quality, Accuracy, and Traceability & "improving code quality and optimizing work with faster times" \cite{Farhanna:2025eu}. & 20 & \cite{Kim:2025is, Basha:2025tt, Gao:2025cc, Li:2025sc, Dong:2024sc, Jensen:2025me, Haque:2025la, Kim:2025ao, Qiu:2025ft, Farhanna:2025eu, Zhang:2025ea, Tkachuk:2025dc, Banh:2025cf, Bai:2025ci, Ahmed:2025ai, Ramos:2025aa, Jabrw:2025ss, Durrani:2024ad, Han:2025mg, Hemmat:2025rd} \\ \addlinespace
 
-Increased Productivity and Efficiency & "Accelerates the coding process by converting natural language or abstract research intent (a vibe) into functioning software modules, dramatically shortening development cycles" \cite{Moore:2025vc}. & 18 & \cite{Moore:2025vc, Basha:2025tt, Terragni:2025fa, Yoo:2025sa, Jensen:2025me, Haque:2025la, Kim:2025is, Qiu:2025ft, Farhanna:2025eu, Zamfiroiu:2025ec, Zhang:2025ea, Tkachuk:2025dc, Banh:2025cf, Kim:2025ao, Ahmed:2025ai, Ramos:2025aa, Chen:2025es, Wang:2025rs} \\ \addlinespace
+Increased Productivity and Efficiency & "converts natural language or abstract intent into functioning software modules, dramatically shortening development cycles" \cite{Moore:2025vc}. & 18 & \cite{Moore:2025vc, Basha:2025tt, Terragni:2025fa, Yoo:2025sa, Jensen:2025me, Haque:2025la, Kim:2025is, Qiu:2025ft, Farhanna:2025eu, Zamfiroiu:2025ec, Zhang:2025ea, Tkachuk:2025dc, Banh:2025cf, Kim:2025ao, Ahmed:2025ai, Ramos:2025aa, Chen:2025es, Wang:2025rs} \\ \addlinespace
 
-Automation of Testing, Debugging, and Repair & AI and LLMs "can increase the efficiency of software development by automating coding, bug detection, debugging, and personalizing software according to user needs" \cite{Farhanna:2025eu}. & 12 & \cite{Moore:2025vc, Terragni:2025fa, Gao:2025cc, Dong:2024sc, AlHashimi:2025er, Kim:2025ao, Ahmed:2025ai, Chen:2025es, Ramos:2025aa, Wang:2025rs, Kim:2025is, Qiu:2025ft} \\ \addlinespace
+Automation of Testing, Debugging, and Repair & AI and LLMs support "automating coding, bug detection, debugging, and personalizing software according to user needs" \cite{Farhanna:2025eu}. & 12 & \cite{Moore:2025vc, Terragni:2025fa, Gao:2025cc, Dong:2024sc, AlHashimi:2025er, Kim:2025ao, Ahmed:2025ai, Chen:2025es, Ramos:2025aa, Wang:2025rs, Kim:2025is, Qiu:2025ft} \\ \addlinespace
 
-Optimization of Code Performance and Efficiency & "The proportionally small number of studies in SE subfields like Build, Release, Deploy, Operate and Monitor indicates a broad untapped area for cost savings and novelty, which could bring major optimisation in Software Engineering" \cite{KarlovsKarlovskis:2024ga}. & 10 & \cite{Moore:2025vc, Terragni:2025fa, Haque:2025la, KarlovsKarlovskis:2024ga, Qiu:2025ft, Farhanna:2025eu, AlHashimi:2025er, Zamfiroiu:2025ec, Zhang:2025ea, Banh:2025cf} \\ \addlinespace
+Optimization of Code Performance and Efficiency & "The proportionally small number of studies in SE subfields like Build, Release, Deploy, Operate and Monitor indicates a broad untapped area for cost savings and novelty" \cite{KarlovsKarlovskis:2024ga}. & 10 & \cite{Moore:2025vc, Terragni:2025fa, Haque:2025la, KarlovsKarlovskis:2024ga, Qiu:2025ft, Farhanna:2025eu, AlHashimi:2025er, Zamfiroiu:2025ec, Zhang:2025ea, Banh:2025cf} \\ \addlinespace
 
 Support for Early Software Development Phases (Requirements \& Design) & AI and LLMs have effectiveness in "...enhancing stakeholder communication and requirement documentation" while noting challenges with bias and accuracy in requirements and design elicitation \cite{Kim:2025ao}. & 8 & \cite{Gao:2025cc, Terragni:2025fa, Hemmat:2025rd, Zhang:2025ea, Kim:2025ao, Durrani:2024ad, Jensen:2025me, Qiu:2025ft} \\ \addlinespace
 
-Automated Documentation and Summarization & "LLMs can [...] automatically generate documentation for codebases, including explaining the purpose and functionality of specific functions, classes, and modules. This ensures that documentation stays current and can be updated as code evolves, providing developers with easily understandable, well-structured explanations of how various parts of the system work." \cite{Haque:2025la}. & 8 & \cite{Terragni:2025fa, Haque:2025la, AlHashimi:2025er, Zhang:2025ea, Tkachuk:2025dc, Banh:2025cf, Jabrw:2025ss, Durrani:2024ad} \\ \addlinespace
+Automated Documentation and Summarization & "LLMs can [...] automatically generate documentation for codebases [...] ensuring that documentation stays current and can be updated as code evolves" \cite{Haque:2025la}. & 8 & \cite{Terragni:2025fa, Haque:2025la, AlHashimi:2025er, Zhang:2025ea, Tkachuk:2025dc, Banh:2025cf, Jabrw:2025ss, Durrani:2024ad} \\ \addlinespace
 
-Enhanced Security and Vulnerability Management & Gen AI technology good practices enhances SDLC security by supporting development through "vulnerability detection, threat modeling, secure coding practices, and incident response" \cite{AlHashimi:2025er}. & 6 & \cite{Terragni:2025fa, Yoo:2025sa, Qiu:2025ft, AlHashimi:2025er, Bai:2025ci, Jabrw:2025ss} \\ \addlinespace
+Enhanced Security and Vulnerability Management & AI supports SDLC security through "vulnerability detection, threat modeling, secure coding practices, and incident response" \cite{AlHashimi:2025er}. & 6 & \cite{Terragni:2025fa, Yoo:2025sa, Qiu:2025ft, AlHashimi:2025er, Bai:2025ci, Jabrw:2025ss} \\ \addlinespace
 
 Knowledge Acquisition and Understanding & "Reduce technical barriers and transform the programming process into a collaborative, conversational, and more accessible act" \cite{Zamfiroiu:2025ec}. & 5 & \cite{Zamfiroiu:2025ec, Banh:2025cf, Chen:2025es, Qiu:2025ft, Jensen:2025me} \\ \addlinespace
 
 Management and Organizational Support & Assist in managing and "curating organizational information about day-to-day organizational practices" \cite{Jensen:2025me}. & 5 & \cite{Gao:2025cc, AlHashimi:2025er, Ahmed:2025ai, Durrani:2024ad, Zhang:2025ea} \\ \addlinespace
 
-Developer Well-being and Satisfaction & AI tools improve developer satisfaction by enabling developers to "prioritize interesting and fun tasks through automating menial, boring tasks" \cite{Jensen:2025me}. & 4 & \cite{Jensen:2025me, Zhang:2025ea, Basha:2025tt, Qiu:2025ft} \\ \addlinespace
+Developer Well-being and Satisfaction & "prioritize interesting and fun tasks through automating menial, boring tasks" \cite{Jensen:2025me}. & 4 & \cite{Jensen:2025me, Zhang:2025ea, Basha:2025tt, Qiu:2025ft} \\ \addlinespace
 
-Democratization and Accessibility & AI integration aims to "shift the programming paradigm from a traditional code-centric approach to one that involves verbal interactions between the programmer and the artificial intelligence agent being used", making programming more accessible \cite{Zamfiroiu:2025ec}. & 2 & \cite{Zamfiroiu:2025ec, Moore:2025vc} \\ \addlinespace
+Democratization and Accessibility & "shift the programming paradigm from a traditional code-centric approach to one that involves verbal interactions between the programmer and the artificial intelligence agent" \cite{Zamfiroiu:2025ec}. & 2 & \cite{Zamfiroiu:2025ec, Moore:2025vc} \\ \addlinespace
 
 \end{longtable}
 }
 
 
-The two most frequently reported benefits, productivity and code quality, are also mutually reinforcing: acceleration does not come at the cost of quality, since AI helps generate code adhering to high standards, raising the accuracy and particularly the traceability of the final product \cite{Kim:2025is}. Automating the time-consuming quality-assurance tasks, testing, debugging and repair, supports the same synergy, and the mechanism is specific: LLMs leverage explicit feedback such as compiler error messages in follow-up prompts, iteratively fixing their own coding errors within a single conversation context. Beyond the codebase itself, the reported benefits extend to developer job satisfaction and to the democratisation of programming knowledge.
+The two most frequently reported benefits, productivity and code quality, are reported as mutually reinforcing: acceleration does not come at the cost of quality, since AI helps generate code adhering to high standards, raising the accuracy and traceability of the final product \cite{Kim:2025is}. Automating quality-assurance tasks, testing, debugging and repair supports the same synergy, and the mechanism is specific: LLMs leverage explicit feedback such as compiler error messages in follow-up prompts, iteratively fixing their own coding errors within a single conversation context. Beyond the codebase itself, the reported benefits extend to developer job satisfaction and to the democratisation of programming knowledge.
 
 \subsection{Consequences of AI and LLMs usage in Software Development}
 
 The second research question concerns the consequences that may arise from incorporating AI and \acp{LLM} into software development, in code generation and elsewhere. Those reported across the corpus are collected in \Cref{tab:consequences}.
-{\small
+{\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
 \caption{Consequences of using AI and LLMs in Software Development}
 \label{tab:consequences} \\
@@ -275,38 +270,35 @@ The second research question concerns the consequences that may arise from incor
 \bottomrule
 \endlastfoot
 
-Increased Operational Costs and Resource Constraints & "The financial burden can become substantial and must be considered when LLMs are deployed to handle a large number of tasks" \cite{Hou:2025cl}. & 20 & \cite{Terragni:2025fa, Han:2025mg, Haque:2025la, KarlovsKarlovskis:2024ga, Weyssow:2025ep, Hou:2025cl, Ahmed:2025ai, Chen:2025es, Jabrw:2025ss, Durrani:2024ad} \\ \addlinespace
+Increased Operational Costs and Resource Constraints & "a substantial financial burden [...] when LLMs are deployed to handle a large number of tasks" \cite{Hou:2025cl}. & 20 & \cite{Terragni:2025fa, Han:2025mg, Haque:2025la, KarlovsKarlovskis:2024ga, Weyssow:2025ep, Hou:2025cl, Ahmed:2025ai, Chen:2025es, Jabrw:2025ss, Durrani:2024ad} \\ \addlinespace
 
-Reliability, Accuracy, and Hallucination Risks & This is particularly problematic in complex or niche scenarios. "Because this AI can simply make things up or sometimes spit out things that don’t even exist" \cite{Banh:2025cf}. & 15 & \cite{Basha:2025tt, Terragni:2025fa, Gao:2025cc, Li:2025sc, Hemmat:2025rd, Han:2025mg, Zamfiroiu:2025ec, Tkachuk:2025dc, Bai:2025ci, Chen:2025es, Durrani:2024ad, Zhang:2025ea, Kim:2025is, Ramos:2025aa, Wang:2025rs} \\ \addlinespace
+Reliability, Accuracy, and Hallucination Risks & Particularly problematic in complex or niche scenarios: "this AI can simply make things up or sometimes spit out things that don’t even exist" \cite{Banh:2025cf}. & 15 & \cite{Basha:2025tt, Terragni:2025fa, Gao:2025cc, Li:2025sc, Hemmat:2025rd, Han:2025mg, Zamfiroiu:2025ec, Tkachuk:2025dc, Bai:2025ci, Chen:2025es, Durrani:2024ad, Zhang:2025ea, Kim:2025is, Ramos:2025aa, Wang:2025rs} \\ \addlinespace
 
-Security Vulnerabilities in Generated Code & "Recent studies suggest that code generated by AI models often contains security vulnerabilities that may follow patterns different from those in human-written code. Evidence suggests that AI-generated code may harbor unique security risks in areas such as cryptographic implementation, memory management, and error handling" \cite{Yoo:2025sa}. & 15 & \cite{Basha:2025tt, Gao:2025cc, Yoo:2025sa, KarlovsKarlovskis:2024ga, AlHashimi:2025er, Farhanna:2025eu, Tkachuk:2025dc, Banh:2025cf, Bai:2025ci, Ahmed:2025ai, Chen:2025es, Jabrw:2025ss, Haque:2025la, Qiu:2025ft, Wang:2025rs} \\ \addlinespace
+Security Vulnerabilities in Generated Code & "AI-generated code may harbor unique security risks in areas such as cryptographic implementation, memory management, and error handling" \cite{Yoo:2025sa}. Existing tools do not close the gap: they detect only "46.7\% of vulnerabilities in AI-generated code, a significantly lower rate than for human-written code vulnerabilities (66.4\%)" \cite{Yoo:2025sa}. & 15 & \cite{Basha:2025tt, Gao:2025cc, Yoo:2025sa, KarlovsKarlovskis:2024ga, AlHashimi:2025er, Farhanna:2025eu, Tkachuk:2025dc, Banh:2025cf, Bai:2025ci, Ahmed:2025ai, Chen:2025es, Jabrw:2025ss, Haque:2025la, Qiu:2025ft, Wang:2025rs} \\ \addlinespace
 
-Ethical, Legal, and Intellectual Property Issues & "Questions about the ownership and licensing of that code will arise, particularly when the models are trained on publicly available, open-source projects" \cite{Haque:2025la}. & 8 & \cite{Terragni:2025fa, AlHashimi:2025er, Zamfiroiu:2025ec, Ahmed:2025ai, Durrani:2024ad, Banh:2025cf, Basha:2025tt, Haque:2025la} \\ \addlinespace
+Ethical, Legal, and Intellectual Property Issues & "questions about the ownership and licensing of that code will arise" when models are trained on publicly available, open-source projects \cite{Haque:2025la}. & 8 & \cite{Terragni:2025fa, AlHashimi:2025er, Zamfiroiu:2025ec, Ahmed:2025ai, Durrani:2024ad, Banh:2025cf, Basha:2025tt, Haque:2025la} \\ \addlinespace
 
-Homogeneity and Bias Propagation & As LLMs increasingly train on LLM-generated code, there is a risk of code homogeneity, reducing diversity in coding practices and potentially perpetuating slow, biased, or insecure patterns. This reduces the diversity of code practices over time, as LLMs tend to "reaffirm patterns seen in their training data (e.g., public GitHub repositories)" \cite{Terragni:2025fa}. & 8 & \cite{Terragni:2025fa, Basha:2025tt, Haque:2025la, AlHashimi:2025er, Farhanna:2025eu, Banh:2025cf, Ahmed:2025ai, Ramos:2025aa} \\ \addlinespace
+Homogeneity and Bias Propagation & LLMs increasingly train on LLM-generated code, tending to "reaffirm patterns seen in their training data (e.g., public GitHub repositories)" \cite{Terragni:2025fa}. & 8 & \cite{Terragni:2025fa, Basha:2025tt, Haque:2025la, AlHashimi:2025er, Farhanna:2025eu, Banh:2025cf, Ahmed:2025ai, Ramos:2025aa} \\ \addlinespace
 
 Evaluation and Standardization Challenges & "It is urgent to establish an effective, objective, and complete evaluation system for large language models for code" \cite{Ahmed:2025ai}. & 7 & \cite{Ahmed:2025ai, Yoo:2025sa, Hemmat:2025rd, Pendyala:2025pi, Farhanna:2025eu, Jabrw:2025ss, Han:2025mg} \\ \addlinespace
 
-Risk of Over-reliance and Cognitive Decline & "Of course, sometimes sometimes there is almost the danger that you stop thinking for yourself a little. I think that might also be a problem in the future, that if AI is constantly available, people will tend to become lazy and stop thinking for themselves" \cite{Banh:2025cf}. & 4 & \cite{Banh:2025cf, Basha:2025tt, Jensen:2025me, Zamfiroiu:2025ec} \\ \addlinespace
+Risk of Over-reliance and Cognitive Decline & "if AI is constantly available, people will tend to become lazy and stop thinking for themselves" \cite{Banh:2025cf}. & 4 & \cite{Banh:2025cf, Basha:2025tt, Jensen:2025me, Zamfiroiu:2025ec} \\ \addlinespace
 
-New Overhead and Workflow Inefficiencies (Human Review) & Integrating AI requires developers to shift their focus, often spending more time reviewing, verifying, and refining outputs, rather than writing new code because LLMs still "require human oversight and review of their outputs before implementation" \cite{Kim:2025ao}. & 4 & \cite{Kim:2025ao, Durrani:2024ad, Banh:2025cf, Zamfiroiu:2025ec} \\ \addlinespace
-
-Ineffectiveness of Existing Security Tools & Existing tools detect only "46.7\% of vulnerabilities in AI-generated code, a significantly lower rate than for human-written code vulnerabilities (66.4\%)" \cite{Yoo:2025sa}. & 3 & \cite{Yoo:2025sa, AlHashimi:2025er, Jabrw:2025ss} \\ \addlinespace
+New Overhead and Workflow Inefficiencies (Human Review) & LLMs still "require human oversight and review of their outputs before implementation" \cite{Kim:2025ao}. & 4 & \cite{Kim:2025ao, Durrani:2024ad, Banh:2025cf, Zamfiroiu:2025ec} \\ \addlinespace
 
 \end{longtable}
 }
 
 
-The consequences tabulated above are technical, ethical and operational, and
-the operational and technical ones are cited most often. Cost comes first:
+The consequences tabulated above are technical, ethical and operational, with
+the technical and operational ones cited most often. Cost comes first:
 training, fine-tuning and deploying large-scale models can be substantially
 more expensive than traditional methods, offsetting the productivity gains
 they are meant to buy. Reliability comes second: LLMs frequently produce
-plausible but fabricated output, "hallucinations", most problematically in
-complex or niche scenarios. The detection gap the table records between
-AI-generated and human-written code is the same problem from the tooling
-side, existing instruments being matched to failure modes AI-generated code
-does not share \cite{Yoo:2025sa}.
+plausible but fabricated output, "hallucinations". The detection gap the
+table records between AI-generated and human-written code is the same
+problem from the tooling side, existing instruments being matched to failure
+modes AI-generated code does not share \cite{Yoo:2025sa}.
 
 Beyond the technical domain, adoption carries risks to human factors, ethics
 and economic viability: over-reliance eroding developers' independence as
@@ -314,17 +306,11 @@ instant assistance becomes the default, training-data bias perpetuated and
 magnified in generated code \cite{Haque:2025la}, and unresolved ownership and
 licensing where models train on open-source code \cite{Terragni:2025fa}.
 
-Together these risks point to one conclusion: LLMs' non-deterministic output
-and the absence of standardised evaluation benchmarks make extensive human
-review non-optional before AI-generated artefacts reach production, and the
-time it costs is part of the true cost of adoption rather than a footnote to
-it.
-
 \subsection{Methodologies and management methods used to integrate AI and LLMs in Software Development}
 
 The third research question asks which methodologies and management methods are used to integrate AI and \acp{LLM} into software development. \Cref{tab:methodologies} lists those the corpus reports.
 
-{\small
+{\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
 \caption[Methodologies and management methods for integrating AI and LLMs]{Methodologies and Management Methods used to integrate AI and LLMs in Software Development}
 \label{tab:methodologies} \\
@@ -347,52 +333,43 @@ The third research question asks which methodologies and management methods are 
 \bottomrule
 \endlastfoot
 
-In-Context Learning (ICL) / Few-shot Learning & "ICL seeks to improve the abilities of LLMs by integrating context-specific information, in the form of an input prompt or instruction template, during the inference and thus without the need to perform gradient-based training" \cite{Weyssow:2025ep}. & 9 & \cite{Weyssow:2025ep, Terragni:2025fa, Chen:2025es, Ramos:2025aa, Durrani:2024ad, Gao:2025cc, Hemmat:2025rd, Qiu:2025ft, Jabrw:2025ss} \\ \addlinespace
+In-Context Learning (ICL) / Few-shot Learning & "integrating context-specific information, in the form of an input prompt or instruction template, during the inference and thus without the need to perform gradient-based training" \cite{Weyssow:2025ep}. & 9 & \cite{Weyssow:2025ep, Terragni:2025fa, Chen:2025es, Ramos:2025aa, Durrani:2024ad, Gao:2025cc, Hemmat:2025rd, Qiu:2025ft, Jabrw:2025ss} \\ \addlinespace
 
 Prompt Engineering (PE) / Prompt-Driven Development & "The effectiveness of prompt engineering critically determines the performance of leveraging the capabilities of LLMs". \cite{Jabrw:2025ss} & 5 &  \cite{Jabrw:2025ss, Pendyala:2025pi, Qiu:2025ft, Ahmed:2025ai, Chen:2025es} \\ \addlinespace
 
-Chain-of-Thought (CoT) Prompting & "A CoT is several intermediate natural language reasoning steps that lead to the final answer... the CoT only uses natural language to describe how to solve a problem step by step sequentially". \cite{Li:2025sc} & 5 & \cite{Li:2025sc, Jabrw:2025ss, Chen:2025es, Ahmed:2025ai, Gao:2025cc} \\ \addlinespace
+Chain-of-Thought (CoT) Prompting & "A CoT is several intermediate natural language reasoning steps that lead to the final answer" \cite{Li:2025sc}. & 5 & \cite{Li:2025sc, Jabrw:2025ss, Chen:2025es, Ahmed:2025ai, Gao:2025cc} \\ \addlinespace
 
-Human-In-The-Loop (HITL) Paradigm & "While overall, LLMs exhibit decent reliability in their outputs with varying degrees, they still require human oversight and review of their outputs before implementation". "The importance of the human contribution in identifying and resolving problems to maintain software quality is widely acknowledged by many authors, which also gives rise to the Human-in-the-Loop (HITL) paradigm" \cite{Kim:2025ao}. & 5 & \cite{Kim:2025ao, Wang:2025rs, Terragni:2025fa, Hemmat:2025rd, Haque:2025la}\\ \addlinespace
+Human-In-The-Loop (HITL) Paradigm & "The importance of the human contribution in identifying and resolving problems to maintain software quality is widely acknowledged by many authors" \cite{Kim:2025ao}. \acp{LLM} still "require human oversight and review of their outputs before implementation" \cite{Kim:2025ao, Terragni:2025fa}. & 6 & \cite{Kim:2025ao, Wang:2025rs, Terragni:2025fa, Hemmat:2025rd, Haque:2025la, Zamfiroiu:2025ec}\\ \addlinespace
 
-Structured Prompting / Structured Chain-of-Thought (SCoT) & "SCoT denotes several intermediate reasoning steps constructed by programming structures", and "SCoT prompting asks LLMs first to generate an SCoT and then output the final code." \cite{Li:2025sc} & 4 & \cite{Li:2025sc, Han:2025mg, Jabrw:2025ss, Kim:2025is} \\ \addlinespace
+Structured Prompting / Structured Chain-of-Thought (SCoT) & "SCoT denotes several intermediate reasoning steps constructed by programming structures" \cite{Li:2025sc}. & 4 & \cite{Li:2025sc, Han:2025mg, Jabrw:2025ss, Kim:2025is} \\ \addlinespace
 
-Multi-Agent Systems / Self-Collaboration Approach & "Different agents play different roles and collaborate to fulfill user requirements". "[...] a self-collaboration framework with role instruction, which allows LLM agents to collaborate with each other to generate code for complex requirements" \cite{Wang:2025rs, Dong:2024sc}. & 4 & \cite{Wang:2025rs, Dong:2024sc, Banh:2025cf, Bai:2025ci} \\ \addlinespace
+Multi-Agent Systems / Self-Collaboration Approach & "a self-collaboration framework with role instruction, which allows LLM agents to collaborate with each other to generate code for complex requirements" \cite{Wang:2025rs, Dong:2024sc}. & 4 & \cite{Wang:2025rs, Dong:2024sc, Banh:2025cf, Bai:2025ci} \\ \addlinespace
 
-Integration with External Tools and Domain Knowledge & "Combining the linguistic capability of LLMs with specialized domain knowledge to enhance output quality, functionality, or security". "The integration of relevant context into prompts may further improve current GenAI models, thereby reducing hallucinations and increasing reliability". \cite{Wang:2025rs, Banh:2025cf} & 3 & \cite{Wang:2025rs, Banh:2025cf, Zhang:2025ea, Ahmed:2025ai} \\ \addlinespace
+Integration with External Tools and Domain Knowledge & "Combining the linguistic capability of LLMs with specialized domain knowledge to enhance output quality, functionality, or security" \cite{Wang:2025rs, Banh:2025cf}. & 3 & \cite{Wang:2025rs, Banh:2025cf, Zhang:2025ea, Ahmed:2025ai} \\ \addlinespace
 
-AI-Assisted Pair Programming / Human Oversight & "LLMs still require human oversight and review of their outputs before implementations, and they present unique characteristics to be considered before adoption". "The AI orchestrator will coordinate the perception and action of each agent" \cite{Kim:2025ao, Terragni:2025fa}. & 3 & \cite{Kim:2025ao, Terragni:2025fa, Zamfiroiu:2025ec}\\ \addlinespace
-
-Retrieval-Augmented Generation (RAG) & "RAG have gained attention. ICL and RAG offer a low-computation option by eliminating the need for parameter updates". "RAG demonstrates higher effectiveness than ICL but falls short of LoRA’s effectiveness across all three CodeLlama model variants". \cite{Weyssow:2025ep} & 2 & \cite{Weyssow:2025ep, Chen:2025es} \\ \addlinespace
-
-AI-Augmented Agile Development (e.g., AgileGen Framework) & "[...] we propose a human-agent collaborative generative software development approach, focusing on human involvement at the beginning (scenario decision-making) and end (acceptance and recommendation decision-making) of each iteration" \cite{Zhang:2025ea}. & 1 & \cite{Zhang:2025ea} \\ \addlinespace
-
-Utilizing Gherkin Language (Behavior-Driven Testing) & "[...] we use Gherkin to supplement unclear user requirements with well-defined acceptance criteria, guiding the generation of applications that align with user requirements" \cite{Zhang:2025ea}. & 1 & \cite{Zhang:2025ea} \\ \addlinespace
-
-Vibe Coding & "[...] emerging concept of vibe coding, in which artificial intelligence (AI) accelerates the coding process by converting natural language or abstract research intent (a vibe) into functioning software modules" \cite{Moore:2025vc} & 1 & \cite{Moore:2025vc} \\ \addlinespace
-
-Integration of LLMs with Traditional Testing & "the integration of LLMs with traditional approaches has emerged as an important direction for future exploration". "By combining them together, there can be 1.4× to 2.3× improvement than the baselines". \cite{Wang:2025rs} & 1 & \cite{Wang:2025rs} \\ \addlinespace
+Other Single-Study Techniques & Five techniques each supported by a single study: Retrieval-Augmented Generation offers "a low-computation option by eliminating the need for parameter updates", though it "falls short of LoRA's effectiveness across all three CodeLlama model variants" \cite{Weyssow:2025ep, Chen:2025es}; AI-Augmented Agile Development (AgileGen) focuses human involvement on the start (scenario decision-making) and end (acceptance decision-making) of each iteration \cite{Zhang:2025ea}; Gherkin-based behaviour-driven testing supplements unclear user requirements with well-defined acceptance criteria \cite{Zhang:2025ea}; Vibe Coding converts natural language or abstract intent into functioning software modules \cite{Moore:2025vc}; and integrating LLMs with traditional testing approaches yields a "1.4× to 2.3× improvement than the baselines" \cite{Wang:2025rs}. & 5 & \cite{Weyssow:2025ep, Chen:2025es, Zhang:2025ea, Moore:2025vc, Wang:2025rs} \\ \addlinespace
 
 \end{longtable}
 }
 
 The methods reported range from prompt-level tuning to large-scale process
-frameworks, and they stratify. The fundamental layer improves model
-interaction through prompts, led by In-Context Learning (9 articles, the
-most frequently discussed technique) and Prompt Engineering, whose quality
-critically determines LLM effectiveness; the same principle motivates
-Chain-of-Thought prompting and its Structured variant, which introduces
-programming constructs such as sequence, branch and loop into the
-intermediate reasoning steps \cite{Li:2025sc}.
+frameworks, and they stratify into two tiers:
 
-Given LLMs' variable reliability, the Human-In-The-Loop paradigm is
-considered mandatory for maintaining software quality \cite{Kim:2025ao}:
-developers retain critical oversight, reviewing and verifying AI output
-before it is implemented. This is formalised in frameworks such as
-AI-Augmented Agile Development (AgileGen), which reserves human
-decision-making for the start (scenario definition) and end (acceptance) of
-each lightweight iteration \cite{Zhang:2025ea}, preventing the error
-accumulation that unsupervised multi-agent systems risk.
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.5em]
+\item \textbf{Prompt-level tuning.} In-Context Learning (9 articles, the
+most-discussed technique) and Prompt Engineering, whose quality critically
+determines effectiveness, form the base layer. Chain-of-Thought and its
+Structured variant apply the same principle, introducing programming
+constructs such as sequence, branch and loop into the reasoning steps
+\cite{Li:2025sc}.
+\item \textbf{Process-level frameworks.} Given LLMs' variable reliability,
+Human-In-The-Loop is considered mandatory for software quality
+\cite{Kim:2025ao}: developers retain oversight, reviewing AI output before
+implementation. AI-Augmented Agile Development (AgileGen) formalises this,
+reserving human decision-making for the start (scenario definition) and end
+(acceptance) of each iteration \cite{Zhang:2025ea}, preventing the error
+accumulation unsupervised multi-agent systems risk.
+\end{itemize}
 
 "Vibe Coding", mentioned once in the corpus, is recent and not yet widely
 studied \cite{Moore:2025vc}, but reliably translating a "vibe" into working
@@ -403,26 +380,62 @@ software is what the methodologies above exist to constrain.
 
 The fourth research question concerns the human perspective. Reception differs enough between groups that the extracted opinions are tabulated separately in \Cref{sec:appA_opinions}, for the public and researchers, developers and practitioners, and organisations and management; the separation is itself a finding.
 
-Among the public and researchers, the dominant position is scepticism grounded in fallibility rather than in capability. General perception, cited in six articles, treats these systems as a mixture of software and sorcery, and the primary technical barrier reported is misinformation risk: generated code may execute without error while failing to meet the intended requirement, a risk amplified by variability, since the same prompt repeated yields different code each time. That is what makes the single most prevalent opinion across all three groups, the need for human oversight with seven articles, follow from evidence rather than from caution.
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.5em]
+\item \textbf{Public and researchers.} Scepticism grounded in fallibility,
+not capability, dominates. General perception (six articles) treats these
+systems as a mixture of software and sorcery; the primary barrier reported
+is misinformation risk, since generated code may execute without error
+while failing the intended requirement, amplified by variability across
+repeated identical prompts.
+\item \textbf{Developers and practitioners.} The opposite emphasis:
+productivity and efficiency gains are the most-cited positive opinion (six
+articles), and \acp{LLM} are valued for knowledge acquisition, bypassing
+extended search or dependence on colleagues~\cite{Banh:2025cf}. Two
+countervailing findings appear alongside it: a documented risk of
+over-reliance and skill erosion, and prompt design as a significant time
+investment that reduces the efficiency it promises~\cite{Banh:2025cf}.
+\item \textbf{Organisations and management.} Adoption is treated as a
+risk-management exercise. The strategic case, retaining valuable staff by
+automating routine work~\cite{Jensen:2025me}, is constrained by the
+group's most-cited concern, data security and privacy (six articles). The
+consensus strategy favours open models fine-tuned on organisation-specific
+data over commercial \acp{LLM}, raising operational cost and pushing teams
+towards medium-sized models; expectation management appears less often but
+matters equally, discounting the hype
+surrounding these tools when planning integration.
+\end{itemize}
 
-Developers and practitioners report the opposite emphasis. Productivity and efficiency gains are the most-cited positive opinion for this group, in six articles, and \acp{LLM} are valued for knowledge acquisition, letting a developer bypass extended search or dependence on colleagues~\cite{Banh:2025cf}. Two countervailing findings appear alongside it: a documented risk of over-reliance and erosion of technical competence, and prompt design reported as a significant time investment requiring considerable skill, which reduces the efficiency it promises~\cite{Banh:2025cf}.
-
-Organisations and management treat adoption as a risk-management exercise. The strategic case is tied to job satisfaction, talent retention and competitiveness, since automating routine work retains valuable staff~\cite{Jensen:2025me}, but it is constrained by the group's most-cited concern, data security and privacy, in six articles. The consensus strategy is to avoid commercial \acp{LLM} in favour of open models fine-tuned on organisation-specific data, which raises operational cost and pushes teams towards medium-sized models. Expectation management appears less often but matters for the same reason: organisations report needing to discount the hype surrounding these tools when planning integration.
+That is what makes the single most prevalent opinion across all three
+groups, the need for human oversight with seven articles, follow from
+evidence rather than from caution.
 
 \subsection{Industry sectors adopting AI and LLMs for Software Applications Development}
 
 The fifth research question asks which industry sectors are actively adopting \ac{AI} for application development and what sector-level benefits they report; the extracted evidence is tabulated in \Cref{sec:appA_sectors}.
 
-Adoption concentrates overwhelmingly in Software Engineering, Software Development and IT Consulting, unsurprisingly, these being both the origin and the primary proving ground for \ac{LLM}-based tools. The reported use cases centre on code generation, completion, explanation and refactoring, and several sources describe a gradual shift in the developer role from writing code manually to orchestrating AI-enabled workflows in which the human directs, validates and refines automated output~\cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao}. In consulting, \acp{LLM} are valued for accelerating onboarding and transferring client-specific business knowledge between projects; adoption also appears in infrastructure-level or mathematically intensive domains, where models must be adapted or augmented with structured knowledge to produce reliable output~\cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, AlHashimi:2025er}.
+Adoption concentrates overwhelmingly in Software Engineering, Software Development and IT Consulting, both the origin and the primary proving ground for \ac{LLM}-based tools. The reported use cases centre on code generation, completion, explanation and refactoring, and several sources describe a gradual shift in the developer role from writing code manually to orchestrating AI-enabled workflows in which the human directs, validates and refines automated output~\cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao}. In consulting, \acp{LLM} are valued for accelerating onboarding and transferring client-specific business knowledge between projects; adoption also appears in infrastructure-level or mathematically intensive domains, where models must be adapted or augmented with structured knowledge to produce reliable output~\cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, AlHashimi:2025er}.
 
-Beyond the core \ac{IT} sector, adoption clusters in high-stakes regulated environments: Finance, Banking and Regulated Industries in eight articles, Transportation and other safety-critical domains in seven, Healthcare and Biomedical Research in five, and Legal Reasoning in four. There \acp{LLM} are introduced cautiously, with emphasis on reliability, auditability and regulatory compliance, and the literature is consistent that extensive human review remains mandatory wherever incorrect or unverifiable output could produce safety risks, compliance failures or legal liability~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}. Education and Training, in five articles, is an emerging area in which \acp{LLM} act as adaptive learning companions rather than replacements for educators, supporting exercise generation, personalised feedback and formative assessment~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
+Beyond the core \ac{IT} sector, adoption clusters in finance, banking and
+regulated industries (eight articles), transportation and other
+safety-critical domains (seven), healthcare and biomedical research (five),
+education and training (five) and legal reasoning (four); education is an
+emerging area in which \acp{LLM} act as adaptive learning companions rather
+than replacements for educators, supporting exercise generation,
+personalised feedback and formative
+assessment~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
 
-No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks. That is a finding about process rather than capability, and it is where the review begins to constrain a framework's design rather than merely describe practice.
+In the first four, \acp{LLM} are introduced cautiously, with emphasis on
+reliability, auditability and regulatory compliance, and the literature is
+consistent that extensive human review remains mandatory wherever incorrect
+or unverifiable output could produce safety risks, compliance failures or
+legal liability~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}.
+
+No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks.
 
 \section{Discussion}
 
-Read across the five research questions rather than one at a time, the review
-converges on a single pattern. Every benefit reported under RQ1 has a
+Read across the five research questions, the review converges on a single
+pattern. Every benefit reported under RQ1 has a
 corresponding risk under RQ2 threatening the same property it claims: speed
 and code quality against hallucination, security vulnerabilities and
 homogenisation; democratised access against over-reliance and skill erosion.
@@ -443,23 +456,23 @@ the pattern phase by phase; read down its challenge column and the same
 requirement recurs at every one, a human check of the model's output against
 something written before that output existed.
 
-{\small
-\begin{longtable}{p{2.3cm} p{5.8cm} p{6.5cm}}
+{\footnotesize
+\begin{longtable}{p{2.3cm} p{11.5cm}}
 \caption{Impact of AI and LLMs across Software Development Lifecycle Phases}
 \label{tab:ai_sdlc_mapping} \\
 
 \toprule
-\textbf{SDLC Phase} & \textbf{Main AI Contributions} & \textbf{Main Challenges} \\
+\textbf{SDLC Phase} & \textbf{Main Challenges} \\
 \midrule
 \endfirsthead
 
 \toprule
-\textbf{SDLC Phase} & \textbf{Main AI Contributions} & \textbf{Main Challenges} \\
+\textbf{SDLC Phase} & \textbf{Main Challenges} \\
 \midrule
 \endhead
 
 \midrule
-\multicolumn{3}{r}{\textit{Continued on next page}}\\
+\multicolumn{2}{r}{\textit{Continued on next page}}\\
 \bottomrule
 \endfoot
 
@@ -467,32 +480,26 @@ something written before that output existed.
 \endlastfoot
 
 Requirements Analysis &
-Support for requirements elicitation, clarification, summarization, and stakeholder communication; rapid exploration of solution ideas through conversational interfaces. &
 Risk of ambiguity amplification, overconfidence in AI-generated requirements, and lack of domain context; increased need for human validation early in the process. \\
 \addlinespace
 
 Design &
-Generation of architectural alternatives, design patterns, API suggestions, and exploratory prototypes. &
 Limited understanding of system-wide constraints; risk of inconsistent or suboptimal architectural decisions without expert oversight. \\
 \addlinespace
 
 Implementation &
-Code generation, refactoring, boilerplate reduction, and rapid prototyping; strong association with practices such as Vibe Coding. &
 Hallucinated code, inconsistent outputs, security vulnerabilities, and reduced trust due to output variability; heavy reliance on human review. \\
 \addlinespace
 
 Testing &
-Automated test case generation, test data creation, bug localization, and support for exploratory testing. &
 Difficulty validating correctness of AI-generated tests; increased testing complexity due to unpredictable AI-generated code. \\
 \addlinespace
 
 Deployment &
-Support for configuration scripts, infrastructure-as-code templates, and documentation generation. &
 Risk of misconfiguration or insecure defaults; limited contextual awareness of operational environments. \\
 \addlinespace
 
 Maintenance &
-Assistance with debugging, documentation updates, code comprehension, and technical debt identification. &
 Potential over-reliance on AI explanations; challenges in maintaining long-term system understanding and accountability. \\
 \addlinespace
 
