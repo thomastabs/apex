@@ -22,8 +22,11 @@ wins.
 > superseded by §1a-quinquies's 2026-09-15 account, superseded by
 > §1a-sexies's 2026-09-23 pre-cut account, superseded by §1a-septies's
 > 2026-09-23 post-cut account, superseded by §1a-octies's 2026-09-24
-> account, superseded by §1a-nonies's 2026-09-24 account** - read
-> §1a-nonies for the current state, after the real-material cutting pass
+> account, superseded by §1a-nonies's 2026-09-24 account, superseded by
+> §1a-decies's 2026-09-24 account** - read §1a-decies for the current
+> state: both real IST ceilings are compliant, after Tomás's own manual
+> pass in Overleaf and the verification pass that followed it. §1a-nonies
+> records the real-material cutting pass that preceded it
 > that followed §1a-octies's format-conversion and deep-dive passes, which
 > followed §1a-septies's first cutting
 > pass that followed Chapters 8 and 10 being
@@ -604,6 +607,98 @@ essentially exhausted. Six pages on ceiling 1, sixteen on ceiling 3, is
 where a further reduction would have to come from content this session's
 review explicitly protected, a structural chapter merge already declined,
 or a supervisor conversation about the residual.
+
+## 1a-decies. Tomás's own manual pass on Overleaf, 2026-09-24: 116 to 99 pages, both real ceilings met
+
+While ten further Opus deep-dive passes were queued (one per chapter, to
+squeeze the remaining six main-text pages), Tomás downloaded the exported
+project, opened it in Overleaf, and cut the document himself by hand. He
+brought it from 116 to 99 pages overall, with main text alone at 71 pages
+and main text plus bibliography at 77 - both real IST ceilings now compliant
+with margin, the first time either has been true all session, and achieved
+faster and more decisively than the agent-driven passes were managing.
+
+The re-exported project was pulled back in and independently verified
+before being trusted: extracted to a clean directory, compiled from a bare
+checkout with no other file present, confirmed at 99 pages with zero
+undefined references, matching Tomás's own reported numbers exactly. Seven
+parallel review passes then diffed every chapter and both appendices
+against the last-known-good repo version, extracting full `\cite{}` and
+`\label{}` key sets from each side and checking for anything dropped, any
+statistic changed, and any downstream `\Cref` left dangling.
+
+**Verdict per chapter, all independently checked:** Chapters 1, 2, 3, 5
+untouched or minimally and safely tightened. Chapter 4: 31/31 citations and
+10/10 labels identical, all PRISMA numbers and all three evidence tables
+byte-for-byte preserved bar one uncited finding. Chapter 6: 25/25 citations
+and 22/22 labels identical, every table (Lifecycle Phases, Quality Gates,
+Hats, RQ mapping) byte-identical, Design Principles still at seven,
+Operational Playbooks still present; one real gap found, hard empirical
+numbers thinned on four of seven principle rows. Chapter 7: all four
+previously-protected items (the two DRQ3 proxy corrections, the
+coverage-badge correction, the twelve-row construct-mapping table) pass;
+13/13 labels identical; two real changes found, one a genuine correction
+(Jira adapter status) and one a real evidentiary loss (the "44 stories
+flagged at once" spec-drift figure). Chapter 8: all four protected items
+(six incidents, four rejection classes, the marked-correction paragraph,
+the three cross-cited governance figures) pass byte-for-byte or
+substantively intact; 9/9 labels identical; one quote paraphrased instead
+of kept verbatim. Chapter 9: every statistic checked character-by-character
+against the original (SUS, NASA-TLX, analytical-assessment ratings, all
+three demonstration metrics cross-checked against Chapter 8) - all
+unchanged; Table 9.3 kept in full; Threats to Validity byte-identical; two
+real changes found, one a deliberate factual correction (recruitment
+attribution) and one a real content loss (the P0-pilot justification
+sentence). Appendices A and B: citations and labels identical in both; the
+two tables relocated to Appendix B earlier in the session (13-row SUS
+scores, 17-row UX matrix) both confirmed intact with identical values; the
+consent form's replacement with a screenshot image was visually verified as
+a faithful substitution, not a truncation.
+
+Of everything flagged, three were confirmed by Tomás as deliberate and
+correct as edited (the Chapter 9 recruitment-attribution change, the
+Chapter 7 Jira-adapter-status change, and the decision to drop the P0-pilot
+justification sentence entirely rather than restore it) - none of these
+three needed any fix. Four items were restored: the Chapter 7 "44 stories
+flagged at once" spec-drift figure; four of Chapter 6's Design Principles
+rows had their hard empirical numbers (90%/30% trust-adoption gap,
+61%/10.5% correct-vs-secure, 45% OWASP rate, DORA's team-capability
+amplifier finding, 19%/20% RCT discrepancy, 72%/45% Java vulnerability
+rate) re-inserted into the tightened prose rather than left as qualitative
+paraphrase; the Chapter 8 destructive-command root-cause quote was restored
+verbatim; and Chapter 9's SUS n=12-stability justification and the
+consent "two sets overlapping at nine" detail were both restored. A stray
+double-hyphen introduced during the manual edit (Chapter 7, rendering as an
+em-dash) was also caught and fixed during this pass.
+
+Every restoration was applied to the export copy first, independently
+recompiled and visually confirmed on the rendered page before being
+trusted, then the entire export (all chapters, `Preamble_commands.tex` -
+which gained a legitimate `\raggedbottom` addition, likely a real
+contributor to the page savings, plus an unused `multicol` import carried
+along harmlessly - and one new image, `forms_screenshot.png`, whose bare
+filename reference was fixed to match this repo's own `./Images/`
+convention) was synced back into the tracked repo files, superseding the
+agent-cut versions from §1a-nonies as the new baseline. The full document
+was then recompiled from the real repo copy under its actual jobname.
+
+**Measured 2026-09-24, final state:**
+
+| # | Ceiling | Applies to | State |
+|---|---|---|---|
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 71, **compliant, 9 pages of margin** |
+| 2 | *(self-imposed, not an IST rule)* | main text **plus bibliography** | 77, **compliant against the 80pp target this file itself set** |
+| 3 | **100 pages** | the whole assembled PDF | 99, **compliant, 1 page of margin** |
+
+Both real IST regulatory ceilings are compliant for the first time this
+session. Ceiling 3's margin is thin (1 page) and should be treated as
+fragile - any future addition of even a few lines of content risks pushing
+the whole document back over 100, so further edits should be checked
+against a fresh compile before being considered safe, not assumed compliant
+by extrapolation from this measurement. The ten queued Opus per-chapter
+deep-dive passes that were mid-flight when Tomás's manual edit landed were
+superseded and their in-flight work discarded; the manual pass achieved in
+one session what the agent-driven passes were still working towards.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 

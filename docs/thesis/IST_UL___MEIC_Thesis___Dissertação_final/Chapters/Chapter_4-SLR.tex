@@ -128,18 +128,23 @@ The content of those 64 articles was then read and each placed in one of four ca
 An article that answered any of the five research questions clearly and explicitly was included. Where the information was unclear, insufficient, or too thin to confirm that an answer was given, the predefined criteria in \Cref{tab:inclusion_exclusion} decided eligibility. Of the 44 articles, 31 met the criteria and were retained for analysis.
 
 {\small
-\renewcommand{\arraystretch}{1.25}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
 
-\begin{longtable}{>{\centering\arraybackslash}p{10.2cm} >{\centering\arraybackslash}p{4.5cm}}
+\begin{longtable}{
+    >{\raggedright\arraybackslash}p{2.2cm}
+    >{\raggedright\arraybackslash}p{12.6cm}
+}
 \caption{Inclusion and Exclusion Criteria}
 \label{tab:inclusion_exclusion} \\
+
 \toprule
-\textbf{Inclusion Criteria} & \textbf{Exclusion Criteria} \\
+\textbf{Type} & \textbf{Criterion} \\
 \midrule
 \endfirsthead
 
 \toprule
-\textbf{Inclusion Criteria} & \textbf{Exclusion Criteria} \\
+\textbf{Type} & \textbf{Criterion} \\
 \midrule
 \endhead
 
@@ -151,22 +156,32 @@ An article that answered any of the five research questions clearly and explicit
 \bottomrule
 \endlastfoot
 
-\begin{itemize}[leftmargin=0.6cm, rightmargin=0.6cm, topsep=-0.3cm, itemsep=0.6em]
-\item Relevance regarding AI and LLM usage in the development of software applications
-\item Relevance regarding benefits and consequences of incorporating and using AI and LLMs in the development of software applications
-\item Relevance regarding methodologies and management methods used to integrate AI and LLMs into software engineering processes and workflows
-\item Relevance regarding people's opinions with AI and LLMs use in software development
-\item Relevance regarding which industry sectors are adopting AI for application development and its benefits
-\end{itemize}
-&
-\begin{itemize}[leftmargin=0.6cm, rightmargin=0.6cm, topsep=-0.3cm, itemsep=0.6em]
-\item Not written in English
-\item Does not clarify any of the Inclusion Criteria
-\item Outdated due to the highly dynamic nature of the field (anything older than 2024)
-\end{itemize}
-\\
+\textbf{Inclusion} &
+Relevance regarding AI and LLM usage in the development of software applications. \\
 
-\end{longtable}}
+\textbf{Inclusion} &
+Relevance regarding benefits and consequences of incorporating and using AI and LLMs in the development of software applications. \\
+
+\textbf{Inclusion} &
+Relevance regarding methodologies and management methods used to integrate AI and LLMs into software engineering processes and workflows. \\
+
+\textbf{Inclusion} &
+Relevance regarding people's opinions with AI and LLM use in software development. \\
+
+\textbf{Inclusion} &
+Relevance regarding which industry sectors are adopting AI for application development and its benefits. \\
+
+\textbf{Exclusion} &
+Not written in English. \\
+
+\textbf{Exclusion} &
+Does not clarify any of the Inclusion Criteria. \\
+
+\textbf{Exclusion} &
+Outdated due to the highly dynamic nature of the field (anything older than 2024). \\
+
+\end{longtable}
+}
 
 
 \subsection{Data Extraction Analysis}
@@ -184,14 +199,12 @@ None is categorised as conference material: every one is a peer-reviewed academi
 
 \section{Reporting the Review}
 
-The third and last stage reports the analysis of the retained articles, research question by research question. The venue of every retained study is listed in \Cref{sec:appA_corpus}; the corpus is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten and Information and Software Technology three, the remaining venues one each, consistent with a topic actively published across the field rather than owned by any single outlet.
-
-
+The final stage reports the retained studies by research question. The venue distribution is given in \Cref{sec:appA_corpus}: ACM Transactions on Software Engineering and Methodology contributes ten studies, Information and Software Technology three, and all remaining venues one each, indicating a concentrated but cross-field evidence base.
 
 
 \subsection{Benefits of AI and LLMs usage in Software Development}
 
-The first research question concerns the benefits of AI and \ac{LLM} adoption for developers, companies and other stakeholders. \Cref{tab:benefits} collects those reported in the literature.
+The first research question examines the benefits of \ac{AI} and \ac{LLM} adoption for developers, organisations and other stakeholders. The reported benefits are summarised in \Cref{tab:benefits}.
 
 {\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
@@ -241,12 +254,13 @@ Democratization and Accessibility & "shift the programming paradigm from a tradi
 \end{longtable}
 }
 
+The most frequently reported benefits are improved code quality and productivity. The literature generally treats them as complementary: AI can accelerate development while supporting accuracy, traceability and adherence to quality standards \cite{Kim:2025is}. Automation of testing, debugging and repair reinforces this effect, particularly where \acp{LLM} use compiler or execution feedback to iteratively correct generated code. Benefits also extend to documentation, knowledge acquisition, developer satisfaction and accessibility to programming.
 
-The two most frequently reported benefits, productivity and code quality, are reported as mutually reinforcing: acceleration does not come at the cost of quality, since AI helps generate code adhering to high standards, raising the accuracy and traceability of the final product \cite{Kim:2025is}. Automating quality-assurance tasks, testing, debugging and repair supports the same synergy, and the mechanism is specific: LLMs leverage explicit feedback such as compiler error messages in follow-up prompts, iteratively fixing their own coding errors within a single conversation context. Beyond the codebase itself, the reported benefits extend to developer job satisfaction and to the democratisation of programming knowledge.
 
 \subsection{Consequences of AI and LLMs usage in Software Development}
 
-The second research question concerns the consequences that may arise from incorporating AI and \acp{LLM} into software development, in code generation and elsewhere. Those reported across the corpus are collected in \Cref{tab:consequences}.
+The second research question concerns the technical, operational and human consequences of incorporating \ac{AI} and \acp{LLM} into software development. These are summarised in \Cref{tab:consequences}.
+
 {\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
 \caption{Consequences of using AI and LLMs in Software Development}
@@ -289,26 +303,14 @@ New Overhead and Workflow Inefficiencies (Human Review) & LLMs still "require hu
 \end{longtable}
 }
 
+The most frequently reported concerns are operational cost, reliability and security. Training, fine-tuning and deploying large models can offset productivity gains through substantial resource costs, while hallucinated or otherwise plausible-but-incorrect output remains a persistent reliability risk. Security is similarly unresolved, with lower reported detection rates for vulnerabilities in AI-generated code than in human-written code \cite{Yoo:2025sa}.
 
-The consequences tabulated above are technical, ethical and operational, with
-the technical and operational ones cited most often. Cost comes first:
-training, fine-tuning and deploying large-scale models can be substantially
-more expensive than traditional methods, offsetting the productivity gains
-they are meant to buy. Reliability comes second: LLMs frequently produce
-plausible but fabricated output, "hallucinations". The detection gap the
-table records between AI-generated and human-written code is the same
-problem from the tooling side, existing instruments being matched to failure
-modes AI-generated code does not share \cite{Yoo:2025sa}.
+Adoption also introduces human and governance concerns, including over-reliance and skill erosion, propagation of training-data bias, and unresolved ownership and licensing questions \cite{Haque:2025la, Terragni:2025fa}. The reported productivity benefits therefore introduce corresponding requirements for review, governance and evaluation.
 
-Beyond the technical domain, adoption carries risks to human factors, ethics
-and economic viability: over-reliance eroding developers' independence as
-instant assistance becomes the default, training-data bias perpetuated and
-magnified in generated code \cite{Haque:2025la}, and unresolved ownership and
-licensing where models train on open-source code \cite{Terragni:2025fa}.
 
 \subsection{Methodologies and management methods used to integrate AI and LLMs in Software Development}
 
-The third research question asks which methodologies and management methods are used to integrate AI and \acp{LLM} into software development. \Cref{tab:methodologies} lists those the corpus reports.
+The third research question examines the methods used to integrate \ac{AI} and \acp{LLM} into software-development workflows. The approaches identified in the corpus are listed in \Cref{tab:methodologies}.
 
 {\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
@@ -347,90 +349,42 @@ Multi-Agent Systems / Self-Collaboration Approach & "a self-collaboration framew
 
 Integration with External Tools and Domain Knowledge & "Combining the linguistic capability of LLMs with specialized domain knowledge to enhance output quality, functionality, or security" \cite{Wang:2025rs, Banh:2025cf}. & 3 & \cite{Wang:2025rs, Banh:2025cf, Zhang:2025ea, Ahmed:2025ai} \\ \addlinespace
 
-Other Single-Study Techniques & Five techniques each supported by a single study: Retrieval-Augmented Generation offers "a low-computation option by eliminating the need for parameter updates", though it "falls short of LoRA's effectiveness across all three CodeLlama model variants" \cite{Weyssow:2025ep, Chen:2025es}; AI-Augmented Agile Development (AgileGen) focuses human involvement on the start (scenario decision-making) and end (acceptance decision-making) of each iteration \cite{Zhang:2025ea}; Gherkin-based behaviour-driven testing supplements unclear user requirements with well-defined acceptance criteria \cite{Zhang:2025ea}; Vibe Coding converts natural language or abstract intent into functioning software modules \cite{Moore:2025vc}; and integrating LLMs with traditional testing approaches yields a "1.4× to 2.3× improvement than the baselines" \cite{Wang:2025rs}. & 5 & \cite{Weyssow:2025ep, Chen:2025es, Zhang:2025ea, Moore:2025vc, Wang:2025rs} \\ \addlinespace
+Other Single-Study Techniques & Five techniques appeared once each: Retrieval-Augmented Generation as a lower-computation alternative to parameter updates, though weaker than LoRA \cite{Weyssow:2025ep, Chen:2025es}; AgileGen and Gherkin-based testing for structured human decision-making and clearer acceptance criteria \cite{Zhang:2025ea}; Vibe Coding for translating natural-language intent into software \cite{Moore:2025vc}; and LLM-assisted testing, reporting 1.4$\times$--2.3$\times$ improvements over baselines \cite{Wang:2025rs}. & 5 & \cite{Weyssow:2025ep, Chen:2025es, Zhang:2025ea, Moore:2025vc, Wang:2025rs} \\ \addlinespace
 
 \end{longtable}
 }
 
-The methods reported range from prompt-level tuning to large-scale process
-frameworks, and they stratify into two tiers:
+The methods fall broadly into two levels. At prompt level, In-Context Learning is the most frequently discussed technique (\textbf{9 articles}), followed by Prompt Engineering, Chain-of-Thought and Structured Chain-of-Thought approaches that improve output through contextual or structured reasoning \cite{Li:2025sc}.
 
-\begin{itemize}[leftmargin=0.6cm, itemsep=0.5em]
-\item \textbf{Prompt-level tuning.} In-Context Learning (9 articles, the
-most-discussed technique) and Prompt Engineering, whose quality critically
-determines effectiveness, form the base layer. Chain-of-Thought and its
-Structured variant apply the same principle, introducing programming
-constructs such as sequence, branch and loop into the reasoning steps
-\cite{Li:2025sc}.
-\item \textbf{Process-level frameworks.} Given LLMs' variable reliability,
-Human-In-The-Loop is considered mandatory for software quality
-\cite{Kim:2025ao}: developers retain oversight, reviewing AI output before
-implementation. AI-Augmented Agile Development (AgileGen) formalises this,
-reserving human decision-making for the start (scenario definition) and end
-(acceptance) of each iteration \cite{Zhang:2025ea}, preventing the error
-accumulation unsupervised multi-agent systems risk.
-\end{itemize}
-
-"Vibe Coding", mentioned once in the corpus, is recent and not yet widely
-studied \cite{Moore:2025vc}, but reliably translating a "vibe" into working
-software is what the methodologies above exist to constrain.
+At process level, Human-In-The-Loop development is the dominant principle: because model output remains variable, developers retain responsibility for review and acceptance before implementation \cite{Kim:2025ao}. AgileGen formalises this pattern by concentrating human decisions at scenario definition and final acceptance \cite{Zhang:2025ea}. Multi-agent, retrieval-based and tool-augmented techniques are less frequently reported. ``Vibe Coding'' appears only once in the corpus and therefore remains weakly represented as a studied methodology \cite{Moore:2025vc}.
 
 
 \subsection{Developers' and other stakeholders' opinions regarding the use of AI and LLMs in Software Development}
 
-The fourth research question concerns the human perspective. Reception differs enough between groups that the extracted opinions are tabulated separately in \Cref{sec:appA_opinions}, for the public and researchers, developers and practitioners, and organisations and management; the separation is itself a finding.
+The fourth research question addresses stakeholder perceptions, which differ sufficiently to distinguish three groups in \Cref{sec:appA_opinions}.
 
-\begin{itemize}[leftmargin=0.6cm, itemsep=0.5em]
-\item \textbf{Public and researchers.} Scepticism grounded in fallibility,
-not capability, dominates. General perception (six articles) treats these
-systems as a mixture of software and sorcery; the primary barrier reported
-is misinformation risk, since generated code may execute without error
-while failing the intended requirement, amplified by variability across
-repeated identical prompts.
-\item \textbf{Developers and practitioners.} The opposite emphasis:
-productivity and efficiency gains are the most-cited positive opinion (six
-articles), and \acp{LLM} are valued for knowledge acquisition, bypassing
-extended search or dependence on colleagues~\cite{Banh:2025cf}. Two
-countervailing findings appear alongside it: a documented risk of
-over-reliance and skill erosion, and prompt design as a significant time
-investment that reduces the efficiency it promises~\cite{Banh:2025cf}.
-\item \textbf{Organisations and management.} Adoption is treated as a
-risk-management exercise. The strategic case, retaining valuable staff by
-automating routine work~\cite{Jensen:2025me}, is constrained by the
-group's most-cited concern, data security and privacy (six articles). The
-consensus strategy favours open models fine-tuned on organisation-specific
-data over commercial \acp{LLM}, raising operational cost and pushing teams
-towards medium-sized models; expectation management appears less often but
-matters equally, discounting the hype
-surrounding these tools when planning integration.
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.35em]
+
+\item \textbf{Public and researchers.} The dominant concern is fallibility rather than capability. Across six articles, misinformation and inconsistent output are central concerns, particularly where generated code appears valid while failing the intended requirement.
+
+\item \textbf{Developers and practitioners.} Productivity and efficiency gains are the most frequently cited positive views, also appearing in six articles. \acp{LLM} are valued for knowledge acquisition and reduced dependence on extended search or colleagues~\cite{Banh:2025cf}, but over-reliance, skill erosion and prompt-design effort remain important countervailing concerns.
+
+\item \textbf{Organisations and management.} Adoption is primarily framed as risk management. Automating routine work may support retention of skilled staff~\cite{Jensen:2025me}, but data security and privacy are the most frequent concerns, appearing in six articles. Organisation-specific or fine-tuned models are sometimes preferred despite higher operational cost.
+
 \end{itemize}
 
-That is what makes the single most prevalent opinion across all three
-groups, the need for human oversight with seven articles, follow from
-evidence rather than from caution.
+Across all three groups, the strongest shared position is the need for human oversight, identified in seven articles.
+
 
 \subsection{Industry sectors adopting AI and LLMs for Software Applications Development}
 
-The fifth research question asks which industry sectors are actively adopting \ac{AI} for application development and what sector-level benefits they report; the extracted evidence is tabulated in \Cref{sec:appA_sectors}.
+The fifth research question examines where \ac{AI} is being adopted for application development and the benefits reported by sector; the extracted evidence is summarised in \Cref{sec:appA_sectors}.
 
-Adoption concentrates overwhelmingly in Software Engineering, Software Development and IT Consulting, both the origin and the primary proving ground for \ac{LLM}-based tools. The reported use cases centre on code generation, completion, explanation and refactoring, and several sources describe a gradual shift in the developer role from writing code manually to orchestrating AI-enabled workflows in which the human directs, validates and refines automated output~\cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao}. In consulting, \acp{LLM} are valued for accelerating onboarding and transferring client-specific business knowledge between projects; adoption also appears in infrastructure-level or mathematically intensive domains, where models must be adapted or augmented with structured knowledge to produce reliable output~\cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, AlHashimi:2025er}.
+Adoption is concentrated in Software Engineering, Software Development and IT Consulting, where common uses include code generation, completion, explanation and refactoring. Several studies describe a shift towards workflows in which developers direct, validate and refine generated output rather than produce all code manually~\cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao}. Consulting additionally benefits from faster onboarding and knowledge transfer, while infrastructure-heavy and mathematically intensive domains often require model adaptation or structured domain knowledge~\cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, AlHashimi:2025er}.
 
-Beyond the core \ac{IT} sector, adoption clusters in finance, banking and
-regulated industries (eight articles), transportation and other
-safety-critical domains (seven), healthcare and biomedical research (five),
-education and training (five) and legal reasoning (four); education is an
-emerging area in which \acp{LLM} act as adaptive learning companions rather
-than replacements for educators, supporting exercise generation,
-personalised feedback and formative
-assessment~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
+Beyond core IT, adoption appears in finance, banking and regulated industries (\textbf{8 articles}), transportation and other safety-critical domains (\textbf{7}), healthcare and biomedical research (\textbf{5}), education and training (\textbf{5}), and legal reasoning (\textbf{4}). Education mainly uses \acp{LLM} for exercise generation, personalised feedback and formative assessment rather than educator replacement~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
 
-In the first four, \acp{LLM} are introduced cautiously, with emphasis on
-reliability, auditability and regulatory compliance, and the literature is
-consistent that extensive human review remains mandatory wherever incorrect
-or unverifiable output could produce safety risks, compliance failures or
-legal liability~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}.
-
-No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks.
+Across regulated and safety-critical sectors, adoption is consistently associated with stronger requirements for reliability, auditability, compliance and human review~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}. No sector in the reviewed evidence reports adoption without a human check, and higher-risk sectors impose the most explicit controls.
 
 \section{Discussion}
 

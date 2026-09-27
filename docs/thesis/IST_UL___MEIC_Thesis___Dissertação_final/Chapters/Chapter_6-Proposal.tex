@@ -90,10 +90,12 @@ Seven principles govern every subsequent design decision. Each is stated in \Cre
                   >{\raggedright\arraybackslash}p{11.2cm}}
 \caption{The seven design principles and the evidence grounding each}
 \label{tab:principles} \\
+
 \toprule
 \textbf{Principle} & \textbf{Statement and grounding} \\
 \midrule
 \endfirsthead
+
 \toprule
 \textbf{Principle} & \textbf{Statement and grounding} \\
 \midrule
@@ -108,25 +110,31 @@ Seven principles govern every subsequent design decision. Each is stated in \Cre
 \endlastfoot
 
 Human-in-the-Loop by Design &
-Every AI-generated artefact is subject to explicit human review and acceptance before entering the product. Adoption and trust diverge, at around 90\% daily use against roughly 30\% reporting low or no trust~\cite{DORA:2025ai}, and benchmarking shows the distrust warranted: the best agent and model combination was functionally correct 61\% of the time but secure only 10.5\%~\cite{Zhao:2025vibe}, and 45\% of samples across more than a hundred models introduced an OWASP Top 10 vulnerability, with security flat as correctness improved~\cite{Veracode:2025gen}. \\ \addlinespace
+All AI-generated artefacts require explicit human review and acceptance before integration: adoption and trust diverge, at around 90\% daily use against roughly 30\% reporting low or no trust~\cite{DORA:2025ai}, and the best agent and model combination was functionally correct 61\% of the time but secure only 10.5\%, with 45\% of samples introducing an OWASP Top 10 vulnerability~\cite{Zhao:2025vibe, Veracode:2025gen}. \\
+\addlinespace
 
 \ac{AI} as Augmentation, Not Substitution &
-Humans retain responsibility for technical, architectural and quality decisions. In a randomised controlled trial developers took 19\% longer with assistance while estimating they had been 20\% faster~\cite{Becker:2025rct}; substituting judgement removes the only faculty able to notice such a discrepancy, and the \ac{SLR} reports reduced code understanding as a recurring consequence of unsupervised delegation~\cite{Banh:2025cf, Basha:2025tt, Jensen:2025me, Zamfiroiu:2025ec}. \\ \addlinespace
+AI supports rather than replaces human judgement, preserving responsibility for technical, architectural and quality decisions: in a randomised controlled trial developers took 19\% longer with assistance while estimating they had been 20\% faster~\cite{Becker:2025rct}, and the \ac{SLR} reports reduced code understanding as a recurring consequence of unsupervised delegation~\cite{Banh:2025cf, Basha:2025tt, Jensen:2025me, Zamfiroiu:2025ec}. \\
+\addlinespace
 
 Process-Level Governance of \ac{AI} Usage &
-AI participation is governed through repeatable mechanisms making contributions visible, traceable and attributable. \ac{AI} amplifies: capable teams become measurably more capable, dysfunctional teams measurably less so~\cite{DORA:2025ai}. If the surrounding process sets the sign of the effect, governance must live in the process rather than in prompt discipline. \\ \addlinespace
+AI participation is governed through repeatable processes that ensure visibility, traceability and accountability: \ac{AI} amplifies, with capable teams becoming measurably more capable and dysfunctional teams measurably less so~\cite{DORA:2025ai}, so governance must live in the process rather than in prompt discipline alone. \\
+\addlinespace
 
 \ac{SDLC}-Wide and Phase-Aware Integration &
-Participation is defined per phase, with hats and controls adapted to that phase's risks. Usage is unevenly distributed and concentrated on code generation, leaving requirements, design and maintenance with little guidance~\cite{Ahmed:2025ai, Hou:2025cl, Zhang:2025ea}; governing only the well-served phases would reproduce the gap the framework exists to close. \\ \addlinespace
+AI integration extends across the entire software development lifecycle, with responsibilities and controls adapted to the risks and requirements of each phase, addressing the current concentration of AI usage in code generation~\cite{Ahmed:2025ai, Hou:2025cl, Zhang:2025ea}. \\
+\addlinespace
 
 Functional, Not Positional, Accountability &
-Every role named is a function that must be performed, not a person who must exist, and for each AI-assisted activity a named hat, not a named person, is accountable for initiation, validation and acceptance. The structural half is a design commitment rather than an empirical claim, argued in \Cref{sec:roles}; its visible consequence is that no role is named whose only content is oversight. The accountability half follows from it directly: when an artefact has no identifiable author no party is answerable for its defects, and ownership is among the concerns most frequently raised by practitioners and organisations~\cite{Ahmed:2025ai, Banh:2025cf}. Accountability attaches to a function so that it survives the absence of any individual. \\ \addlinespace
+Roles are defined as functions rather than fixed organisational positions, ensuring that each AI-assisted activity has identifiable responsibility for initiation, validation and acceptance, irrespective of team composition~\cite{Ahmed:2025ai, Banh:2025cf}. \\
+\addlinespace
 
 Risk-Proportional Validation and Control &
-Validation rigour is proportional to potential technical, organisational and ethical risk. The defect profile is not uniform: vulnerability rates reach 72\% for Java against 45\% overall and cluster in specific weakness categories~\cite{Veracode:2025gen, Zhao:2025vibe}. A uniform control is either too costly for the routine case or too weak for the dangerous one, which is why remediation separates a Fast Lane from a Secure Lane. \\ \addlinespace
+Validation and control mechanisms are calibrated to the technical, organisational and ethical risks of each activity: the defect profile is not uniform, with vulnerability rates reaching 72\% for Java against 45\% overall and clustering in specific weakness categories~\cite{Veracode:2025gen, Zhao:2025vibe}. \\
+\addlinespace
 
 Spec-Anchored Continuity &
-A persistent versioned specification is maintained alongside the codebase and is what every AI-assisted activity is constrained by and validated against. As established in \Cref{sec:background_sdd} this instantiates spec-driven development rather than inventing it~\cite{Thoughtworks:2025SD, Farrag:2026sd}. The limitation belongs with the claim: its own principal source describes the practice as emerging and its scaling behaviour as an open risk~\cite{Thoughtworks:2025SD}, which \Cref{chap:evaluation} treats as something to test rather than assume. \\
+A persistent, versioned specification provides the authoritative reference for AI-assisted activities and their validation, establishing continuity between development phases while recognising the emerging nature and unresolved scalability challenges of spec-driven development~\cite{Thoughtworks:2025SD, Farrag:2026sd}. \\
 
 \end{longtable}
 }
@@ -140,15 +148,25 @@ A persistent versioned specification is maintained alongside the codebase and is
 % single most important artefact in this chapter - build it as a full-width
 % table or a landscape page.
 
-This section answers \ac{DRQ}1. The framework organises the lifecycle into six phases, preceded by a Strategic Alignment stage that sits outside the lifecycle proper because it is performed before the Squad is engaged at all: it decides whether a Unit of Work should exist, whereas the six phases decide how one is built. The six are Discovery and Requirements; Design, Prototyping and Architecture; Implementation; Testing; Deployment; and Maintenance. \Cref{tab:phase_mapping} fixes, for the stage and each of them, what enters, what the model is permitted to produce, what leaves, which hat is accountable, and which control must be satisfied before exit. It is the central artefact of this chapter and is not restated in prose.
+This section answers \ac{DRQ}1. The framework organises the lifecycle into six phases, preceded by a Strategic Alignment stage that sits outside the lifecycle proper because it is performed before the Squad is engaged at all: it decides whether a Unit of Work should exist, whereas the six phases decide how one is built. The six are Discovery and Requirements; Design, Prototyping and Architecture; Implementation; Testing; Deployment; and Maintenance. \Cref{tab:phase_mapping} fixes, for the stage and each of them, what enters, what the model is permitted to produce, what leaves, which hat is accountable, and which control must be satisfied before exit. It is the central artefact of this chapter and is not restated in prose. Two mechanisms the table names are defined here, since both recur throughout the chapter:
 
-Two mechanisms the table names are defined here, since both recur throughout the chapter. The \textbf{Interactive Bridge} is the interaction pattern governing Discovery and Requirements: the model drafts scenarios in plain natural language for human critique, the Trio confirms, adds, deletes or modifies them, and only the approved result is compiled into formal Gherkin and anchored. Separating critique from compilation matters because natural language is the medium in which a domain expert can detect a wrong assumption, whereas formal syntax invites review of the syntax instead. The \textbf{Consistency Factor} is the strict automated test set produced before generation begins, derived from both the functional and the technical specification, constraining what the model may produce rather than assessing it afterwards; it is specified in full in \Cref{sec:bolts}.
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.4em]
 
-The framework's most direct precedent is the \ac{AI-DLC} published by Amazon Web Services~\cite{AWS:2025aidlc}, which organises work into Inception, Construction and Operations, replaces sprints with \emph{Bolts}, short cycles measured in hours or days, replaces Epics with \emph{Units of Work}, and governs AI participation through collaborative rituals of which \emph{Mob Elaboration} is adopted here; these three terms are taken directly from \ac{AI-DLC} with no originality claimed for them; its reported ten-to-fifteen-fold productivity improvement is vendor-reported, unreplicated and not carried here as evidence, adopted only as process vocabulary. Most of the expansion from three phases to six is decomposition rather than disagreement, since Discovery and Requirements together with Design, Prototyping and Architecture occupy the territory it calls Inception, and Implementation corresponds to Construction. Two extensions are substantive.
+\item \textbf{Interactive Bridge.} The interaction pattern governing Discovery and Requirements, where the model drafts scenarios in natural language for human review. The Trio confirms, adds, deletes or modifies them before approved scenarios are compiled into Acceptance Criteria explained via Gherkin Language and anchored. Separating critique from formalisation allows domain experts to identify incorrect assumptions without being distracted by formal syntax.
 
-\noindent\textbf{The first is a decoupled Testing phase.} In \ac{AI-DLC}, build and test close Construction, performed in the same cycle by the same participants that generated the code. The objection is circularity, not thoroughness: tests derived by the same model, from the same specification, encode the same reading of the requirement as the implementation, so passing them confirms internal consistency rather than external correctness. Benchmark evidence shows exactly this asymmetry: agent-generated code passes functional tests far more often than independently held security tests, and the gap does not close as models improve~\cite{Zhao:2025vibe, Veracode:2025gen}. Testing therefore becomes its own phase, with its own environment, hat and gate, working from the locked functional specification rather than the implementation; the unit of validation changes at this boundary, from the Bolt's task to the assembled User Story, the smallest unit at which business value is observable.
+\item \textbf{Consistency Factor.} A strict automated test set derived from the functional and technical specifications before code generation begins. It constrains the model's implementation rather than merely evaluating its output afterwards, as detailed in \Cref{sec:bolts}.
 
-\noindent\textbf{The second is a distinct Maintenance phase with a diagnostic firewall.} \ac{AI-DLC}'s Operations phase is deployment with monitoring, defining no mechanism for classifying post-deployment signals or routing them to an owner. The signal is heterogeneous, a defect against an agreed specification, a request never specified, or evidence the specification was wrong, and treating all three as defects erodes the specification, each undocumented accommodation widening the gap between what the system does and what the record says it should. A signal is therefore classified before any code is opened, and Context Reconstruction limits the developer to the specific report, the test evidence and the isolated fragment implicated, prohibiting whole-project context, a control for the reason developed in \Cref{sec:spec_anchored}~\cite{Zhao:2025vibe}.
+\end{itemize}
+
+The framework's most direct precedent is the \ac{AI-DLC} published by Amazon Web Services~\cite{AWS:2025aidlc}, which organises work into Inception, Construction and Operations, replaces sprints with \emph{Bolts}, short cycles measured in hours or days, replaces Epics with \emph{Units of Work}, and governs AI participation through collaborative rituals of which \emph{Mob Elaboration} is adopted here; these three terms are taken directly from \ac{AI-DLC} with no originality claimed for them; its reported ten-to-fifteen-fold productivity improvement is vendor-reported, unreplicated and not carried here as evidence, adopted only as process vocabulary. Most of the expansion from three phases to six is decomposition rather than disagreement, since Discovery and Requirements together with Design, Prototyping and Architecture occupy the territory it calls Inception, and Implementation corresponds to Construction. Two substantive extensions distinguish the proposed framework from \ac{AI-DLC}:
+
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.5em]
+
+\item \textbf{Decoupled Testing phase.} In \ac{AI-DLC}, build and test conclude Construction within the same cycle, creating a risk of circular validation: tests generated by the same model from the same specification may reproduce the assumptions embedded in the implementation. Passing such tests demonstrates internal consistency rather than independent correctness, as evidenced by the gap between functional and security test performance~\cite{Zhao:2025vibe, Veracode:2025gen}. The proposed framework therefore establishes Testing as an independent phase, with its own environment, responsible role and quality gate. Validation proceeds from the locked functional specification rather than the implementation, shifting its unit from individual Bolts to the assembled User Story, where business value can be assessed.
+
+\item \textbf{Distinct Maintenance phase with a diagnostic firewall.} \ac{AI-DLC}'s Operations phase addresses deployment and monitoring without defining how post-deployment signals are classified or assigned. The proposed framework distinguishes defects against agreed specifications, previously unspecified requirements and incorrect specifications, preventing undocumented fixes from introducing specification drift. Each signal is classified before code is accessed, after which Context Reconstruction restricts the developer to the reported issue, relevant test evidence and implicated code fragment. This diagnostic firewall limits unnecessary project-wide context and preserves specification integrity~\cite{Zhao:2025vibe}, as further discussed in \Cref{sec:spec_anchored}.
+
+\end{itemize}
 
 The phases are listed in an order, but that order is not the shape of the process: Maintenance neither terminates the lifecycle nor patches in place. Its exit is always an entry into a named earlier phase, whose gate then applies in full: a business deviation routes to the \ac{PM} hat for a value decision and, if approved, re-opens Discovery and Requirements; a specification gap re-opens Design, Prototyping and Architecture with the technical specification amended and re-versioned; a production defect re-enters Implementation as a Fix-Bolt and returns through Testing. This is not Waterfall with a maintenance tail: in Waterfall, feedback is measured against a specification treated as frozen, whereas here the specification is exactly what is re-opened, re-approved and re-versioned, and code is regenerated from it. What the framework refuses is the unnamed loop, a change applied to production code with no corresponding change to the specification it is supposed to satisfy, since that is how traceability is lost in practice. \Cref{fig:lifecycle} shows the six phases and these three loop-backs; \Cref{tab:phase_mapping} is the detail behind each box.
 
@@ -247,13 +265,13 @@ Diagnostic firewall (Context Reconstruction, whole-project context prohibited) a
 % Framework doc §6. The "hats, not people" framing is a deliberate design
 % decision and should be argued as one, not merely asserted.
 
-Every role named is a hat: a function the framework requires to be performed, not a person who must be hired. One individual may wear several hats, and on a small team a hat may go unfilled, its responsibility falling to whoever performs the adjacent work. \Cref{tab:hats} summarises the hats and the gate each owns. Three reasons justify expressing responsibility as a function rather than a position: it fits a target population of anyone with a technical background working alone or in a small team, whom a staffed-organisation role model would exclude; accountability expressed as a title lapses the moment the title is vacant, whereas a function survives reassignment; and the third is evidential, concerning what happens when structural models are copied as blueprints.
+Every role in the framework is a hat: a required function rather than a position that must be staffed by a dedicated person. One individual may therefore hold several hats, and on small teams responsibilities may be absorbed by adjacent functions. \Cref{tab:hats} summarises the hats and the gates they own. Expressing responsibility functionally rather than organisationally serves three purposes: it supports solo and small-team use, preserves accountability when formal titles are absent, and avoids treating structural models as directly transferable blueprints.
 
-The Trio, comprising the \ac{PO}, Tech Lead and Design Lead hats, is inspired by the Squad concept popularised in the Spotify Model, and citing that model honestly requires citing its limits alongside it. It was published as a description of one company at one point in time, not a method for adoption elsewhere~\cite{Kniberg:2012sp}, its own principal author has since called it inspiration rather than a blueprint~\cite{LeadingComplexity:2023sp}, and a former employee's first-hand account names two failure modes never resolved internally: unclear matrix decision authority, and autonomy without accountability~\cite{Lee:2020sq}. The framework hardens against exactly these two. Matrix ambiguity is answered by the Tech Lead hat's architectural lock, fixing the technical boundary before any Bolt begins; autonomy without accountability is answered by separating logistics authority in the Bolt Master hat from technical authority in the Tech Lead hat, with every gate attached to a named function. A closer structural match is Team Topologies' stream-aligned team, which treats cognitive load as an explicit design constraint~\cite{Skelton:2019tt}: limiting developer agency over scope during a Bolt reduces the open decisions held while validating generated code, the activity \Cref{sec:motivation} identifies as the new constraint. The \ac{PM} hat, sitting outside the Squad, is structurally closer to the single-threaded leader Amazon adopted after its two-pizza structure stopped surviving scale~\cite{Bryar:2021wb}.
+The Trio, \ac{PO}, Tech Lead and Design Lead, draws inspiration from the Spotify Model, but not as a prescriptive template. Spotify's own account was descriptive rather than normative~\cite{Kniberg:2012sp}, later commentary explicitly framed it as inspiration rather than a blueprint~\cite{LeadingComplexity:2023sp}, and first-hand retrospective evidence identified unresolved matrix authority and autonomy-without-accountability problems~\cite{Lee:2020sq}. The framework addresses these through the Tech Lead's architectural lock and by separating Bolt logistics from technical authority, with each gate owned by a named function. Team Topologies provides a closer structural analogue through its emphasis on cognitive load~\cite{Skelton:2019tt}, while the \ac{PM} hat resembles Amazon's single-threaded leadership model~\cite{Bryar:2021wb}.
 
-Deployment approval and infrastructure-security review are mandatory, but owned by whoever performs the deployment, self-reviewed solo or peer-reviewed where a second developer exists, rather than by an external DevOps Alliance: naming a governance function without naming who holds it is the defect explicit responsibility exists to prevent, since a body defined only by what it supervises can be assumed by the process to exist and never actually staffed.
+Deployment approval and infrastructure-security review remain mandatory but are owned by whoever performs the deployment, whether self-reviewed in solo work or peer-reviewed in a larger team. This avoids introducing governance bodies that the process assumes exist but that may never be staffed.
 
-The gates do not relax as the team shrinks. On a solo project each gate is self-checked, but what it requires is unchanged: the evidence in \Cref{tab:gates} must exist, be recorded, and be examined deliberately at the moment the gate is reached, not assumed to have been examined during the work that produced it. A gate's value lies primarily in forcing an explicit, separate act of validation against a written specification that predates the artefact, which is what makes self-review meaningful even when the reviewer and the author are the same person.
+The gates themselves do not weaken as team size decreases. In solo work they are self-checked, but the required evidence in \Cref{tab:gates} must still exist, be recorded and be reviewed explicitly at the gate. Their value lies in enforcing a distinct validation step against a specification that predates the artefact, preserving meaningful review even when author and reviewer are the same person.
 
 {\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash}p{2.4cm}
@@ -349,7 +367,18 @@ Deployment & Whoever performs the deployment & Explicit approval of the release 
 
 \subsection{Governance Metrics}
 \label{sec:metrics}
-Three governance metrics are defined, chosen to measure whether the collaboration is safe and whether it is flowing rather than to measure output volume, the quantity \Cref{sec:motivation} shows rising without a corresponding improvement in delivery~\cite{Faros:2025par}. \textbf{Bolt Cycle Time} is the elapsed time from a task being pulled as a Bolt to its being marked done, defined at task level rather than story level because a story-level measurement conflates execution with the queueing, review and gate transitions surrounding it, and the claim about continuous flow is a claim about execution. \textbf{Context Traceability Rate} is the proportion of deployed Bolts and stories whose context chain is complete, the deployed artefact resolving back to a locked technical specification, to the functional specification it derived from, and to the Unit of Work that motivated it; it measures whether Spec-Anchored Continuity is holding in practice rather than merely being prescribed. \textbf{AI Defect Escape Rate} is the proportion of production defects originating in AI-generated logic that passed the Testing Gate, and it is the metric that detects a gate which has become ceremonial, since a gate satisfied without being exercised shows up here and nowhere else.
+
+Three governance metrics assess the safety and flow of AI-assisted development rather than output volume, which does not necessarily translate into improved delivery~\cite{Faros:2025par}:
+
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.4em]
+
+\item \textbf{Bolt Cycle Time.} The elapsed time from a task being pulled as a Bolt to its completion. Measured at task level to isolate execution time from story-level queueing, review and gate transitions, thereby assessing continuous flow.
+
+\item \textbf{Context Traceability Rate.} The proportion of deployed Bolts and stories whose artefacts can be traced through the locked technical and functional specifications to their originating Unit of Work. It measures whether Spec-Anchored Continuity is maintained in practice.
+
+\item \textbf{AI Defect Escape Rate.} The proportion of production defects originating in AI-generated logic that passed the Testing Gate. It assesses gate effectiveness by identifying defects that escaped validation despite formal gate completion.
+
+\end{itemize}
 
 These are expressed in vocabulary continuous with established \ac{AI} governance standards rather than bespoke to this work: the \ac{NIST} \ac{AI} Risk Management Framework's Govern, Map, Measure and Manage~\cite{NIST:2023rmf} correspond respectively to this chapter's design principles, phase mapping, metrics and gates, and ISO/IEC 42001:2023 offers a complementary plan-do-check-act vocabulary for the same loop~\cite{ISO/IEC:2023ai}. This is a claim about shared language only: neither the framework nor Apex has been audited against either standard, and nothing here asserts compliance or intent to certify, only that these constructs occupy the conceptual space standards bodies are converging on.
 
@@ -360,9 +389,19 @@ These are expressed in vocabulary continuous with established \ac{AI} governance
 % Framework doc §8. The argument for replacing sprint cadence must rest on the
 % measured bottleneck shift, not on preference.
 
-The framework replaces the familiar hierarchy of epics, sprints and sprint backlogs with continuous flow, the most disruptive single element of the proposal and therefore the one requiring the strongest empirical justification. Sprint cadence manages a world in which implementation is the binding constraint: a fixed-length iteration lets a quantity of implementation work be forecast, committed to and inspected at a boundary, calibrated to how long a useful amount of implementation takes. The evidence in \Cref{sec:motivation} indicates that premise no longer holds where AI assistance is heavy: developers in a randomised controlled trial were measurably slower with assistance while believing they had been faster~\cite{Becker:2025rct}, and telemetry across 1,255 teams pairs the merged-pull-request increase reported there with pull requests 154\% larger, 91\% longer review times, and no significant correlation with delivery outcomes~\cite{Faros:2025par}. The constraint moved rather than disappeared, so a cadence calibrated to the old one now obscures the new one. The structural response has two parts: execution compressed into Bolts, so the queue in front of validation refills in small increments rather than batches, and validation decoupled into its own phase, environment, hat and gate, so the constraint is scheduled and measured in its own right. Both are falsifiable: if review is not the constraint in a given setting, Bolt Cycle Time and the \ac{QA} queue will say so.
+The framework replaces the familiar hierarchy of epics, sprints and sprint backlogs with continuous flow, the most disruptive single element of the proposal and therefore the one requiring the strongest empirical justification. Sprint cadence manages a world in which implementation is the binding constraint: a fixed-length iteration lets a quantity of implementation work be forecast, committed to and inspected at a boundary, calibrated to how long a useful amount of implementation takes. The evidence in \Cref{sec:motivation} indicates that premise no longer holds where AI assistance is heavy: developers in a randomised controlled trial were measurably slower with assistance while believing they had been faster~\cite{Becker:2025rct}, and telemetry across 1,255 teams pairs the merged-pull-request increase reported there with pull requests 154\% larger, 91\% longer review times, and no significant correlation with delivery outcomes~\cite{Faros:2025par}. The constraint moved rather than disappeared, so a cadence calibrated to the old one now obscures the new one. The structural response has two parts: execution compressed into Bolts, so the queue in front of validation refills in small increments rather than batches, and validation decoupled into its own phase, environment, hat and gate, so the constraint is scheduled and measured in its own right. Both are falsifiable: if review is not the constraint in a given setting, Bolt Cycle Time and the \ac{QA} queue will say so. Three levels of work are retained, with the upper two following \ac{AI-DLC}~\cite{AWS:2025aidlc}:
 
-Three levels of work are retained, and the vocabulary of the upper two follows \ac{AI-DLC}~\cite{AWS:2025aidlc}. A \textbf{Unit of Work} is the core business problem, owned by the \ac{PM} and \ac{PO} hats, the level at which business justification is argued and acceptance criteria are generated as a group; grouping them this way rather than requirement by requirement is itself supported by evaluation, an epic-organised pipeline outperforming a requirement-aligned baseline across 107 requirements on expert-rated correctness (4.61 against 4.14 out of 5) and completeness (4.31 against 3.50)~\cite{Siddeeq:2026gh}. \textbf{User Stories} are the tangible deliverables, constrained to extra-small or small, the level at which \ac{QA} tests because they are the smallest unit at which business value is observable; the size constraint is load-bearing, since a story describable by a handful of scenarios is small enough for a reviewer to hold in mind while validating generated code against it. \textbf{Tasks} are the granular technical steps executed as Bolts, entering the \textbf{Bolt Backlog}, a continuous prioritised queue, only after decomposition with the model, Tech Lead verification, and risk flagging. Developers have limited agency over task creation and selection deliberately, not out of distrust: the decisions withheld are exactly those the architectural lock has settled, for the cognitive-load reason argued in \Cref{sec:roles}. The team's project management tool is expected to expose states corresponding to the phases as guidance rather than a literal requirement; what matters is that each column maps unambiguously onto one phase.
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.4em]
+
+\item \textbf{Unit of Work.} The core business problem, owned by the \ac{PM} and \ac{PO} hats, grouping business justification and acceptance criteria. Epic-level organisation is supported by evidence of higher correctness and completeness than requirement-level decomposition~\cite{Siddeeq:2026gh}.
+
+\item \textbf{User Stories.} Small or extra-small deliverables representing the minimum unit of observable business value and \ac{QA} validation. Their limited scope enables reviewers to assess generated code against a manageable set of acceptance scenarios.
+
+\item \textbf{Tasks and Bolt Backlog.} Granular technical steps executed as Bolts and maintained in a continuous, prioritised queue. Tasks enter the backlog after model-assisted decomposition, Tech Lead verification and risk assessment. Developer discretion over task creation and selection is limited by prior architectural decisions to reduce cognitive load (\Cref{sec:roles}).
+
+\end{itemize}
+
+The project management tool should provide states corresponding unambiguously to the framework's phases, without requiring a specific board configuration.
 
 % #############################################################################
 \section{Operational Playbooks}
@@ -384,6 +423,7 @@ The phases, gates and hats state what must hold; the six playbooks in \Cref{tab:
 \textbf{Playbook} & \textbf{Trigger} & \textbf{Procedure} & \textbf{Terminates when} \\
 \midrule
 \endfirsthead
+
 \toprule
 \textbf{Playbook} & \textbf{Trigger} & \textbf{Procedure} & \textbf{Terminates when} \\
 \midrule
@@ -397,17 +437,41 @@ The phases, gates and hats state what must hold; the six playbooks in \Cref{tab:
 \bottomrule
 \endlastfoot
 
-Mob Elaboration & A Unit of Work brought to the Squad & The Trio supplies intent, personas and domain constraints; the agent drafts fractional stories in natural language; the Trio cross-examines for value, feasibility and coherence, issuing confirm, add, delete or modify instructions until satisfied; the agent then compiles the approved scenarios into Gherkin and anchors the result. & The Discovery Gate passes and the functional specification is locked \\ \addlinespace
+Mob Elaboration
+& A Unit of Work brought to the Squad
+& The Trio defines intent, personas and constraints, then reviews agent-drafted stories through iterative refinement. Approved scenarios are compiled into Gherkin and anchored.
+& The Discovery Gate passes and the functional specification is locked
+\\ \addlinespace
 
-Design and Prototyping & Locked Gherkin acceptance criteria & The Design Lead hat prompts for screens and flows; the Tech Lead hat prompts for interface contract, data model and runtime contract and anchors them; usability testing and architectural review run in parallel. & Both validations pass and tasks enter the Bolt Backlog \\ \addlinespace
+Design and Prototyping
+& Locked Gherkin acceptance criteria
+& The Design and Tech Lead hats define interfaces, data models and runtime contracts. Usability testing and architectural review validate the resulting artefacts.
+& Both validations pass and tasks enter the Bolt Backlog
+\\ \addlinespace
 
-Maintenance and Evolution & A post-deployment signal & Classify before any code is opened: a business deviation or specification gap routes to the \ac{PM} hat for a value decision and re-opens the owning phase; a technical defect routes to a Developer hat, who narrows the context to the report, the test evidence and the isolated fragment, asks only why that logic failed, and verifies the diagnosis manually. & The signal is classified and routed, with a verified diagnosis where applicable \\ \addlinespace
+Maintenance and Evolution
+& A post-deployment signal
+& Signals are classified before code access. Business or specification issues return to the \ac{PM} hat and the relevant phase; technical defects undergo restricted-context diagnosis and manual verification.
+& The signal is classified and routed, with a verified diagnosis where applicable
+\\ \addlinespace
 
-Fix-Bolt & A failed Testing Gate or a verified defect & Pulled immediately with task breakdown skipped; the agent resolves only the specific defect while adhering to the anchored specification; the developer reviews for newly introduced vulnerabilities, not only symptom resolution; existing and new unit tests must pass. & Low risk takes the Fast Lane to the pipeline; higher risk takes the Secure Lane through a Regression Bypass in staging \\ \addlinespace
+Fix-Bolt
+& A failed Testing Gate or a verified defect
+& Immediate corrective work addresses the isolated defect against the anchored specification. The developer reviews security implications and verifies existing and new unit tests.
+& Low risk takes the Fast Lane to the pipeline; higher risk takes the Secure Lane through a Regression Bypass in staging
+\\ \addlinespace
 
-\ac{QA} Validation & A story that has passed the Implementation Gate & The \ac{QA} hat opens the locked functional specification rather than the implementation, prompts for end-to-end \ac{BDD} scripts and verifies them manually \emph{before} execution, since an unverified script can report a passing scenario it never exercised, then probes edge cases exploratively. & The Testing Gate passes, or a Fix-Bolt is triggered with the failing evidence \\ \addlinespace
+\ac{QA} Validation
+& A story that has passed the Implementation Gate
+& The \ac{QA} hat independently derives and manually verifies end-to-end \ac{BDD} scripts from the locked functional specification before execution, followed by exploratory testing.
+& The Testing Gate passes, or a Fix-Bolt is triggered with the failing evidence
+\\ \addlinespace
 
-Deployment and Release & A story that has passed the Testing Gate & The agent answers one bounded question, whether the release requires new infrastructure, configuration or migrations, and generates artefacts only when it does; whoever deploys reviews any generated artefact for vulnerabilities and policy violations. & The Deployment Gate passes and the persistent context is updated to the live state \\
+Deployment and Release
+& A story that has passed the Testing Gate
+& The agent assesses infrastructure, configuration and migration requirements, generating artefacts only when necessary. The deployer reviews them for security and policy compliance.
+& The Deployment Gate passes and the persistent context is updated to the live state
+\\
 
 \end{longtable}
 }
@@ -416,21 +480,17 @@ Deployment and Release & A story that has passed the Testing Gate & The agent an
 \section{Positioning Against Alternatives}
 \label{sec:alternatives}
 
-% Framework doc §10. A design is only defensible against named alternatives.
-% This section is what makes the artefact a research contribution rather than a
-% proposal, and it is where a committee will press hardest.
+Four alternatives are considered below. Each has legitimate advantages, but the evidence motivates a different design choice.
 
-A design is only defensible against named alternatives. Four are engaged below, each stated at its strongest, credited with what it genuinely does better, and met with the evidence motivating a different choice; the sources cited throughout ground individual pieces of an original synthesis, not a joint blueprint this work reproduces.
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.4em]
 
-\begin{itemize}[leftmargin=0.6cm, itemsep=0.5em]
+\item \textbf{No framework at all.} This minimises process overhead and may be appropriate for short-lived prototypes with little coordination or maintenance. However, functionally correct agent output can remain insecure at scale, with security not improving alongside correctness~\cite{Zhao:2025vibe, Veracode:2025gen}. Validation therefore cannot be treated as optional process overhead.
 
-\item \textbf{No framework at all.} Premise: model capability suffices and process overhead is pure cost, correct for a short-lived prototype with no maintenance horizon, no coordination cost, no artefact to maintain, no gate to turn ceremonial. Documented failure mode, not hypothetical: \Cref{sec:design_principles} already establishes that functionally correct agent output is insecure at scale and that security does not improve as correctness does~\cite{Zhao:2025vibe, Veracode:2025gen}, so waiting is not a valid strategy. Flat, not merely lagging, is what turns validation from discipline into a structural requirement.
+\item \textbf{Adopt \ac{AI-DLC} unmodified.} \ac{AI-DLC} offers a coherent, commercially deployed three-phase model with less process complexity~\cite{AWS:2025aidlc}. The divergence here is limited to gaps identified in \Cref{sec:phases}: build and test are folded into Construction, while Operations provides no published mechanism for classifying post-deployment feedback. The proposed framework extends rather than replaces its useful structure.
 
-\item \textbf{Adopt \ac{AI-DLC} as published and unmodified.} Premise: a coherent three-phase model already exists from a credible source, and extending it adds complexity without control~\cite{AWS:2025aidlc}; genuinely simpler, operated at commercial scale, less process surface for a small team. The objection is narrow, the two gaps argued in \Cref{sec:phases}: build and test folded into the close of Construction, and an Operations phase with no published mechanism for classifying post-deployment feedback. The divergence fills gaps its own documentation leaves open; its vendor-reported, unverified productivity claims are not grounds to adopt it unmodified.
+\item \textbf{Retain Scrum or SAFe cadence and treat \ac{AI} as a faster development environment.} Existing ceremonies are familiar, well tooled and inexpensive to retain. The difficulty is that AI changes where the constraint lies: developers may misjudge its productivity effects~\cite{Becker:2025rct}, while review rather than implementation becomes the bottleneck~\cite{Faros:2025par}. A cadence calibrated to implementation may therefore measure and manage the wrong activity.
 
-\item \textbf{Keep Scrum or SAFe cadence and treat \ac{AI} as a faster development environment.} Premise: existing ceremonies already provide planning, review and retrospection, and \ac{AI} only changes the speed of one activity; not trivial, since the cadence is understood, tooled, compatible with planning cycles, and costs nothing in retraining. \Cref{sec:work_organisation} already shows why that premise fails, pairing the same controlled-experiment and telemetry evidence: developers underestimate the slowdown assistance introduces~\cite{Becker:2025rct} while the constraint has moved from implementation to review~\cite{Faros:2025par}. The retrospective this alternative relies on to catch that is a weak instrument for catching it, and an iteration boundary calibrated to implementation keeps reporting on the activity that is no longer binding.
-
-\item \textbf{Metrics-only governance, with no phase structure.} Premise: an organisation can track the right capabilities and outcomes, publish them, and let teams self-organise. The most serious of the four: far cheaper to adopt, presumes no lifecycle shape, adapts to context, and its own literature legitimately warns that no single metric can stand for the whole and any measure elevated to a target stops being a good one~\cite{Forsgren:2021sp}. The response is a distinction, not a rebuttal: metrics measure whether governance is working, they are not themselves a governance mechanism. A dashboard can accurately report rising review time and escaping defects while containing no mechanism for what a model may act upon, no point where an artefact must be checked against a prior specification, and no rule for where a post-deployment signal is routed, which is why the framework defines its own metrics in the same vocabulary rather than proposing an alternative to measurement.
+\item \textbf{Metrics-only governance, with no phase structure.} This is cheaper, flexible and consistent with evidence that no single metric captures software delivery performance~\cite{Forsgren:2021sp}. However, metrics indicate whether governance is working; they do not provide governance themselves. A dashboard can reveal rising review time or escaping defects without defining what an AI system may act upon, where validation must occur, or how post-deployment feedback is routed.
 
 \end{itemize}
 
