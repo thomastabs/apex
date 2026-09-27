@@ -6,7 +6,12 @@
 % format was chosen over the IST dissertation template, and README.md in this
 % directory for the page budget and build instructions.
 %
-% Build: pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
+% Build (output renamed via -jobname, source file stays main.tex, same
+% pattern as the dissertation's own ist1103641-tomas-taborda-dissertacao.pdf):
+%   pdflatex -jobname=ist1103641_TomasTaborda_resumo main.tex
+%   bibtex ist1103641_TomasTaborda_resumo
+%   pdflatex -jobname=ist1103641_TomasTaborda_resumo main.tex
+%   pdflatex -jobname=ist1103641_TomasTaborda_resumo main.tex
 % #############################################################################
 \documentclass[sigconf,review=false,nonacm=true]{acmart}
 
@@ -209,7 +214,7 @@ Feedback gathered while building Apex fed back into the framework itself, not on
 \item \textbf{Design/technical sign-off demoted} (framework-level). Phase 2's mandatory separate sign-off was demoted to a self-checked, evidence-based gate once the same observation showed that role-gating a gate on a small team either blocks the work or is satisfied twice by the same person.
 \item \textbf{Design-conflict detector} (tool-level). Narrowed, then removed entirely.
 \item \textbf{Spec-drift flagging} (tool-level). Narrowed after the whole-specification cascade described above.
-\item \textbf{OAuth-based integration} (tool-level). Reverted in favour of a simpler token.
+\item \textbf{Authentication for a design integration} (tool-level). An authentication flow requiring an operator-registered application and backend-held secret was reverted for conflicting with Apex's zero-configuration deployment model.
 \end{itemize}
 
 This record came from five practitioners consulted informally during construction, with no fixed guide, recording or demographic data, so it is evidence that the method was revised in response to use rather than evidence about the distribution or strength of practitioner opinion.

@@ -113,12 +113,17 @@ dissertation content.
 
 ## Build
 
+The source file is still `main.tex`; the compiled output is renamed via
+`-jobname` (2026-09-27, same pattern as the dissertation's own
+`ist1103641-tomas-taborda-dissertacao.pdf`), so the tracked PDF is
+`ist1103641_TomasTaborda_resumo.pdf`, not `main.pdf`.
+
 ```bash
 cd docs/thesis/extended-abstract
-pdflatex -interaction=nonstopmode main.tex
-bibtex main
-pdflatex -interaction=nonstopmode main.tex
-pdflatex -interaction=nonstopmode main.tex
+pdflatex -interaction=nonstopmode -jobname=ist1103641_TomasTaborda_resumo main.tex
+bibtex ist1103641_TomasTaborda_resumo
+pdflatex -interaction=nonstopmode -jobname=ist1103641_TomasTaborda_resumo main.tex
+pdflatex -interaction=nonstopmode -jobname=ist1103641_TomasTaborda_resumo main.tex
 ```
 
 `acmart.cls` is present on this system (`kpsewhich acmart.cls` resolves to
@@ -446,6 +451,60 @@ Rebuilt (`pdflatex` -> `bibtex` -> `pdflatex` -> `pdflatex`):
   by line number), same as every prior pass.
 - All six tables and both figures visually inspected page by page in the
   rendered PDF and confirmed legible and correctly numbered.
+
+### Full reanalysis against the current dissertation + PDF renamed (2026-09-27)
+
+Tomás asked whether the scaffold is "on pair" with the dissertation and to
+rename the compiled output to `ist1103641_TomasTaborda_resumo.pdf`. No thesis
+chapter had changed since the last full audit (`7fac3e0`), so this was a
+fact-by-fact spot check of every claim carried over this session's edits,
+cross-read against the current `.tex` chapter files rather than against
+memory of an earlier read:
+
+- Motivation statistics (§1): 84/76 per cent, 40/29 per cent, 90 per cent,
+  61/10.5 per cent, 45 per cent OWASP, 72 per cent Java, 55.8 per cent, 19/20
+  per cent, 1,255 teams, 98/91 per cent - all verified verbatim against
+  `Chapter_1-Introduction.tex` and `Chapter_6-Proposal.tex`.
+- Seven Design Principles: names and order verified identical against
+  `tab:principles` in `Chapter_6-Proposal.tex`.
+- Six lifecycle phases and gate names (Table 1): verified identical against
+  `Chapter_6-Proposal.tex`'s own phase-mapping table.
+- Twelve mapped constructs and their outcomes (Table 2): verified row by row
+  against `tab:apex_mapping` in `Chapter_7-Apex.tex` - all twelve names and
+  all twelve outcomes (ten realised, one proxy, one partial) match exactly.
+- Participant demographics, SUS/NASA-TLX numbers, the analytical-assessment
+  table, the Outfolio governance numbers, the Testing Gate and
+  destructive-command findings, and the Conclusion's dissemination
+  paragraph: all verified verbatim or faithfully condensed against
+  `Chapter_8-Demonstration.tex`, `Chapter_9-Evaluation.tex` and
+  `Chapter_10-Conclusion.tex`.
+
+**One real drift found and fixed.** The Section 5 reversals list (added this
+session) named one tool-level change as "an OAuth-based integration reverted
+in favour of a simpler token" - accurate against the project's real history,
+but the word "OAuth" no longer appears anywhere in the current dissertation
+text: `Chapter_7-Apex.tex`'s own account of that reversal was compressed
+during the manual editing pass to a generic description with no product name
+attached (`grep -rn "OAuth" *.tex` returns zero matches dissertation-wide).
+Carrying a named detail the dissertation itself no longer states broke
+pair-parity, so the item was reworded to mirror the dissertation's own
+current, generic phrasing: "An authentication flow requiring an
+operator-registered application and backend-held secret was reverted for
+conflicting with Apex's zero-configuration deployment model." No other
+discrepancy was found across the sections checked.
+
+**PDF renamed.** The compiled output is now
+`ist1103641_TomasTaborda_resumo.pdf`, produced via `-jobname` from the same
+`main.tex` source (identical pattern to the dissertation's own
+`ist1103641-tomas-taborda-dissertacao.pdf` rename); see "Build" above for the
+updated commands. The old `main.pdf` was removed from git tracking; `main.tex`
+is unchanged as the canonical source filename.
+
+Rebuilt with the new jobname: page count unchanged at 8, 0 errors, 0
+undefined references, dash sweep unchanged (10 matches, all after the
+References heading, which itself now also renders in title case rather than
+all caps, since ACM's `\refname` heading uses the same `\@secfont` this
+session's caps fix already overrode).
 
 ## Files
 

@@ -861,6 +861,43 @@ references, dash sweep unchanged. Full accounting in
 `docs/thesis/extended-abstract/README.md`'s "Sections 5-7 rearranged..."
 entry.
 
+Also same day: section titles were found rendering in all caps
+(`4 PROPOSED FRAMEWORK`) - an `acmart` sigconf class default (`\@secfont`
+includes `\MakeTextUppercase`), not our source. Overrode it in the preamble
+to keep the same bold/Large styling in normal title case; subsections were
+already normal case and unaffected. As a side effect, the auto-generated
+"References" heading (typeset via the same `\@secfont`) also switched from
+"REFERENCES" to "References" - correct and expected, not a regression.
+
+**Full reanalysis against the current dissertation, and PDF renamed
+(2026-09-27, same day).** Tomás asked whether the scaffold is "on pair" with
+the dissertation. No thesis chapter had changed since the last full audit
+(commit `7fac3e0`), so this was a fact-by-fact spot check of every claim
+this session's edits touched, cross-read against the current chapter files:
+the motivation statistics (§1), the seven Design Principles, the six
+lifecycle phases and gate names (Table 1), all twelve mapped constructs and
+outcomes (Table 2, checked row by row against `tab:apex_mapping`), the
+participant demographics, SUS/NASA-TLX numbers, the analytical-assessment
+table, the Outfolio governance numbers, the Testing Gate/destructive-command
+findings, and the Conclusion's dissemination paragraph. One real drift was
+found and fixed: the Section 5 reversals list named a tool-level change as
+"an OAuth-based integration reverted in favour of a simpler token" - true of
+the project's real history, but the word "OAuth" no longer appears anywhere
+in the current dissertation text, since `Chapter_7-Apex.tex`'s own account
+was compressed to a generic description during the manual editing pass.
+Reworded to mirror the dissertation's current, generic phrasing instead of
+carrying a named detail the dissertation itself no longer states. No other
+discrepancy was found.
+
+The compiled output was also renamed to
+`ist1103641_TomasTaborda_resumo.pdf`, produced via `-jobname` from the same
+`main.tex` source, the identical pattern already used for the dissertation's
+own `ist1103641-tomas-taborda-dissertacao.pdf`. The old `main.pdf` was
+removed from git tracking. Rebuilt under the new jobname: page count
+unchanged at 8, 0 errors, 0 undefined references, dash sweep unchanged. Full
+accounting in `docs/thesis/extended-abstract/README.md`'s "Full reanalysis
+against the current dissertation + PDF renamed" entry.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using
