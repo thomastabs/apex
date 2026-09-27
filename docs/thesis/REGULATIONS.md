@@ -24,9 +24,11 @@ wins.
 > 2026-09-23 post-cut account, superseded by §1a-octies's 2026-09-24
 > account, superseded by §1a-nonies's 2026-09-24 account, superseded by
 > §1a-decies's 2026-09-24 account, superseded by §1a-undecies's 2026-09-27
-> account** - read §1a-undecies for the final compliance audit (both real
-> IST ceilings compliant, one abstract word-count violation found and
-> fixed, dependent documents swept). §1a-decies records Tomás's own manual
+> account, superseded by §1a-duodecies's 2026-09-27 account** - read
+> §1a-duodecies for the extended abstract's added figures/table (no change
+> to either page ceiling) and §1a-undecies for the final compliance audit
+> (both real IST ceilings compliant, one abstract word-count violation found
+> and fixed, dependent documents swept). §1a-decies records Tomás's own manual
 > Overleaf pass that met both ceilings; §1a-nonies records the real-material
 > cutting pass that preceded it
 > that followed §1a-octies's format-conversion and deep-dive passes, which
@@ -801,6 +803,42 @@ Tomás's call); Chapter 9's Table 9.3 full deletion (~0.3-0.35pp, already
 declined once, not revisited here). None of these four affect the two page
 ceilings, both of which remain compliant with margin (main text 71/80,
 whole document 99/100).
+
+## 1a-duodecies. Extended abstract gains figures and a table, 2026-09-27
+
+Tomás noted the extended abstract "just seems like only text" and asked for
+pictures and tables from the dissertation itself, matching Cruz's own
+precedent (§2 below): his accepted abstract carries density through
+tables/figures rather than prose alone. Before this pass the scaffold had one
+table (`tab:phases`) and zero figures against 3 pages of headroom under the
+10-page ceiling.
+
+Added, both sourced from the dissertation's own `Images/` folder (copied into
+a new `docs/thesis/extended-abstract/Images/` rather than referenced by a
+relative path outside the scaffold's own directory, since it is periodically
+zipped standalone for Overleaf):
+
+- **Figure 1** (`fig:lifecycle`, spans both columns): the same six-phase
+  lifecycle diagram used as Figure 6.1 and the cover diagram in the
+  dissertation, placed in the Lifecycle Phases subsection alongside the
+  existing `tab:phases`.
+- **Table 2** (`tab:constructs`): a new compact table condensing the
+  twelve-construct DRQ3 mapping (10 realised / 1 proxy / 1 partial) that the
+  Reference Implementation section's prose already states in sentence form;
+  the table summarises, it does not replace that prose.
+- **Figure 2** (`fig:deployment-gate`): a real Apex screenshot of the
+  Deployment Gate (delta verdict, deploy pack, traceability matrix, human
+  gatekeeper sign-offs), cross-referenced from the quality-gates sentence in
+  Governance Mechanisms.
+
+Rebuilt (`pdflatex` -> `bibtex` -> `pdflatex` -> `pdflatex`): page count
+unchanged at 7 (still 3 under the ceiling), 0 errors, 0 undefined references,
+dash sweep unchanged (matches confined to the auto-generated bibliography).
+Both figures and both tables visually inspected in the rendered PDF and
+confirmed legible at their assigned width. Full accounting in
+`docs/thesis/extended-abstract/README.md`'s "Figures and table added
+(2026-09-27...)" entry. This does not touch the main dissertation or either
+page ceiling; nothing here reopens anything from §1a-undecies.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 

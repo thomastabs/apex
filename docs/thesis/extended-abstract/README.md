@@ -354,9 +354,51 @@ for margin notes during review), keep it away from inline boxes in the
 sections nearest the bibliography, or test a full clean build after adding
 it back.
 
+### Figures and table added (2026-09-27, same day as the build result above)
+
+Tomás asked for the scaffold to stop being text-only, matching Cruz's own
+precedent of carrying density through tables/figures rather than prose alone
+(already noted under "What was analysed in Cruz's abstract" above). Before
+this pass the scaffold had exactly one table (`tab:phases`) and zero figures
+despite 3 pages of headroom under the 10-page ceiling.
+
+Added, all sourced from the dissertation's own material, none newly drawn:
+
+- **`Images/` subfolder**, new to this scaffold (it previously had none of its
+  own), holding copies of two PNGs from
+  `../IST_UL___MEIC_Thesis___Dissertação_final/Images/`: `lifecycle-diagram.png`
+  and `demo-apex-phase5-deployment-gate.png`. Copied rather than referenced by
+  relative path outside this directory, since this scaffold is periodically
+  zipped standalone for Overleaf upload and a `../` path would break outside
+  the zip's own root.
+- **Figure 1** (`fig:lifecycle`, Section 4.2, spans both columns via
+  `figure*`): the six-phase lifecycle diagram, the same one used as Figure 6.1
+  and the cover diagram in the dissertation itself. Cross-referenced from the
+  Lifecycle Phases paragraph alongside the existing `tab:phases`.
+- **Table 2** (`tab:constructs`, Section 5): a new compact table condensing
+  the twelve-construct DRQ3 mapping (10 realised / 1 proxy / 1 partial) that
+  Section 5's prose already states in full sentences; the table adds a
+  scannable summary, it does not replace the prose.
+- **Figure 2** (`fig:deployment-gate`, Section 5): a real Apex screenshot of
+  the Deployment Gate (delta verdict, deploy pack, traceability matrix, human
+  gatekeeper sign-offs), cross-referenced from Section 4.4's quality-gates
+  sentence.
+
+Rebuilt (`pdflatex` -> `bibtex` -> `pdflatex` -> `pdflatex`) after the change:
+
+- **Page count: 7** (unchanged - the added float content did not push a new
+  page; still 3 pages under the 10-page ceiling).
+- **LaTeX errors: 0. Undefined references: 0.**
+- **Dash check**: unchanged, still only the pre-existing bibliography
+  page-range matches after "REFERENCES".
+- Both figures and both tables visually inspected in the rendered PDF at
+  their assigned width and confirmed legible.
+
 ## Files
 
 - `main.tex` - the scaffold itself.
+- `Images/` - the two PNGs described above, copied verbatim from the
+  dissertation's own `Images/` folder.
 - `references.bib` - a **subset copy**, extracted verbatim (unedited BibTeX
   entries) from `../IST_UL___MEIC_Thesis___Dissertação_final/Bibliography.bib`,
   limited to the 30 keys actually `\cite`'d in `main.tex`. No entry was
