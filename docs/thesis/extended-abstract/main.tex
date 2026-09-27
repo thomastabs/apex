@@ -32,6 +32,14 @@
 \usepackage{xcolor}
 \usepackage{enumitem}
 
+% acmart's sigconf format uppercases \section titles by default
+% (\@secfont includes \MakeTextUppercase, acmart.cls line ~2857). Drop just
+% that, keeping the same bold/Large/ragged-right styling, so section titles
+% render in normal title case instead of ALL CAPS.
+\makeatletter
+\def\@secfont{\bfseries\Large\section@raggedright}
+\makeatother
+
 % A dependency-free results-pending placeholder, used instead of todonotes:
 % todonotes' inline boxes were found to conflict with acmart's end-of-document
 % \balance call in this two-column layout (reproducibly raises a fatal
