@@ -840,6 +840,27 @@ confirmed legible at their assigned width. Full accounting in
 (2026-09-27...)" entry. This does not touch the main dissertation or either
 page ceiling; nothing here reopens anything from §1a-undecies.
 
+Same day, a follow-up request asked for Sections 5-7 (Reference
+Implementation, Demonstration/Evaluation, Discussion/Threats), which were
+mainly dense prose, rearranged into more bullets and tables, taking the
+dissertation's own tables as the example. No fact was added or removed; the
+five-architectural-properties and reversal-list paragraphs in Section 5
+became `itemize` lists, Table 2 expanded from a 3-row status summary to the
+full 12-row construct/outcome table; Section 6 gained a new evaluation-
+instruments table, a participant-demographics `itemize`, a new SUS/NASA-TLX
+summary table, and converted the previously prose-only analytical assessment
+into a 5-row table (condensing the dissertation's own `tab:analytical`
+justification text per row, not invented); Section 7's four-DRQ paragraph
+became a DRQ/Verdict table and its threats-to-validity paragraph became a
+4-item `itemize`. One real build fix: `\usepackage{enumitem}` was missing,
+so `itemize` environments using `[leftmargin=..., itemsep=...]` (the
+dissertation's own established bullet style) failed with a cascading
+"missing \item" error on first compile; added and re-verified clean. Rebuilt:
+page count 7 to 8 (still 2 under the ceiling), 0 errors, 0 undefined
+references, dash sweep unchanged. Full accounting in
+`docs/thesis/extended-abstract/README.md`'s "Sections 5-7 rearranged..."
+entry.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using

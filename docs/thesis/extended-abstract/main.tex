@@ -30,6 +30,7 @@
 \usepackage{cleveref}
 \usepackage{float}
 \usepackage{xcolor}
+\usepackage{enumitem}
 
 % A dependency-free results-pending placeholder, used instead of todonotes:
 % todonotes' inline boxes were found to conflict with acmart's end-of-document
@@ -147,22 +148,39 @@ The framework replaces epics, sprints and sprint backlogs with continuous flow, 
 \section{Reference Implementation: Apex}
 \label{sec:apex}
 
-Apex is not positioned against a coding agent: a coding agent accelerates the writing of code, whereas Apex governs whether the code that results still answers the requirement that prompted it, by carrying a stable specification identifier from every generated artefact back to its origin. It is a split full-stack application, a Next.js/TypeScript frontend and a Python/FastAPI backend over a typed REST API, organised around five architectural properties that carry framework constructs rather than merely support them. \emph{Spec-anchored storage} keeps all workflow state as versioned Markdown context files plus a machine-readable story index, under a path keyed first by tenant instance and then by project, so a hosted account and a private deployment of the same tool remain isolated tenants for one user, with access mediated by a single service that enforces per-request isolation. A \emph{deliberate single-writer concurrency model} pins the backend to one replica and one worker by default, since the story index and configuration live on shared storage guarded only by a process-local lock, with an optional coordination layer promoting the locks to cross-replica equivalents once configured. \emph{Proxy-first external integration} routes every outbound call to a user-configurable host through a server-side proxy that validates HTTPS and non-private resolution before forwarding, closing server-side request forgery, with one deliberate browser-direct exception whose credential never reaches the backend. The \emph{project management adapter}, built against one tool first and extended behind the same interface to a second, with a third started but left incomplete, is where the framework's tool-independence claim (\Cref{sec:framework}) is tested directly: it holds at the level of operations, generalising authentication and identifier shape, while failing at the level of guarantees, since neither concurrency semantics nor identifier type can be made uniform and each gap is mitigated at application level instead. \emph{Provider abstraction} detects the model vendor from the model identifier and maps every provider error to a typed exception at one boundary, so no other part of the codebase branches on vendor.
+Apex is not positioned against a coding agent: a coding agent accelerates the writing of code, whereas Apex governs whether the code that results still answers the requirement that prompted it, by carrying a stable specification identifier from every generated artefact back to its origin. It is a split full-stack application, a Next.js/TypeScript frontend and a Python/FastAPI backend over a typed REST API, organised around five architectural properties that carry framework constructs rather than merely support them:
 
-Of twelve framework constructs mapped construct by construct against Apex's mechanisms, ten, the six lifecycle phases, quality gates, Spec-Anchored Continuity, stable specification identifiers, the Interactive Bridge, the Consistency Factor, Bolts and the Fix-Bolt, Bolt Cycle Time, and server-side reconciliation of generated output, are realised as specified. One, AI Defect Escape Rate, is realised only as a \emph{proxy}: the system cannot observe a production defect directly or attribute one to generated logic, so what is measured is the proportion of deployed stories carrying a project-management issue confirmed as a bug, linked to the story and dated after deployment. One, spec-drift detection, is only \emph{partially realised}: built for the whole specification, it cascaded because the technical specification was one project-wide file in which an edit could not be attributed to a story, one real edit flagging 44 stories at once, and was removed; it was revived for the functional specification alone, where each scenario already carries a stable identifier naming its story, and remains open for the technical specification, which has no equivalent per-item ownership. \Cref{tab:constructs} condenses this mapping.
+\begin{itemize}[leftmargin=0.5cm,itemsep=0.3em]
+\item \textbf{Spec-anchored storage} keeps all workflow state as versioned Markdown context files plus a machine-readable story index, under a path keyed first by tenant instance and then by project, so a hosted account and a private deployment of the same tool remain isolated tenants for one user, with access mediated by a single service that enforces per-request isolation.
+\item \textbf{Single-writer concurrency.} A deliberate model pins the backend to one replica and one worker by default, since the story index and configuration live on shared storage guarded only by a process-local lock, with an optional coordination layer promoting the locks to cross-replica equivalents once configured.
+\item \textbf{Proxy-first external integration} routes every outbound call to a user-configurable host through a server-side proxy that validates HTTPS and non-private resolution before forwarding, closing server-side request forgery, with one deliberate browser-direct exception whose credential never reaches the backend.
+\item \textbf{Project management adapter.} Built against one tool first and extended behind the same interface to a second, with a third started but left incomplete, this is where the framework's tool-independence claim (\Cref{sec:framework}) is tested directly: it holds at the level of operations, generalising authentication and identifier shape, while failing at the level of guarantees, since neither concurrency semantics nor identifier type can be made uniform and each gap is mitigated at application level instead.
+\item \textbf{Provider abstraction} detects the model vendor from the model identifier and maps every provider error to a typed exception at one boundary, so no other part of the codebase branches on vendor.
+\end{itemize}
+
+Of twelve framework constructs mapped construct by construct against Apex's mechanisms, ten are realised as specified (\Cref{tab:constructs}). One, AI Defect Escape Rate, is realised only as a \emph{proxy}: the system cannot observe a production defect directly or attribute one to generated logic, so what is measured is the proportion of deployed stories carrying a project-management issue confirmed as a bug, linked to the story and dated after deployment. One, spec-drift detection, is only \emph{partially realised}: built for the whole specification, it cascaded because the technical specification was one project-wide file in which an edit could not be attributed to a story, one real edit flagging 44 stories at once, and was removed; it was revived for the functional specification alone, where each scenario already carries a stable identifier naming its story, and remains open for the technical specification, which has no equivalent per-item ownership.
 
 \begin{table}[H]
 \centering
-\caption{The twelve mapped framework constructs, by realisation status in Apex.}
+\caption{The twelve mapped framework constructs and the realisation outcome each reached in Apex.}
 \label{tab:constructs}
-\small
-\begin{tabular}{@{}p{2.1cm}p{5.5cm}@{}}
+\footnotesize
+\begin{tabular}{@{}p{5.6cm}p{1.9cm}@{}}
 \toprule
-\textbf{Status} & \textbf{Constructs} \\
+\textbf{Construct} & \textbf{Outcome} \\
 \midrule
-Realised (10) & Six lifecycle phases; quality gates; Spec-Anchored Continuity; stable specification identifiers; Interactive Bridge; Consistency Factor; Bolts and Fix-Bolt; Bolt Cycle Time; server-side reconciliation of generated output \\
-Proxy (1) & AI Defect Escape Rate \\
-Partial (1) & Spec-drift detection \\
+Six lifecycle phases & Realised \\
+Quality gates & Realised \\
+Spec-Anchored Continuity & Realised \\
+Stable specification identifiers & Realised \\
+Interactive Bridge & Realised \\
+Consistency Factor & Realised \\
+Bolts and Fix-Bolt & Realised \\
+Bolt Cycle Time & Realised \\
+Server-side reconciliation of generated output & Realised \\
+Context Traceability Rate & Realised \\
+AI Defect Escape Rate & Proxy \\
+Spec-drift detection & Partial \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -176,31 +194,141 @@ Partial (1) & Spec-drift detection \\
 
 Spec-Anchored Continuity is where the translation from construct to code is least one to one. The framework mandates only the two-layer split by lifetime and leaves the number and granularity of files unspecified; Apex resolves that latitude with a fixed, named taxonomy, three global files (technology stack, decisions, constraints) and five local ones (concept, functional specification, technical specification, design bundle, runtime specification), maintained as cumulative, project-wide documents rather than one artefact locked per story. That is coarser than the framework requires, and it is an implementation liberty rather than an obligation the framework imposes; it is also the same granularity gap that spec-drift detection exposed, since a per-project technical specification cannot support the per-story attribution the framework's own assumption presumes.
 
-Feedback gathered while building Apex fed back into the framework itself, not only the tool. Two changes were framework-level: an earlier DevOps Alliance role, external to the team and holding deployment approval and infrastructure-security review, was removed once feedback observed that a role defined only by what it supervises can be assumed by the process and never staffed, its two responsibilities reassigned to whoever performs the deployment; and Phase 2's mandatory separate design/technical sign-off was demoted to a self-checked, evidence-based gate once the same observation showed that role-gating a gate on a small team either blocks the work or is satisfied twice by the same person. Three tool-level reversals, a design-conflict detector narrowed and then removed, spec-drift flagging narrowed after the cascade above, and an OAuth-based integration reverted in favour of a simpler token, are recorded for the same reason a change kept is: a reverted change is evidence about the design. This record came from five practitioners consulted informally during construction, with no fixed guide, recording or demographic data, so it is evidence that the method was revised in response to use rather than evidence about the distribution or strength of practitioner opinion.
+Feedback gathered while building Apex fed back into the framework itself, not only the tool. A reverted change is recorded for the same reason a change kept is: it is evidence about the design.
+
+\begin{itemize}[leftmargin=0.5cm,itemsep=0.3em]
+\item \textbf{DevOps Alliance role removed} (framework-level). This earlier role, external to the team and holding deployment approval and infrastructure-security review, was removed once feedback observed that a role defined only by what it supervises can be assumed by the process and never staffed; its two responsibilities were reassigned to whoever performs the deployment.
+\item \textbf{Design/technical sign-off demoted} (framework-level). Phase 2's mandatory separate sign-off was demoted to a self-checked, evidence-based gate once the same observation showed that role-gating a gate on a small team either blocks the work or is satisfied twice by the same person.
+\item \textbf{Design-conflict detector} (tool-level). Narrowed, then removed entirely.
+\item \textbf{Spec-drift flagging} (tool-level). Narrowed after the whole-specification cascade described above.
+\item \textbf{OAuth-based integration} (tool-level). Reverted in favour of a simpler token.
+\end{itemize}
+
+This record came from five practitioners consulted informally during construction, with no fixed guide, recording or demographic data, so it is evidence that the method was revised in response to use rather than evidence about the distribution or strength of practitioner opinion.
 
 % #############################################################################
 \section{Demonstration, Evaluation Design, and Results}
 \label{sec:evaluation}
 
-The evaluation strategy is fixed independently of its outcome: a demonstration of the framework in two settings that fail in different directions, Apex's own construction and a separate product built against the framework end to end, with a third setting, a partner organisation, pursued and abandoned before it produced a deployed increment, together with the System Usability Scale~\cite{Brooke:1996SUS} and the Raw NASA Task Load Index~\cite{Hart:1988TLX, Hart:2006TLX} evaluate the instantiation (Apex, DRQ4), while semi-structured interviews with practitioners and with Agile and Scrum experts, together with an analytical assessment against stated success criteria, evaluate the framework itself (DRQ1, DRQ2). A favourable usability score for the tool is deliberately not treated as evidence that the framework is sound; the two artefacts are evaluated by different means for that reason.
+The evaluation strategy is fixed independently of its outcome: a demonstration of the framework in two settings that fail in different directions, Apex's own construction and a separate product built against the framework end to end, with a third setting, a partner organisation, pursued and abandoned before it produced a deployed increment, together with the System Usability Scale~\cite{Brooke:1996SUS} and the Raw NASA Task Load Index~\cite{Hart:1988TLX, Hart:2006TLX} evaluate the instantiation (Apex, DRQ4), while semi-structured interviews with practitioners and with Agile and Scrum experts, together with an analytical assessment against stated success criteria, evaluate the framework itself (DRQ1, DRQ2). A favourable usability score for the tool is deliberately not treated as evidence that the framework is sound; \Cref{tab:instruments} states which instrument evaluates which artefact, and the two artefacts are evaluated by different means for that reason.
 
-Thirteen sessions were completed (P0 to P12), all returning all four instruments with no withdrawal; P0, originally an uncounted pilot, is counted as a full participant since it produced complete data under the same protocol as every later session. Participants were recruited through the author's own professional and personal connections rather than an open call, and the sample is junior and mixed: three were students, three had under a year of professional experience and seven had one to three years, with nobody exceeding three; by current role six were students, four developers, one an AI engineer, and two entirely outside software development. Prior exposure to AI coding assistants spanned the full scale, from daily use to none. Nine participants chose English as the session language and four Portuguese, with two administration mismatches between declared language and completed instrument reported as recorded rather than corrected.
+\begin{table}[H]
+\centering
+\caption{Evaluation instruments, artefact evaluated, and DRQ addressed.}
+\label{tab:instruments}
+\footnotesize
+\begin{tabular}{@{}p{2.9cm}p{2.6cm}p{1.4cm}@{}}
+\toprule
+\textbf{Instrument} & \textbf{Artefact} & \textbf{DRQ} \\
+\midrule
+Demonstration in a real project & Framework + instantiation & DRQ3, DRQ4 \\
+System Usability Scale & Instantiation & DRQ4 \\
+Raw NASA-TLX & Instantiation & DRQ4 \\
+Apex UX questionnaire & Instantiation (2 items score the framework) & DRQ4 \\
+Practitioner/expert interviews & Framework & DRQ1, DRQ2 \\
+Analytical assessment & Framework & DRQ1, DRQ2 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The System Usability Scale mean across all thirteen is 56.73 (SD 18.50, median 60, range 15 to 80), a grade D on Sauro and Lewis's curved scale~\cite{Sauro:2016QUANT} and between \emph{OK} and \emph{Good} on Bangor et al.'s adjective scale~\cite{Bangor:2009SUS}, below the published corpus mean of approximately 68. English respondents ($n=10$) average 60.50, also grade D; Portuguese respondents ($n=3$) average 44.17, grade F, reported as indicative only given the validated Portuguese instrument's own weak inter-rater agreement~\cite{Martins:2015SUS}. The Usability and Learnability sub-scales~\cite{Lewis:2009SUS} separate sharply, 59.86 against 44.23, and free-text responses converge on the same reading: difficulty concentrates at first contact with a dense interface rather than distributing through use. The Raw NASA-TLX, administered after each of six marked tasks across all thirteen participants (78 administrations), gives a grand workload aggregate of 21.5 out of 100. The profile is not flat: mental demand is highest at 29.1, followed by effort at 26.0 and temporal demand at 24.6, while frustration, at 16.7, is among the lowest subscales; the two heaviest tasks by aggregate are the design step and the implementation task-breakdown step, the two carrying the largest volume of generated content to review, and the lightest is an export step that generates nothing. Cognitive sustainability therefore reads favourably while usability does not, and the two do not contradict: the tool asks little of a practitioner who already knows where they are, and does too little to get them there.
+Thirteen sessions were completed (P0 to P12), all returning all four instruments with no withdrawal; P0, originally an uncounted pilot, is counted as a full participant since it produced complete data under the same protocol as every later session. Participants were recruited through the author's own professional and personal connections rather than an open call, and the sample is junior and mixed:
 
-The author-designed UX questionnaire's most diagnostic pair, whether generated content was trusted enough for real use and whether reviewing it took less effort than writing it, both return a median of 4 with no participant below 3, the calibrated-trust signature the pair was built to detect; because nothing was observed during the unmoderated sessions, the design cannot rule out acceptance without scrutiny in any individual case, and one participant's free text reports exactly that state directly. The study's one planned measurement of gate comprehension, a cross-read against a guaranteed deployment refusal, was lost when that refusal was redesigned into a normal deployment step before the study ran, so gate legibility, the framework's most distinctive mechanism, is the construct this evaluation has least evidence about. The analytical assessment against the framework's five design criteria, fixed before any result existed, rates two \emph{met} (alignment with SDLC phases; support for human-in-the-loop practice) and three \emph{partially met} (clarity; completeness; governance of AI-enabled activity), with no criterion rated \emph{not met}; each partial rating names a specific shortfall rather than a general reservation, among them the two Apex limitations already named in \S\ref{sec:apex}.
+\begin{itemize}[leftmargin=0.5cm,itemsep=0.2em]
+\item \textbf{Experience.} Three students with no professional experience, three under a year, seven with one to three years, nobody exceeding three.
+\item \textbf{Current role.} Six students, four developers, one AI engineer, two entirely outside software development.
+\item \textbf{Prior AI exposure.} Spanned the full scale, from daily use to none.
+\item \textbf{Session language.} Nine chose English, four Portuguese, with two administration mismatches between declared language and completed instrument reported as recorded rather than corrected.
+\end{itemize}
 
-These results answer the instantiation half of DRQ4 and, through the analytical assessment and the interviews, feed DRQ1 and DRQ2. The separate demonstration product, Outfolio, was in fact carried from Strategic Alignment to a deployed increment over nine calendar days, growing from a pre-committed six epics to a delivered nine, fifty stories, none abandoned, with all three of the framework's named loop-back routes exercised more than once; its own governance exports return a Context Traceability Rate of 92.6 per cent, a Spec Conformance mean of 98.65 per cent, and an AI Defect Escape Rate of 1.85 per cent, alongside two further findings, a Testing Gate shown passable by a suite that had stopped measuring the system it tested, and the stale-context pre-flight failure named above recurring on two further occasions. What is reported above is therefore evaluation evidence now joined by an observed demonstration rather than standing apart from one, with the remaining boundary, that both are the work of a single operator in a single setting, carried forward explicitly in \S\ref{sec:discussion}.
+The System Usability Scale mean across all thirteen is 56.73, a grade D on Sauro and Lewis's curved scale~\cite{Sauro:2016QUANT} and between \emph{OK} and \emph{Good} on Bangor et al.'s adjective scale~\cite{Bangor:2009SUS}, below the published corpus mean of approximately 68; the Portuguese subgroup is reported as indicative only given the validated Portuguese instrument's own weak inter-rater agreement~\cite{Martins:2015SUS}. \Cref{tab:sus_tlx} summarises both instruments.
+
+\begin{table}[H]
+\centering
+\caption{Perceived usability (SUS) and workload (NASA-TLX), summary statistics.}
+\label{tab:sus_tlx}
+\footnotesize
+\begin{tabular}{@{}p{4.3cm}p{3.2cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+SUS mean, all 13 (SD 18.50, median 60) & 56.73, grade D \\
+SUS mean, English ($n{=}10$) & 60.50, grade D \\
+SUS mean, Portuguese ($n{=}3$) & 44.17, grade F \\
+Usability / Learnability subscale & 59.86 / 44.23 \\
+NASA-TLX grand aggregate (78 admin.) & 21.5 / 100 \\
+NASA-TLX highest subscale & Mental demand, 29.1 \\
+NASA-TLX lowest subscale & Frustration, 16.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Usability and Learnability sub-scales~\cite{Lewis:2009SUS} separate sharply, and free-text responses converge on the same reading: difficulty concentrates at first contact with a dense interface rather than distributing through use. The Raw NASA-TLX profile is not flat: the two heaviest tasks by aggregate are the design step and the implementation task-breakdown step, the two carrying the largest volume of generated content to review, and the lightest is an export step that generates nothing. Cognitive sustainability therefore reads favourably while usability does not, and the two do not contradict: the tool asks little of a practitioner who already knows where they are, and does too little to get them there.
+
+The author-designed UX questionnaire's most diagnostic pair, whether generated content was trusted enough for real use and whether reviewing it took less effort than writing it, both return a median of 4 with no participant below 3, the calibrated-trust signature the pair was built to detect; because nothing was observed during the unmoderated sessions, the design cannot rule out acceptance without scrutiny in any individual case, and one participant's free text reports exactly that state directly. The study's one planned measurement of gate comprehension, a cross-read against a guaranteed deployment refusal, was lost when that refusal was redesigned into a normal deployment step before the study ran, so gate legibility, the framework's most distinctive mechanism, is the construct this evaluation has least evidence about.
+
+\Cref{tab:analytical} rates the framework against its own five design criteria, fixed before any result existed; no criterion is rated \emph{not met}, and the information is in the three \emph{partially met} rows, each naming a specific shortfall rather than a general reservation.
+
+\begin{table}[H]
+\centering
+\caption{Analytical assessment against the framework's five design criteria, fixed in advance.}
+\label{tab:analytical}
+\footnotesize
+\begin{tabular}{@{}p{2.5cm}p{1.3cm}p{4.0cm}@{}}
+\toprule
+\textbf{Criterion} & \textbf{Rating} & \textbf{Shortfall named} \\
+\midrule
+Alignment with SDLC phases & Met & Instantiation required no phase merged, split or skipped \\
+Human-in-the-loop support & Met & Every gate needs a specification write and human acceptance; generation alone cannot pass it \\
+Clarity & Partial & Spec-drift detection exposed an unstated per-story specification-scope assumption \\
+Completeness & Partial & AI Defect Escape Rate is a proxy; spec-drift detection is incomplete for the technical specification \\
+Governance of AI activity & Partial & AI-attributable defects observable only through a proxy; a governance surface reported confidently from stale evidence \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These results answer the instantiation half of DRQ4 and, through the analytical assessment and the interviews, feed DRQ1 and DRQ2. The separate demonstration product, Outfolio, was in fact carried from Strategic Alignment to a deployed increment over nine calendar days, growing from a pre-committed six epics to a delivered nine, fifty stories, none abandoned, with all three of the framework's named loop-back routes exercised more than once. Its own governance exports return:
+
+\begin{itemize}[leftmargin=0.5cm,itemsep=0.2em]
+\item Context Traceability Rate: 92.6 per cent
+\item Spec Conformance mean: 98.65 per cent
+\item AI Defect Escape Rate: 1.85 per cent
+\end{itemize}
+
+alongside two further findings: a Testing Gate shown passable by a suite that had stopped measuring the system it tested, and the stale-context pre-flight failure named above recurring on two further occasions. What is reported above is therefore evaluation evidence now joined by an observed demonstration rather than standing apart from one, with the remaining boundary, that both are the work of a single operator in a single setting, carried forward explicitly in \S\ref{sec:discussion}.
 
 % #############################################################################
 \section{Discussion and Threats to Validity}
 \label{sec:discussion}
 
-\textbf{DRQ1}, whether AI-supported activity maps to SDLC phases unambiguously, is answered at phase level: the six-phase decomposition survived instantiation with no phase merged, split or skipped, and an Agile expert who had not designed the framework read its hats and phase structure back in interview as a genuine departure from closed-role methodology. The qualification is that at least one construct, spec-drift detection, carried a precondition, per-story specification granularity, that the framework never states and that only building it exposed, so boundaries are unambiguous at phase level without yet being unambiguous at construct level. \textbf{DRQ2}, which governance mechanisms keep contributions traceable, validated and accountable, separates by strength: traceability and validation are strongest, since gates are enforced against specification content and generated coverage claims are reconciled server-side rather than trusted as reported; human-in-the-loop support is met structurally, no phase being exitable by generation alone; accountability is weaker, since AI Defect Escape Rate is instantiable only as a proxy and, during evaluation, a governance surface (the Phase 5 deployment pre-flight check) was observed reporting confidently from a stale repository-context file, with several participants' free text converging on that same surface independently. \textbf{DRQ3} is answered in full in \S\ref{sec:apex}: ten of twelve mapped constructs realised as specified, one as a named proxy, one partially realised with the resisting part identified, and the finding is what building it revealed rather than the count alone. \textbf{DRQ4} splits without contradiction: cognitive sustainability is favourable, a grand workload aggregate of 21.5 out of 100 with frustration among the lowest subscales, while usability is not, a System Usability Scale grade D below the published corpus mean and a Portuguese subgroup at grade F.
+\Cref{tab:drq} states the verdict on each Dissertation Research Question, drawn directly from \S\ref{sec:apex} and \S\ref{sec:evaluation}.
+
+\begin{table}[H]
+\centering
+\caption{Verdict on each Dissertation Research Question.}
+\label{tab:drq}
+\footnotesize
+\begin{tabular}{@{}p{0.9cm}p{6.9cm}@{}}
+\toprule
+\textbf{DRQ} & \textbf{Verdict} \\
+\midrule
+DRQ1 & Holds unambiguously at phase level: the six-phase decomposition survived instantiation with no phase merged, split or skipped. Qualified by one construct, spec-drift detection, carrying a per-story specification-granularity precondition the framework never states. \\
+DRQ2 & Separates by strength. Traceability and validation are strongest, since gates are enforced against specification content and generated coverage claims are reconciled server-side rather than trusted as reported. Human-in-the-loop support is met structurally. Accountability is weaker: AI Defect Escape Rate is instantiable only as a proxy, and a governance surface (the Phase 5 deployment pre-flight check) was observed reporting confidently from a stale repository-context file. \\
+DRQ3 & Answered in full in \S\ref{sec:apex}: ten of twelve mapped constructs realised as specified, one as a named proxy, one partially realised with the resisting part identified. \\
+DRQ4 & Splits without contradiction: cognitive sustainability is favourable (NASA-TLX aggregate 21.5/100, frustration among the lowest subscales), while usability is not (SUS grade D, below the published corpus mean; Portuguese subgroup at grade F). \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two qualifications refine the table's verdicts rather than sit inside it. For DRQ1, an Agile expert who had not designed the framework read its hats and phase structure back in interview as a genuine departure from closed-role methodology, corroborating the phase-level verdict independently; boundaries are unambiguous at phase level without yet being unambiguous at construct level. For DRQ2, several participants' free text converged on the same stale-evidence surface independently of the interview finding. For DRQ3, the finding is what building the framework revealed rather than the construct count alone.
 
 These answers carry a boundary that must be stated plainly rather than allowed to blur. DRQ1 to DRQ3 are grounded in Apex's own construction, in the completed Outfolio demonstration, and in the practitioner and expert interviews conducted for this evaluation; none of the three is the same as observing the framework operated, in the field, by a team that did not design it. The one setting that would have supplied that remaining evidence, an independent partner organisation already using Apex and migrating its project-management tool, was pursued and abandoned after repeated outreach went unanswered, and its absence is a different kind of gap than a small sample, since no amount of additional interviews, or of solo demonstration on a project of the author's own choosing, substitutes for an observed application by a team that did not design the framework. The threats below are accordingly threats to the evaluation together with this carried-forward demonstration limitation, not to the evaluation alone.
 
-\emph{Construct validity.} Every instrument measures perception, not delivered software quality, and no completion rate, time on task or error count was collected, a deliberate consequence of an unmoderated, unrecorded design rather than an oversight. The sharpest gap is specific to the framework's core mechanism: the study's only planned cross-read on whether a phase gate is legible as a guardrail was lost when the task guaranteeing a gate refusal was redesigned before data collection, so gate comprehension is unmeasured rather than weakly measured. \emph{Internal validity.} The author designed both artefacts, wrote the task script and the questionnaire, and is the sole participant in the separate demonstration product, so the same dual role of designer and evaluator runs through both the instantiation and the demonstration; two live defects, an interface-language leak between projects and the stale-context pre-flight check above, were found only because the author recognised the symptom in participants' own free text, and the system was not frozen across the collection window. \emph{External validity.} The sample is a convenience sample from one professional network, skewed junior, and the task environment is a single seeded project on one project-management tool that ten of thirteen participants had never used, confounding unfamiliarity with the tool and with the board; the observation window, one session of about an hour, precludes any claim about long-term maintainability or organisational adoption. \emph{Conclusion validity.} Thirteen participants across five levels of prior AI exposure support no inferential statistic and none is computed.
+\begin{itemize}[leftmargin=0.5cm,itemsep=0.3em]
+\item \textbf{Construct validity.} Every instrument measures perception, not delivered software quality, and no completion rate, time on task or error count was collected, a deliberate consequence of an unmoderated, unrecorded design rather than an oversight. The sharpest gap is specific to the framework's core mechanism: the study's only planned cross-read on whether a phase gate is legible as a guardrail was lost when the task guaranteeing a gate refusal was redesigned before data collection, so gate comprehension is unmeasured rather than weakly measured.
+\item \textbf{Internal validity.} The author designed both artefacts, wrote the task script and the questionnaire, and is the sole participant in the separate demonstration product, so the same dual role of designer and evaluator runs through both the instantiation and the demonstration; two live defects, an interface-language leak between projects and the stale-context pre-flight check above, were found only because the author recognised the symptom in participants' own free text, and the system was not frozen across the collection window.
+\item \textbf{External validity.} The sample is a convenience sample from one professional network, skewed junior, and the task environment is a single seeded project on one project-management tool that ten of thirteen participants had never used, confounding unfamiliarity with the tool and with the board; the observation window, one session of about an hour, precludes any claim about long-term maintainability or organisational adoption.
+\item \textbf{Conclusion validity.} Thirteen participants across five levels of prior AI exposure support no inferential statistic and none is computed.
+\end{itemize}
 
 % #############################################################################
 \section{Conclusion}

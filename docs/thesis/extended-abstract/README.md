@@ -394,6 +394,59 @@ Rebuilt (`pdflatex` -> `bibtex` -> `pdflatex` -> `pdflatex`) after the change:
 - Both figures and both tables visually inspected in the rendered PDF at
   their assigned width and confirmed legible.
 
+### Sections 5-7 rearranged into bullets and tables (2026-09-27, same day)
+
+Tomás asked for more variety in Sections 5 (Reference Implementation), 6
+(Demonstration/Evaluation) and 7 (Discussion/Threats), which were mainly
+dense prose, taking the dissertation's own tables as the example. No fact
+was added or removed; every bullet and table cell condenses text that was
+already in the prose (checked against the pre-edit `.tex`), and the
+surrounding prose was trimmed only where it would otherwise repeat a number
+now sitting in a table cell, matching how the dissertation itself pairs a
+table with explanatory prose rather than one replacing the other.
+
+Added:
+
+- **Section 5**: the five-architectural-properties paragraph became an
+  `itemize` (mirroring `Chapter_7-Apex.tex`'s own bulleted properties list);
+  Table 2 (`tab:constructs`) expanded from a 3-row status-grouped table to
+  the full 12-row construct/outcome table (mirroring `tab:apex_mapping`'s
+  Construct/Outcome columns); the two framework-level changes and three
+  tool-level reversals became a 5-item `itemize`.
+- **Section 6**: a new Table 3 (`tab:instruments`, mirrors
+  `tab:eval_instruments`) states which instrument evaluates which artefact;
+  the participant-demographics paragraph became a 4-item `itemize`; a new
+  Table 4 (`tab:sus_tlx`) summarises the SUS/NASA-TLX numbers the prose
+  around it used to spell out sentence by sentence; the analytical
+  assessment's five criteria (previously one sentence naming ratings) became
+  Table 5 (`tab:analytical`, mirrors `tab:analytical` in the dissertation,
+  condensing each row's real justification rather than inventing one); the
+  Outfolio governance-export numbers became a 3-item `itemize`.
+- **Section 7**: the four-DRQ paragraph (previously four inline `\textbf{}`
+  labels run together) became Table 6 (`tab:drq`, DRQ/Verdict), with the two
+  interview-derived qualifications that do not fit a table cell kept as
+  trailing prose; the four validity-type paragraph became a 4-item
+  `itemize`.
+
+One real build fix needed: `\usepackage{enumitem}` was missing from the
+preamble, so the first compile after adding `itemize` environments with
+`[leftmargin=..., itemsep=...]` optional arguments failed with a cascade of
+`! LaTeX Error: Something's wrong--perhaps a missing \item.` (plain LaTeX
+`itemize` does not accept that optional argument at all; without `enumitem`
+loaded, the parser desyncs from the first such environment onward). Added
+`\usepackage{enumitem}` next to the existing `booktabs`/`cleveref`/`float`
+lines; the same fix the dissertation's own preamble already carries.
+
+Rebuilt (`pdflatex` -> `bibtex` -> `pdflatex` -> `pdflatex`):
+
+- **Page count: 8** (up from 7; the added floats' own spacing overhead cost
+  one page, still 2 pages under the 10-page ceiling).
+- **LaTeX errors: 0** (after the `enumitem` fix). **Undefined references: 0.**
+- **Dash check**: 10 matches, all after the "REFERENCES" heading (confirmed
+  by line number), same as every prior pass.
+- All six tables and both figures visually inspected page by page in the
+  rendered PDF and confirmed legible and correctly numbered.
+
 ## Files
 
 - `main.tex` - the scaffold itself.
