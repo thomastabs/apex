@@ -243,6 +243,98 @@ other section was touched. Full rebuild cycle (`pdflatex` -> `bibtex` ->
   Communication content from the current text of `Chapter_10-Conclusion.tex`,
   not carried over from an earlier draft.
 
+### Verified build result (2026-09-27)
+
+The main dissertation went through a major cutting/editing pass on 2026-09-24
+(`docs/thesis/REGULATIONS.md` `\S`1a-nonies, an agent-driven real-material cut,
+then `\S`1a-decies, Tomás's own manual pass on Overleaf that superseded it as
+the new baseline) that changed several numbers and findings this scaffold
+draws from. Every fact in `main.tex` was re-checked against the current text
+of `Chapter_1-Introduction.tex`, `Chapter_4-SLR.tex`, `Chapter_6-Proposal.tex`,
+`Chapter_7-Apex.tex`, `Chapter_8-Demonstration.tex`, `Chapter_9-Evaluation.tex`
+and `Chapter_10-Conclusion.tex`, not carried over from the 2026-09-23 pass.
+
+Four discrepancies were found and fixed, all in the body text (the abstract
+and keywords were already accurate and needed no change):
+
+- **Design Principles count and naming (Section 4.1).** The cutting pass
+  merged Chapter 6's "Hats, Not People" into "Explicit Responsibility and
+  Accountability" as a single renamed principle, "Functional, Not Positional,
+  Accountability", reducing the framework from eight principles to seven; this
+  scaffold still said "Eight principles" and listed the two merged names
+  separately. Before: `Eight principles, ... Hats, Not People; Explicit
+  Responsibility and Accountability; Risk-Proportional...`. After: `Seven
+  principles, ... Functional, Not Positional, Accountability;
+  Risk-Proportional...`.
+- **Jira adapter status (Section 5).** Chapter 7 now states the Jira adapter
+  "was started but left incomplete once it became clear Taiga and Plane were
+  the priority targets", a genuine correction made during the manual pass
+  (previously it read as completed). This scaffold's architecture paragraph
+  said the project-management adapter was "built against one tool first and
+  extended to two more behind one interface", implying both Plane and Jira
+  were finished. Before: `built against one tool first and extended to two
+  more behind one interface`. After: `built against one tool first and
+  extended behind the same interface to a second, with a third started but
+  left incomplete`.
+- **Siddeeq epic-organisation figures (Section 4.4, Governance Mechanisms).**
+  Chapter 6's Work Organisation section was compressed during the cutting pass
+  from a specific reported result (107 requirements; correctness 4.61 against
+  4.14 of 5; completeness 4.31 against 3.50) to a qualitative statement
+  ("supported by evidence of higher correctness and completeness than
+  requirement-level decomposition"); this scaffold still carried the old,
+  more specific figures, which no longer appear anywhere in the current
+  dissertation text. Before: `across 107 requirements, an epic-organised
+  generation pipeline outperformed a requirement-aligned baseline on
+  expert-rated correctness (4.61 against 4.14 of 5) and completeness (4.31
+  against 3.50)~\cite{Siddeeq:2026gh}`. After: `by evidence of higher
+  expert-rated correctness and completeness than requirement-level
+  decomposition~\cite{Siddeeq:2026gh}`.
+- **Recruitment attribution (Section 6, Participants).** Chapter 9 now
+  attributes recruitment to "the author's own professional and personal
+  connections", a deliberate, confirmed-correct change from the earlier
+  "supervisor's own professional connections" wording; this scaffold still
+  said "the supervisor's own professional network". Before: `Participants
+  were recruited through the supervisor's own professional network`. After:
+  `Participants were recruited through the author's own professional and
+  personal connections`.
+
+Everything else checked out unchanged against the current chapter text: the
+10/1/1 construct-outcome split (DRQ3), the SUS mean (56.73, grade D) and its
+English/Portuguese sub-means (60.50/44.17), the Usability/Learnability
+sub-scale split (59.86/44.23), the NASA-TLX grand aggregate (21.5/100) and its
+subscale profile (mental demand 29.1 highest, frustration 16.7 among the
+lowest), the two heaviest and lightest NASA-TLX tasks, the 2-met/3-partially-met
+analytical assessment, the "44 stories flagged at once" spec-drift figure, the
+Outfolio numbers (nine calendar days, six to nine epics, fifty stories, none
+abandoned, Context Traceability Rate 92.6 per cent, Spec Conformance 98.65 per
+cent, AI Defect Escape Rate 1.85 per cent), the Testing Gate and destructive-
+command findings, the Future Work item count (six, referenced only implicitly
+via the limitations this scaffold's Conclusion draws on, not enumerated by
+number in `main.tex`), and the SLR dissemination status in Chapter 10's
+Communication section ("submission was deferred... target venue remains to be
+selected", consistent with this scaffold's "in preparation, with its target
+venue still to be finalised"). No stale "unwritten"/"pending" placeholder
+language was found anywhere in `main.tex`; Chapters 8 and 10 have been fully
+written and heavily edited multiple times since the 2026-09-15 pass, and this
+scaffold's Sections 6 and 8 already reflected that as of the 2026-09-23 pass.
+
+- **Page count: 7** (unchanged from 2026-09-15/2026-09-23; still within the
+  6-8 page target and 3 pages under the 10-page ceiling).
+- **LaTeX errors: 0. Undefined references: 0. Undefined citations: 0.**
+  (`grep -i undefined main.log` empty after the full `pdflatex` -> `bibtex` ->
+  `pdflatex` -> `pdflatex` cycle.)
+- **Dash check** (`pdftotext main.pdf - | grep -P "[\x{2013}\x{2014}]"`): 10
+  matches, all falling after the "REFERENCES" heading in the rendered text
+  (confirmed by line number against `grep -n "^REFERENCES$"`), i.e. all inside
+  the auto-generated References list (the same `ACM-Reference-Format.bst`
+  page-range rendering behaviour described above). No en or em dash appears
+  anywhere in Sections 1-8, the abstract, or the table; none introduced by
+  this pass's edits.
+- **No emoji** in any edited text (visual check of the four changed passages).
+- Each of the four edits was independently confirmed rendered correctly in
+  the compiled PDF via `pdftotext` fragment matching, not just checked in the
+  `.tex` source.
+
 ### Known LaTeX issue found and worked around
 
 An initial version used the `todonotes` package (`\todo[inline]{...}`, the

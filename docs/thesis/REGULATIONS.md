@@ -23,10 +23,12 @@ wins.
 > §1a-sexies's 2026-09-23 pre-cut account, superseded by §1a-septies's
 > 2026-09-23 post-cut account, superseded by §1a-octies's 2026-09-24
 > account, superseded by §1a-nonies's 2026-09-24 account, superseded by
-> §1a-decies's 2026-09-24 account** - read §1a-decies for the current
-> state: both real IST ceilings are compliant, after Tomás's own manual
-> pass in Overleaf and the verification pass that followed it. §1a-nonies
-> records the real-material cutting pass that preceded it
+> §1a-decies's 2026-09-24 account, superseded by §1a-undecies's 2026-09-27
+> account** - read §1a-undecies for the final compliance audit (both real
+> IST ceilings compliant, one abstract word-count violation found and
+> fixed, dependent documents swept). §1a-decies records Tomás's own manual
+> Overleaf pass that met both ceilings; §1a-nonies records the real-material
+> cutting pass that preceded it
 > that followed §1a-octies's format-conversion and deep-dive passes, which
 > followed §1a-septies's first cutting
 > pass that followed Chapters 8 and 10 being
@@ -699,6 +701,106 @@ by extrapolation from this measurement. The ten queued Opus per-chapter
 deep-dive passes that were mid-flight when Tomás's manual edit landed were
 superseded and their in-flight work discarded; the manual pass achieved in
 one session what the agent-driven passes were still working towards.
+
+## 1a-undecies. Final IST compliance audit and dependent-document sweep, 2026-09-27
+
+With both page ceilings met, three further regulatory documents were read
+directly for this pass: `ist-masters-dissertations-regulation-2022.pdf`
+(the English translation of the Portuguese regulamento, confirms everything
+already on record here, nothing new), `temas-de-disserta-o-prazos-e-
+tramita-o-2021.pdf` (proposal/enrolment deadlines only - administrative,
+not applicable to a finished dissertation's formatting or content), and a
+fresh copy of the guide, cross-checked against the compiled PDF item by
+item rather than trusting the source rules alone.
+
+**One real, previously-unconfirmed violation found and fixed:** the guide
+caps the abstract and resumo at 250 words each. A precise word count (via
+`detex`, stripping LaTeX markup rather than counting raw source words)
+found `EN-Abstract.tex` at 251 words and `PT-Resumo.tex` at 253 - both had
+sat over the cap, unnoticed, since the front matter was last touched
+2026-08-05. One clause was trimmed from each (a redundant "however"/
+"contudo" in the English, "conditional on process, not on model capability
+alone" tightened to "conditional on process" in the Portuguese, since the
+English half of that clause was already doing the qualifying work). Both
+now sit at 250 and 249 words respectively - the English abstract lands
+exactly on the ceiling, not under it, so any future edit to that paragraph
+must recheck the count rather than assume headroom. Keyword counts (six
+each, English and Portuguese) were already compliant.
+
+**Confirmed compliant by direct inspection of the rendered PDF:** front
+matter structure and order (cover, Declaration, Acknowledgments, Abstract/
+Keywords, Resumo/Palavras-Chave, Contents - matching the guide's required
+sequence exactly); the Declaration's required text, present verbatim
+immediately before the Abstract as the regulation demands (with an honest
+AI-tool-use sentence appended after it, which does not compromise the
+required text since that text is unmodified); page geometry, font, margins,
+and page-number placement (all inherited from `istulthesis.cls`, untouched
+by any edit this session); a font compliant with the "Arial or similar"
+rule; no headers or footers beyond the page number. The jury section is
+correctly absent from the cover, gated behind `\finalthesis{false}` in
+`cover-titlepage.sty` - this is the template's own documented mechanism for
+the still-genuinely-unknown jury composition (see section 4 below), not a
+defect; it renders the moment `\finalthesis{true}` is set and the jury's
+full names and academic categories are filled in, which is an
+administrative step outside this file's scope, not a formatting bug.
+
+**One real defect found, not a regulatory violation but a genuine
+submission blocker:** `Chapters/Acknowledgments.tex` still contains three
+paragraphs of Lorem Ipsum placeholder text and two fake supervisor names
+("Prof. Some Name and Prof. Some Other Name"), rendering live on printed
+page i of the compiled PDF. This was already known and flagged earlier in
+this session as personal content only Tomás can write and explicitly out
+of scope for an AI to draft on his behalf - restated here because a "final
+verification" pass would otherwise look past it. It does not violate any
+IST page/word/format rule (Acknowledgments is optional and has no content
+requirement), but it cannot go to submission as-is.
+
+**Extended abstract**, checked and updated to match the now-final
+dissertation text (full accounting in `docs/thesis/extended-abstract/
+README.md`'s "Verified build result (2026-09-27)" entry): Design
+Principles count corrected from eight to seven; the Jira-adapter status
+corrected to match Chapter 7's own now-current claim; a set of specific
+figures (the Siddeeq epic-organisation study's exact percentages) that no
+longer appear anywhere in the current dissertation text were generalised to
+match; the recruitment-attribution wording updated to match Chapter 9's
+confirmed-correct author-recruited framing. Recompiled clean, 7 pages,
+0 undefined references, 0 stray dashes in authored prose.
+
+**Repository documentation sweep** (README.md, CLAUDE.md, everything under
+`docs/` outside `docs/thesis/`): clean, with one exception found and fixed.
+`docs/framework/Apex-Implementation-Report.docx` described Jira as a
+currently-live, SSRF-hardened, production-parity PM proxy standing
+alongside Taiga - stale since commit `72f7e19` (2026-07-25) removed Jira
+integration entirely, a deliberate refactor once Taiga alone was confirmed
+sufficient and Plane.so was added as the second integration afterward. Four
+passages fixed: the architecture-figure caption and the current-state proxy
+description both now read Taiga/Plane rather than Taiga/Jira; a test-
+fixture description corrected to match the current code (`tests/
+conftest.py`'s `_bypass_pm_auth` fixture has no Jira parameter at all,
+confirmed by reading it directly); and the 2026-07-20/21 Jira identity-
+anchor incident entry, a dated historical record accurate at the time,
+received a closing sentence noting the fix was superseded by Jira's later
+removal, so a reader does not mistake a five-day-old-sounding entry for a
+still-current fact. A second historical incident entry (the 2026-06-12
+Taiga-egress firewall-drop, which mentions Jira egress only in passing as a
+comparison point) was deliberately left untouched, since rewriting a dated
+incident record to erase a tool's past existence would be revisionist
+rather than a correction. Worth noting directly: even Chapter 7's own
+corrected claim ("started but left incomplete") undersells what git history
+shows - Jira was fully built, security-hardened, and then deliberately
+removed, not abandoned mid-build. Tomás has already confirmed the Chapter 7
+wording as correct as edited, so this is recorded here as a nuance for
+awareness rather than something reopened for further edits.
+
+**What remains open, in order of how much it matters:** the Acknowledgments
+Lorem Ipsum and placeholder supervisor names (real submission blocker,
+personal content, not this file's to write); the jury section awaiting
+official designation (administrative, tracked, not actionable yet); the
+bibliography single-spacing question from §1a-octies (still undecided,
+Tomás's call); Chapter 9's Table 9.3 full deletion (~0.3-0.35pp, already
+declined once, not revisited here). None of these four affect the two page
+ceilings, both of which remain compliant with margin (main text 71/80,
+whole document 99/100).
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
