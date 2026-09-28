@@ -13,7 +13,7 @@
 %   pdflatex -jobname=ist1103641_TomasTaborda_resumo main.tex
 %   pdflatex -jobname=ist1103641_TomasTaborda_resumo main.tex
 % #############################################################################
-\documentclass[sigconf,review=false,nonacm=true]{acmart}
+\documentclass[sigconf,review=false]{acmart}
 
 % ---------------------------------------------------------------------------
 % Suppress the ACM copyright block, DOI, ISBN and conference footer. This is
@@ -24,7 +24,7 @@
 \settopmatter{printacmref=false}
 \renewcommand\footnotetextcopyrightpermission[1]{}
 \setcopyright{none}
-\acmConference[MSc Thesis Extended Abstract]{}{}{}
+\acmConference[MSc Thesis Summary]{}{October 2026}{Lisbon, Portugal}
 \acmYear{2026}
 \copyrightyear{2026}
 \acmPrice{}
@@ -60,6 +60,7 @@
 \begin{document}
 
 \title{Governed Human-AI Collaboration Across the Software Development Lifecycle: A Process Framework and Its Reference Implementation}
+\renewcommand{\shorttitle}{Governed Human-AI Collaboration Across the SDLC}
 
 \author{Tomás dos Santos Taborda}
 \affiliation{%
@@ -69,7 +70,7 @@
 }
 \email{tomassantostaborda@tecnico.ulisboa.pt}
 
-\renewcommand{\shortauthors}{Taborda}
+\renewcommand{\shortauthors}{Taborda, Mira da Silva, and de Sousa}
 
 \begin{abstract}
 Generative Artificial Intelligence and Large Language Models have moved from autocomplete assistants to active contributors across the Software Development Life Cycle, yet adoption has outpaced method: a majority of functionally correct AI-generated code has been reported to carry security defects, and measured delivery bottlenecks shift toward review rather than disappearing. A Systematic Literature Review conducted for this work, following Kitchenham's guidelines over 646 retrieved articles, confirms this pattern and identifies the absence of structured, repeatable guidance for integrating AI tools into professional software workflows as the field's central unresolved problem. This dissertation addresses that gap through the Design Science Research Methodology. It proposes a process-oriented framework for governed Human-AI collaboration that treats AI systems as first-class collaborators whose contributions must be explicitly bounded, validated and traced: six lifecycle phases with phase-specific quality gates, responsibilities expressed as functions rather than job titles, three governance metrics, and a persistent, versioned specification that anchors every generated artefact to its originating requirement. The framework is instantiated as Apex, a working web application that operationalises each phase, gate and artefact against a real project management backend. Evaluation combines a demonstration of the framework, standardised instruments assessing perceived usability and cognitive workload, semi-structured interviews with practitioners and Agile experts, and an analytical assessment against defined success criteria. Ten of twelve mapped governance constructs are realised in the reference implementation as specified, one as a proxy and one partially; across thirteen task-based sessions, perceived cognitive workload is low (a Raw NASA-TLX aggregate of 21.5 out of 100) while perceived usability sits below the published corpus norm (a System Usability Scale mean of 56.73, grade D); the framework was further demonstrated end to end on a separate product, delivered over nine days and growing from six to nine epics and fifty stories, surfacing a Testing Gate passable by a suite that had stopped measuring the system it tested, while its demonstration within an independent partner organisation did not occur.

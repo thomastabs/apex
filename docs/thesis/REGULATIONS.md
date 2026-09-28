@@ -898,6 +898,34 @@ unchanged at 8, 0 errors, 0 undefined references, dash sweep unchanged. Full
 accounting in `docs/thesis/extended-abstract/README.md`'s "Full reanalysis
 against the current dissertation + PDF renamed" entry.
 
+**Running header matching Leonardo Cruz's precedent, 2026-09-28.** Tomás
+wanted the same per-page header Cruz's own accepted extended abstract uses
+(read directly from `110851_leonardo_cruz_resumo.pdf`, not guessed): title
+top-left / venue line top-right on odd pages, venue line top-left /
+"Taborda, Mira da Silva, and de Sousa" top-right on even pages, nothing on
+page 1. Two attempts were wrong before an environment problem was fixed: a
+missing `texlive-fonts-extra` install meant `libertine`/`newtxmath` (both
+required by `acmart`) silently fell back to Computer Modern and then fatally
+errored, so neither wrong attempt nor a correct baseline could be compiled to
+check - confirmed on a byte-identical unmodified copy, not caused by any
+edit. Tomás fixed it (`sudo apt-get install -y texlive-fonts-extra`). With a
+working compiler, `\show\shorttitle` revealed the real bug: `\title{...}`
+auto-defines `\shorttitle` as a zero-argument macro holding the full title,
+so the second wrong attempt's bare `\shorttitle{...}` call printed the full
+title followed by the literal argument text as plain document content
+(the "doubled title" Tomás saw), rather than setting anything. The real fix:
+drop `nonacm=true` (it suppresses `acmart`'s native alternating venue-line
+header; the ACM copyright/DOI/ISBN suppression this project wants is
+independently controlled by `\setcopyright{none}` and `printacmref=false`,
+confirmed unaffected), fill in `\acmConference`'s previously-empty date and
+venue, `\renewcommand{\shorttitle}{...}` (not a bare call) with a genuinely
+short header-only title, and extend `\shortauthors` to the surname-only list
+matching Cruz's own format. Compiled and visually inspected pages 1-3:
+correct on all three, page count unchanged at 8, 0 errors, 0 undefined
+references, dash sweep unchanged. Full accounting in
+`docs/thesis/extended-abstract/README.md`'s "Running header matching
+Leonardo Cruz's precedent" entry.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using

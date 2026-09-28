@@ -506,6 +506,70 @@ References heading, which itself now also renders in title case rather than
 all caps, since ACM's `\refname` heading uses the same `\@secfont` this
 session's caps fix already overrode).
 
+### Running header matching Leonardo Cruz's precedent, and a font-package environment fix (2026-09-28)
+
+Tomás asked for the same per-page running header his supervisor's other
+advisee (Leonardo Cruz) used: title top-left, venue line top-right on odd
+pages; venue line top-left, "Taborda, Mira da Silva, and de Sousa" top-right
+on even pages; nothing on page 1. Read Cruz's actual accepted PDF
+(`110851_leonardo_cruz_resumo.pdf`) directly to confirm the exact mechanism
+rather than guessing from the `acmart.cls` source alone.
+
+**Two wrong attempts before the real fix, both caused by guessing without a
+working compiler** (a missing `texlive-fonts-extra` install meant `libertine`/
+`newtxmath`, both required by `acmart`, silently fell back to Computer Modern
+and then fatally errored under `acmart`'s font-expansion setup - confirmed on
+a byte-identical unmodified copy, so not caused by any edit; fixed by Tomás
+running `sudo apt-get install -y texlive-fonts-extra`):
+
+1. First attempt manually forced the same two strings into all four header
+   corners via `\fancyhead[LO,LE]{...}\fancyhead[RO,RE]{...}` after
+   `\maketitle`, based on a wrong assumption from the class source (that
+   `\shorttitle` sits top-left on every page) rather than Cruz's real,
+   alternating pattern. Result: the untrimmed full title collided with the
+   forced venue string on every page - illegible.
+2. Second attempt added `\renewcommand`-less `\shorttitle{...}` after
+   `\title{...}`, plus `\acmConference[...]` and a longer `\shortauthors`,
+   removing `nonacm=true` to let `acmart`'s native alternating header render
+   (the right mechanism). But `\shorttitle{ARG}` was the wrong syntax:
+   probed with `\show\shorttitle` once the compiler was fixed and confirmed
+   `\title{...}` itself auto-defines `\shorttitle` as a *zero-argument*
+   macro holding the full title, so calling it with a brace-argument just
+   printed the full title followed by the literal argument text as plain
+   document content, right in the title block - the visible "doubled title"
+   bug, plus header text incorrectly appearing on page 1.
+
+**The real fix**, verified by compiling (the earlier two were not, and both
+were wrong):
+
+- `\documentclass[sigconf,review=false]{acmart}` - dropped `nonacm=true`.
+  Traced in `acmart.cls`: `nonacm` is what suppresses the native alternating
+  venue-line header; the ACM copyright/DOI/ISBN suppression this project
+  wants is independently controlled by `\setcopyright{none}`,
+  `printacmref=false` and the existing `\renewcommand\footnotetextcopyrightpermission[1]{}`,
+  none of which depend on `nonacm` - confirmed by reading the exact
+  conditional branches, then confirmed empirically in the recompiled PDF
+  (no boilerplate came back).
+- `\acmConference[MSc Thesis Summary]{}{October 2026}{Lisbon, Portugal}`
+  (was `[MSc Thesis Extended Abstract]{}{}{}` with empty date/venue, which is
+  exactly why the venue line had nothing to render even before `nonacm` was
+  considered).
+- `\renewcommand{\shorttitle}{Governed Human-AI Collaboration Across the SDLC}`
+  right after `\title{...}` - `\renewcommand`, not a bare call, and a
+  short header-only version since the real title is too long for one line
+  next to anything else.
+- `\renewcommand{\shortauthors}{Taborda, Mira da Silva, and de Sousa}`
+  (was `{Taborda}`) - surname-only list matching Cruz's own
+  "Cruz, Mira da Silva, and São Mamede" convention exactly (same supervisor,
+  same surname format).
+
+Recompiled and visually inspected page 1 (confirmed blank corners, single
+undoubled title), page 2 (confirmed "MSc Thesis Summary, October 2026,
+Lisbon, Portugal" left / "Taborda, Mira da Silva, and de Sousa" right), and
+page 3 (confirmed short title left / venue line right, no collision):
+page count unchanged at 8, 0 errors, 0 undefined references, dash sweep
+unchanged (10 matches, all after the References heading).
+
 ## Files
 
 - `main.tex` - the scaffold itself.
