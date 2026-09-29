@@ -926,6 +926,34 @@ references, dash sweep unchanged. Full accounting in
 `docs/thesis/extended-abstract/README.md`'s "Running header matching
 Leonardo Cruz's precedent" entry.
 
+**Two content edits to the main dissertation, 2026-09-29, both Tomás's own
+editorial calls, executed as requested:**
+
+1. **Chapter 7 §7.3, Context Traceability Rate.** The "initially misreported
+   here as unimplemented" outcome (Table 7.1) and its dedicated finding
+   bullet (the "earlier claim of non-computation... was simply an error to
+   correct" paragraph) are both removed; the table now just reads "Realised"
+   for this construct, and the "Four rows deserve emphasis" lead-in becomes
+   "Three rows" now that only Bolt Cycle Time, AI Defect Escape Rate and
+   Spec-drift detection carry a finding worth narrating. Synced into the
+   extended abstract's matching passage ("Two of the ten realised
+   constructs are findings" -> "One... is a finding"), since it mirrored
+   the same narrative.
+2. **Chapter 10 §10.2 Communication.** The "Scientific article" dissemination
+   vehicle (SLR journal submission, deferred indefinitely, target venue
+   never selected) is replaced by a "Public repository" vehicle: the
+   complete Apex implementation and documentation at
+   `https://github.com/thomastabs/apex`, with the deployed instantiation at
+   `https://apex-bolt.com`. Still three vehicles (repository, extended
+   abstract, dissertation+defence). Synced into the extended abstract's own
+   Conclusion dissemination paragraph identically.
+
+Recompiled both documents: main dissertation 99/100 pages (unchanged, both
+ceilings still compliant), extended abstract 8 pages (unchanged); 0 errors,
+0 undefined references/citations in either, dash sweep clean in both. Ch7
+page 35 and Ch10 page 70 visually inspected to confirm clean rendering
+(three-item bullet list, working `\url{}` links).
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using

@@ -136,7 +136,7 @@ Bolt Cycle Time
 
 Context Traceability Rate
 & Deployed stories are aggregated by whether their artefact chain exists and contains no unresolved traceability break.
-& Realised, initially misreported here as unimplemented \\ \addlinespace
+& Realised \\ \addlinespace
 
 AI Defect Escape Rate
 & Post-deployment, linked project-management bug reports are used as an observable proxy for escaped AI defects.
@@ -160,7 +160,7 @@ Server-side reconciliation of generated output
     \label{fig:apex_userflow}
 \end{figure}
 
-Four rows deserve emphasis because they most directly answer \ac{DRQ}3:
+Three rows deserve emphasis because they most directly answer \ac{DRQ}3:
 
 \begin{figure}[htbp]
     \centering
@@ -172,8 +172,6 @@ Four rows deserve emphasis because they most directly answer \ac{DRQ}3:
 \begin{itemize}[leftmargin=0.6cm, itemsep=0.4em]
 
 \item \textbf{Bolt Cycle Time.} The initial implementation measured story-level gate transitions while presenting the result as the framework's task-level metric. Correcting it showed that a construct can appear implemented while actually measuring a proxy, and that only comparison with the written definition exposes the mismatch.
-
-\item \textbf{Context Traceability Rate.} The aggregate metric had already been computed over deployed stories, so the earlier claim that no aggregate existed was incorrect. This reinforced the need to verify claims against the implementation itself; the later change addressed a separate case where a story could appear traceable despite a broken Phase~6 chain.
 
 \item \textbf{AI Defect Escape Rate.} The construct remains observable only through a proxy: reported, linked, post-deployment defects. The system cannot directly identify every production defect or reliably attribute it to generated logic, so the metric is deliberately retained as a weaker but still useful operationalisation rather than presented as full implementation.
 
