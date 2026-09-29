@@ -954,6 +954,25 @@ ceilings still compliant), extended abstract 8 pages (unchanged); 0 errors,
 page 35 and Ch10 page 70 visually inspected to confirm clean rendering
 (three-item bullet list, working `\url{}` links).
 
+**Two of three Examination Committee names filled in, committee block made
+visible, 2026-09-29.** `Front_Cover.tex`'s `\vogalone{}` (Member of the
+Committee) set to "Prof. Ademar Manuel Teixeira de Aguiar"; `\supervisor{}`
+was already correctly "Prof. Miguel Leitão Bignolas Mira da Silva"
+(unchanged, reused automatically for the committee's own Supervisor line by
+`cover-titlepage.sty`). The Chairperson is still genuinely unknown, so
+`\chairperson{}` keeps its literal placeholder text ("Prof. Name of the
+Chairperson"). The whole committee block in `cover-titlepage.sty` is gated
+on the single `\finalthesis` boolean (previously `false` for exactly this
+reason - the file's own comment says "Select true after the Examination
+Committee has accepted the thesis as final"); verified the mechanism and
+layout match Leonardo Cruz's own committee block (Chairperson / Supervisor
+/ Member of the Committee) via a throwaway compile with the flag flipped,
+then Tomás explicitly asked to leave the block visible now despite the
+Chairperson still being a placeholder, so `\finalthesis{true}` was kept
+rather than reverted. Recompiled: 99 pages unchanged, 0 errors, cover
+visually confirmed showing the committee block with the placeholder
+Chairperson line still literally visible as such.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using
