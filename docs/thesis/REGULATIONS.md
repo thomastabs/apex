@@ -973,6 +973,25 @@ rather than reverted. Recompiled: 99 pages unchanged, 0 errors, cover
 visually confirmed showing the committee block with the placeholder
 Chairperson line still literally visible as such.
 
+**Title/subtitle swapped to match the extended abstract, and the
+Acknowledgments blocker closed, 2026-09-30.** `Front_Cover.tex`'s
+`\title{}`/`\subtitle{}` changed from "A Process Framework for Human-AI
+Collaboration in the Software Development Lifecycle" / "Design and
+Instantiation of a Supporting Tool" to "Governed Human-AI Collaboration
+Across the Software Development Lifecycle" / "A Process Framework and Its
+Reference Implementation" - now wording-identical to the extended
+abstract's own `\title{}` (which joins the same two halves with a colon
+instead of the cover's title/subtitle split). Grepped the whole dissertation
+tree for the old title/subtitle strings first: no other file referenced
+either, so this was a single-file change. `Chapters/Acknowledgments.tex`'s
+Lorem Ipsum placeholder text was replaced in full with Tomás's own written
+Acknowledgments (supervisor, family, friends, girlfriend, and Hugo de Sousa
++ colleagues for the corporate AI-development perspective) - the real
+submission blocker flagged since the very first compliance audit is now
+closed. Dash-swept both changed files (clean) and recompiled: 99 pages
+unchanged, 0 errors, cover and Acknowledgments page (now page i, fits on
+one page) both visually confirmed correct.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using
