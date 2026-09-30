@@ -992,6 +992,19 @@ closed. Dash-swept both changed files (clean) and recompiled: 99 pages
 unchanged, 0 errors, cover and Acknowledgments page (now page i, fits on
 one page) both visually confirmed correct.
 
+**Current backlog, 2026-09-30.** Two items remain before submission:
+
+1. **Chairperson name** - still genuinely unknown; `\chairperson{}` in
+   `Front_Cover.tex` keeps its literal placeholder text until Tomás has it.
+2. **Tomás's own full chapter-by-chapter review pass** - added to the
+   backlog at his request as the final pass before submission: a complete
+   personal read-through of every chapter, not a further agent-driven
+   cutting or verification round. This is his own reading, not delegated
+   work; nothing to do here until he reports specific findings back.
+
+Both items are the only two remaining; everything else logged in this file
+through §1a-duodecies is closed.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using
