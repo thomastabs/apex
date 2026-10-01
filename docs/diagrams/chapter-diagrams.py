@@ -194,7 +194,7 @@ def dsrm():
          "incorporate, implement and allow proper use of AI with Human-AI "
          "collaboration"),
         ("Demonstration",
-         "Apex (self-application)\n\nOutfolio (independent product)\n\n"
+         "Apex (instantiation)\n\nOutfolio (independent product)\n\n"
          "Partner organisation (attempted)"),
         ("Evaluation",
          "SUS and NASA-TLX\n\nApex UX questionnaire\n\n"

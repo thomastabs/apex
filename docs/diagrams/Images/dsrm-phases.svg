@@ -65,7 +65,7 @@
 <path d="M 1254 194 V 105 a 13 13 0 0 1 13 -13 H 1613 a 13 13 0 0 1 13 13 V 194 Z" fill="#E5E5E5"/>
 <line x1="1254" y1="194" x2="1626" y2="194" stroke="#000000" stroke-width="2.8"/>
 <text x="1440.0" y="154.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="32" font-weight="bold" fill="#000000" text-anchor="middle">Demonstration</text>
-<text x="1440.0" y="297.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="33" fill="#000000" text-anchor="middle">Apex (self-application)</text>
+<text x="1440.0" y="297.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="33" fill="#000000" text-anchor="middle">Apex (instantiation)</text>
 <text x="1440.0" y="377.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="33" fill="#000000" text-anchor="middle">Outfolio (independent</text>
 <text x="1440.0" y="417.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="33" fill="#000000" text-anchor="middle">product)</text>
 <text x="1440.0" y="497.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="33" fill="#000000" text-anchor="middle">Partner organisation</text>
