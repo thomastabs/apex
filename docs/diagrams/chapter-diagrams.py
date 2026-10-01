@@ -194,10 +194,15 @@ def dsrm():
          "incorporate, implement and allow proper use of AI with Human-AI "
          "collaboration"),
         ("Demonstration",
-         "Application of the designed framework in a real-world scenario"),
+         "Apex (self-application)\n\nOutfolio (independent product)\n\n"
+         "Partner organisation (attempted)"),
         ("Evaluation",
-         "Demonstration\n\nInterviews with Experts and Practicioners"),
-        ("Communication", "Dissertation\n\nPapers"),
+         "SUS and NASA-TLX\n\nApex UX questionnaire\n\n"
+         "Practitioner and Agile-expert interviews\n\n"
+         "Analytical assessment against criteria"),
+        ("Communication",
+         "Public repository\n\nExtended abstract\n\n"
+         "Dissertation and defence"),
     ]
 
     M = 18
