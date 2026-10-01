@@ -31,7 +31,7 @@ The \ac{DSRM} concerns the development of IT artefacts, such as models, methods 
     \label{fig:dsrm}
 \end{figure}
 
-\textbf{Problem identification and motivation} addresses the lack of structured guidance, standardised methodologies and evaluation practices for integrating \ac{AI} into software development while preserving quality, accountability and human oversight; the problem was identified through the \ac{SLR}, which found fragmented practices and unclear human-AI role definitions across the \ac{SDLC}. \textbf{Definition of objectives} derives from that problem objectives aimed at guiding organisations towards effective, secure and responsible adoption through appropriate processes and governance mechanisms. \textbf{Design and development} takes the review findings as input and produces the framework, defining phases, practices, hats and decision points, together with Apex as its reference implementation. \textbf{Demonstration} exercises the artefact in two completed settings, Apex as the framework's own instantiation into a supporting tool and Outfolio as an independently built product to which the framework was applied, with a third practitioner setting attempted but not completed, exercising the phases end to end and producing documented artefacts, decision rationales and observations recorded against criteria fixed in advance. \textbf{Evaluation} separates the two artefacts it assesses: the framework through interviews with practitioners and Agile experts and an analytical assessment against pre-stated criteria, the instantiation through a task-based study measuring perceived usability and cognitive workload with standardised instruments and an author-designed \ac{UX} questionnaire; that separation is argued in \Cref{chap:evaluation}, since a usability result for the tool is not evidence that the method is sound. \textbf{Communication} disseminates results through three vehicles: the public repository holding the complete Apex implementation and its documentation, the extended abstract accompanying this dissertation, and the dissertation itself together with its defence.
+\textbf{Problem identification and motivation} identifies, through the \ac{SLR}, the lack of structured guidance for integrating \ac{AI} across the \ac{SDLC} while preserving quality, accountability and human oversight. \textbf{Definition of objectives} converts this gap into objectives for secure and responsible adoption. \textbf{Design and development} produces the framework and Apex as its reference implementation. \textbf{Demonstration} applies the artefact through Apex and Outfolio, with a third practitioner setting attempted but not completed. \textbf{Evaluation} assesses the framework through interviews and analytical criteria, and Apex through usability, workload and \ac{UX} measures, keeping framework soundness distinct from tool usability. \textbf{Communication} disseminates the work through the Apex repository, an extended abstract, and the dissertation and defence.
 
 % #############################################################################
 \section{Mapping the Methodology onto this Document}
@@ -40,7 +40,7 @@ The \ac{DSRM} concerns the development of IT artefacts, such as models, methods 
 \Cref{chap:intro} introduces the research objective this dissertation pursues through four \ac{DRQ}s; \Cref{tab:drq_definitions} states them in full, alongside each other, so that the \ac{DSRM} activity mapping below can be read against their exact wording.
 
 {\small
-\begin{longtable}{p{1.6cm} p{11.8cm}}
+\begin{longtable}{p{1cm} p{14cm}}
 \caption{The four Dissertation Research Questions}
 \label{tab:drq_definitions} \\
 \toprule
@@ -77,10 +77,19 @@ DRQ4 & Does the framework, through that implementation, give practitioners usabl
 
 Because \ac{DSRM} prescribes activities rather than document sections, \Cref{tab:dsrm_chapter_mapping} states where each is carried out and which \ac{DRQ} each answers. The mapping is not strictly linear: as \Cref{chap:apex} describes, feedback gathered while building the reference implementation fed back into the framework's design, which is the iteration path \ac{DSRM} explicitly allows.
 
-{\small
-\begin{longtable}{p{4.0cm} p{2.6cm} p{1.6cm} p{5.6cm}}
+{\footnotesize
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+
+\begin{longtable}{
+    >{\raggedright\arraybackslash}p{3.5cm}
+    >{\raggedright\arraybackslash}p{2.4cm}
+    >{\raggedright\arraybackslash}p{1.6cm}
+    >{\raggedright\arraybackslash}p{6.9cm}
+}
 \caption{Mapping between DSRM activities and the chapters of this dissertation}
 \label{tab:dsrm_chapter_mapping} \\
+
 \toprule
 \textbf{DSRM Activity} & \textbf{Chapter} & \textbf{DRQ} & \textbf{Output} \\
 \midrule
@@ -99,22 +108,40 @@ Because \ac{DSRM} prescribes activities rather than document sections, \Cref{tab
 \bottomrule
 \endlastfoot
 
-Problem Identification and Motivation & \Cref{chap:slr,chap:problem} & -- & Evidence base from the \ac{SLR}; formalised research problem \\
+Problem Identification and Motivation &
+\Cref{chap:slr,chap:problem} &
+-- &
+Evidence base from the \ac{SLR}; formalised research problem \\
 \addlinespace
 
-Definition of Objectives & \Cref{chap:proposal} & -- & Objectives derived from the review findings \\
+Definition of Objectives &
+\Cref{chap:proposal} &
+-- &
+Objectives derived from the review findings \\
 \addlinespace
 
-Design and Development & \Cref{chap:proposal,chap:apex} & DRQ1, DRQ2, DRQ3 & The framework, and Apex as its reference implementation \\
+Design and Development &
+\Cref{chap:proposal,chap:apex} &
+DRQ1--DRQ3 &
+Framework and Apex reference implementation \\
 \addlinespace
 
-Demonstration & \Cref{chap:demonstration} & DRQ3, DRQ4 & The framework's instantiation as Apex and its application to Outfolio, with a third setting attempted \\
+Demonstration &
+\Cref{chap:demonstration} &
+DRQ3--DRQ4 &
+Apex and Outfolio applications, with a third setting attempted \\
 \addlinespace
 
-Evaluation & \Cref{chap:evaluation} & DRQ1, DRQ2, DRQ4 & Usability and workload measurement, \ac{UX} questionnaire, interviews, analytical assessment \\
+Evaluation &
+\Cref{chap:evaluation} &
+DRQ1, DRQ2, DRQ4 &
+Usability and workload measures, \ac{UX} questionnaire, interviews, and analytical assessment \\
 \addlinespace
 
-Communication & \Cref{chap:conclusion} & -- & Public repository, extended abstract, and dissertation defence \\
+Communication &
+\Cref{chap:conclusion} &
+-- &
+Public repository, extended abstract, dissertation, and defence \\
 
 \end{longtable}
 }
