@@ -9,37 +9,36 @@
 \fancychapter{Research Proposal}
 \label{chap:proposal}
 
-This chapter presents the second and third activities of the \ac{DSRM}: the definition of objectives for a solution to the research problem formalised in \Cref{chap:problem}, and the design of the artefact that satisfies them, a process-oriented framework for governed Human-AI collaboration across the \ac{SDLC}. The framework is described here as a methodology, independently of any implementation; its instantiation as a working system is the subject of \Cref{chap:apex}. This design-and-development activity is where \textbf{DRQ1} and \textbf{DRQ2}, stated in \Cref{chap:intro}, are answered: \Cref{sec:phases} maps AI-supported activity onto \ac{SDLC} phases (DRQ1), and \Cref{sec:gates,sec:metrics} define the governance mechanisms, quality gates and human-in-the-loop practices that keep AI contributions traceable, validated and accountable (DRQ2).
+This chapter presents the second and third activities of the \ac{DSRM}: the definition of objectives for a solution to the research problem formalised in \Cref{chap:problem}, and the design of the artefact that satisfies them, a process-oriented framework for governed Human-AI collaboration across the \ac{SDLC}. The framework is described here as a methodology, independently of any implementation; its instantiation as a working system is the subject of \Cref{chap:apex}. This design-and-development activity addresses the first two dimensions of that problem: \Cref{sec:phases} fixes where AI participates in each \ac{SDLC} phase and where its participation ends (placement), and \Cref{sec:gates,sec:metrics} define the gates, metrics and human-in-the-loop practices that keep AI contributions traceable, validated and accountable (governance).
 
 % #############################################################################
 \section{Objectives}
 \label{sec:objectives}
 
-The systematic literature review in \Cref{chap:slr} led to the problem formalised in \Cref{chap:problem}: the lack of structured guidance, methodological rigour and standardised evaluation practice for integrating these tools into development processes. The research objectives address that problem directly, and \Cref{tab:rq_objective_mapping} links each identified gap to the framework objective that resolves it and the \ac{DRQ} (\Cref{tab:drq_definitions}) that objective answers.
+The systematic literature review in \Cref{chap:slr} led to the problem formalised in \Cref{chap:problem}: the lack of structured guidance, methodological rigour and standardised evaluation practice for integrating these tools into development processes. The research objectives address that problem directly, and \Cref{tab:rq_objective_mapping} links each identified gap to the framework objective that resolves it.
 
 {\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash}p{0.6cm}
-                  >{\raggedright\arraybackslash}p{4.3cm}
-                  >{\raggedright\arraybackslash}p{2.6cm}
-                  >{\raggedright\arraybackslash}p{4.5cm}
-                  >{\raggedright\arraybackslash}p{1.6cm}}
+                  >{\raggedright\arraybackslash}p{5.0cm}
+                  >{\raggedright\arraybackslash}p{3.0cm}
+                  >{\raggedright\arraybackslash}p{5.0cm}}
 \caption[Research questions, key findings, problem aspects and framework objectives]{Mapping between Research Questions, Key Findings, Problem Aspects, and Framework Objectives}
 \label{tab:rq_objective_mapping} \\
 
 % Header for the first page
 \toprule
-\textbf{RQ} & \textbf{Key Finding from SLR} & \textbf{Problem Aspect Addressed} & \textbf{Resulting Framework Objective} & \textbf{DRQ} \\
+\textbf{RQ} & \textbf{Key Finding from SLR} & \textbf{Problem Aspect Addressed} & \textbf{Resulting Framework Objective} \\
 \midrule
 \endfirsthead
 
 % Header for continuation pages
 \toprule
-\textbf{RQ} & \textbf{Key Finding from SLR} & \textbf{Problem Aspect Addressed} & \textbf{Resulting Framework Objective} & \textbf{DRQ} \\
+\textbf{RQ} & \textbf{Key Finding from SLR} & \textbf{Problem Aspect Addressed} & \textbf{Resulting Framework Objective} \\
 \midrule
 \endhead
 
 \midrule
-\multicolumn{5}{r}{\textit{Continued on next page}}\\
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
 \bottomrule
 \endfoot
 
@@ -49,25 +48,22 @@ The systematic literature review in \Cref{chap:slr} led to the problem formalise
 RQ1 &
 Usage is unevenly distributed across \ac{SDLC} phases and lacks structured integration. &
 No structured guidance on where and how \ac{AI} should be applied across the \ac{SDLC}. &
-Define a process framework mapping AI-supported activities to specific phases. &
-DRQ1 \\ \addlinespace
+Define a process framework mapping AI-supported activities to specific phases. \\ \addlinespace
 
 RQ2 &
 Recurring risks in reliability, validation, security and insufficient human oversight. &
 Insufficient methodological support for risk, quality and accountability. &
-Integrate governance mechanisms, human-in-the-loop practice and quality gates. &
-DRQ2 \\ \addlinespace
+Integrate governance mechanisms, human-in-the-loop practice and quality gates. \\ \addlinespace
 
 RQ3 &
 Significant variation among approaches and no consensus on managing adoption. &
 Fragmentation of existing AI adoption methodologies. &
-Consolidate practice into a unified, repeatable process-oriented framework. &
-DRQ1, DRQ2 \\
+Consolidate practice into a unified, repeatable process-oriented framework. \\
 
 \end{longtable}
 }
 
-\Cref{tab:rq_objective_mapping} accounts for \ac{DRQ}1 and \ac{DRQ}2 because those are the questions this objective-setting activity answers; \ac{DRQ}3 and \ac{DRQ}4 are not addressed by an objective here; they ask whether the resulting design can be realised and whether it works for practitioners, which only \Cref{chap:apex,chap:demonstration,chap:evaluation} can answer once the design exists.
+\Cref{tab:rq_objective_mapping} derives objectives for placement and governance, the two dimensions a design can satisfy on paper. The other two, realisation and practitioner support, can only be established once the design exists, and are taken up in \Cref{chap:apex,chap:demonstration,chap:evaluation}.
 
 % #############################################################################
 \section{Purpose and Scope}
@@ -149,12 +145,12 @@ A persistent, versioned specification provides the authoritative reference for A
 \section{Lifecycle Phases and the AI Interaction Mapping}
 \label{sec:phases}
 
-% Framework doc §4-§5. This section answers DRQ1. The phase table (input,
-% output, human responsibility, required controls, literature grounding) is the
-% single most important artefact in this chapter - build it as a full-width
-% table or a landscape page.
+% Framework doc §4-§5. This section addresses the placement dimension. The
+% phase table (input, output, human responsibility, required controls,
+% literature grounding) is the single most important artefact in this chapter -
+% build it as a full-width table or a landscape page.
 
-This section answers \ac{DRQ}1. The framework organises the lifecycle into six phases, preceded by a Strategic Alignment stage that sits outside the lifecycle proper because it is performed before the Squad is engaged at all: it decides whether a Unit of Work should exist, whereas the six phases decide how one is built. The six are Discovery and Requirements; Design, Prototyping and Architecture; Implementation; Testing; Deployment; and Maintenance. \Cref{tab:phase_mapping} fixes, for the stage and each of them, what enters, what the model is permitted to produce, what leaves, which hat is accountable, and which control must be satisfied before exit. It is the central artefact of this chapter and is not restated in prose. Two mechanisms the table names are defined here, since both recur throughout the chapter:
+This section addresses the placement dimension of the problem. The framework organises the lifecycle into six phases, preceded by a Strategic Alignment stage that sits outside the lifecycle proper because it is performed before the Squad is engaged at all: it decides whether a Unit of Work should exist, whereas the six phases decide how one is built. The six are Discovery and Requirements; Design, Prototyping and Architecture; Implementation; Testing; Deployment; and Maintenance. \Cref{tab:phase_mapping} fixes, for the stage and each of them, what enters, what the model is permitted to produce, what leaves, which hat is accountable, and which control must be satisfied before exit. It is the central artefact of this chapter and is not restated in prose. Two mechanisms the table names are defined here, since both recur throughout the chapter:
 
 \begin{itemize}[leftmargin=0.6cm, itemsep=0.4em]
 
@@ -318,7 +314,7 @@ Deploying hat & Not a distinct role: whoever performs a release approves it and 
 \section{Governance Mechanisms and Quality Gates}
 \label{sec:governance}
 
-% Framework doc §7. This section answers DRQ2 and is the core contribution.
+% Framework doc §7. This section addresses the governance dimension and is the core contribution.
 
 \subsection{Bolts as the Unit of Execution}
 \label{sec:bolts}
@@ -504,6 +500,6 @@ Four alternatives are considered below. Each has legitimate advantages, but the 
 \section{Summary}
 \label{sec:proposal_summary}
 
-\ac{DRQ}1 and \ac{DRQ}2 are answered by the artefact this chapter has specified: the six-phase model of \Cref{sec:phases} with the Strategic Alignment stage preceding it and the mapping in \Cref{tab:phase_mapping}, and \Cref{sec:governance}'s governance set of Bolts, the Consistency Factor, Spec-Anchored Continuity, five gates and three metrics. Two properties of that answer are worth isolating, because a phase list and a gate list alone would not achieve them: the model is constrained at every phase to that phase's anchored specification rather than the whole project, and accountability attaches to functions rather than positions, so it survives a team of one while every failed gate routes work back to a named phase rather than discarding it.
+The placement and governance dimensions of the problem are addressed by the artefact this chapter has specified: the six-phase model of \Cref{sec:phases} with the Strategic Alignment stage preceding it and the mapping in \Cref{tab:phase_mapping}, and \Cref{sec:governance}'s governance set of Bolts, the Consistency Factor, Spec-Anchored Continuity, five gates and three metrics. Two properties of that design are worth isolating, because a phase list and a gate list alone would not achieve them: the model is constrained at every phase to that phase's anchored specification rather than the whole project, and accountability attaches to functions rather than positions, so it survives a team of one while every failed gate routes work back to a named phase rather than discarding it.
 
-Both answers are design claims and not yet evidence. The framework's constructs are an original synthesis argued from the literature but not demonstrated in use, and spec-driven development, on which Spec-Anchored Continuity rests, is characterised by its own principal source as emerging with unsettled scaling behaviour~\cite{Thoughtworks:2025SD}. \Cref{chap:apex} presents Apex, the reference implementation, and reports which constructs were implementable as specified, which were weakened or proxied, and which resisted implementation, the substance of \ac{DRQ}3.
+Both are design claims and not yet evidence. The framework's constructs are an original synthesis argued from the literature but not demonstrated in use, and spec-driven development, on which Spec-Anchored Continuity rests, is characterised by its own principal source as emerging with unsettled scaling behaviour~\cite{Thoughtworks:2025SD}. \Cref{chap:apex} presents Apex, the reference implementation, and reports which constructs were implementable as specified, which were weakened or proxied, and which resisted implementation, which is the realisation dimension of the problem.

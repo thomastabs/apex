@@ -16,7 +16,7 @@
 \fancychapter{Implementation}
 \label{chap:apex}
 
-The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system instantiating it, which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms the two are distinct artefacts produced by the same Design and Development activity: a method and its instantiation. The chapter answers \ac{DRQ}3, and answering it honestly means reporting which constructs resisted implementation as well as which did not.
+The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system instantiating it, which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms the two are distinct artefacts produced by the same Design and Development activity: a method and its instantiation. The chapter addresses the realisation dimension of the problem (\Cref{chap:problem}), and doing so honestly means reporting which constructs resisted implementation as well as which did not.
 
 % #############################################################################
 \section{Purpose and Positioning}
@@ -74,10 +74,10 @@ The first property is not a one-to-one translation from framework to implementat
 \section{Operationalising the Framework}
 \label{sec:apex_framework_mapping}
 
-% This is the DRQ3 evidence. The negative rows carry as much weight as the
-% positive ones and must not be softened.
+% This is the realisation evidence. The negative rows carry as much weight as
+% the positive ones and must not be softened.
 
-This section answers \ac{DRQ}3, which asks how far the framework's governance constructs can be operationalised in a working system and which of them resist it. \Cref{tab:apex_mapping} maps each construct to a mechanism that exists in the codebase rather than to a planned feature. Three outcomes are distinguished: realisation as specified, realisation through a proxy, and partial realisation where the construct resisted implementation at the granularity the framework assumed. \Cref{fig:apex_userflow,fig:apex_userflow_b} show how a practitioner moves through the governed phases.
+This section establishes how far the framework's governance constructs can be operationalised in a working system and which of them resist it. \Cref{tab:apex_mapping} maps each construct to a mechanism that exists in the codebase rather than to a planned feature. Three outcomes are distinguished: realisation as specified, realisation through a proxy, and partial realisation where the construct resisted implementation at the granularity the framework assumed. \Cref{fig:apex_userflow,fig:apex_userflow_b} show how a practitioner moves through the governed phases.
 
 {\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash}p{3.6cm}
@@ -160,7 +160,7 @@ Server-side reconciliation of generated output
     \label{fig:apex_userflow}
 \end{figure}
 
-Three rows deserve emphasis because they most directly answer \ac{DRQ}3:
+Three rows deserve emphasis because they mark the limits of realisation:
 
 \begin{figure}[htbp]
     \centering

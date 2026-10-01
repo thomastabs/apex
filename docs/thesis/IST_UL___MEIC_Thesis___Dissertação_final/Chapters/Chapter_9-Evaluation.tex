@@ -11,22 +11,22 @@ This chapter reports the Evaluation activity of the \ac{DSRM}. Following Pries-H
 \section{Evaluation Strategy}
 \label{sec:eval_strategy}
 
-Two artefacts were produced in \Cref{chap:proposal,chap:apex}: a framework and its instantiation. They are not evaluated by the same means, and conflating them would weaken both claims. \Cref{tab:eval_instruments} therefore states which instrument evaluates which artefact, and which research question it addresses.
+Two artefacts were produced in \Cref{chap:proposal,chap:apex}: a framework and its instantiation. They are not evaluated by the same means, and conflating them would weaken both claims. \Cref{tab:eval_instruments} therefore states which instrument evaluates which artefact, and which dimension of the problem (\Cref{chap:problem}) it bears on.
 
 {\small
 \setlength{\tabcolsep}{5pt}
-\begin{longtable}{>{\raggedright\arraybackslash}p{4.4cm}
-                  >{\raggedright\arraybackslash}p{3.1cm}
-                  >{\raggedright\arraybackslash}p{1.6cm}
-                  >{\raggedright\arraybackslash}p{5.4cm}}
-\caption{Evaluation instruments, target artefact, and research question addressed}
+\begin{longtable}{>{\raggedright\arraybackslash}p{4.0cm}
+                  >{\raggedright\arraybackslash}p{2.8cm}
+                  >{\raggedright\arraybackslash}p{2.4cm}
+                  >{\raggedright\arraybackslash}p{4.6cm}}
+\caption{Evaluation instruments, target artefact, and problem dimension addressed}
 \label{tab:eval_instruments} \\
 \toprule
-\textbf{Instrument} & \textbf{Artefact evaluated} & \textbf{DRQ} & \textbf{What it establishes} \\
+\textbf{Instrument} & \textbf{Artefact evaluated} & \textbf{Dimension} & \textbf{What it establishes} \\
 \midrule
 \endfirsthead
 \toprule
-\textbf{Instrument} & \textbf{Artefact evaluated} & \textbf{DRQ} & \textbf{What it establishes} \\
+\textbf{Instrument} & \textbf{Artefact evaluated} & \textbf{Dimension} & \textbf{What it establishes} \\
 \midrule
 \endhead
 \midrule
@@ -36,19 +36,19 @@ Two artefacts were produced in \Cref{chap:proposal,chap:apex}: a framework and i
 \bottomrule
 \endlastfoot
 
-Demonstration in a real project & Framework and instantiation & DRQ3, DRQ4 & That the artefact is applicable and produces the intended artefacts and decisions \\
+Demonstration in a real project & Framework and instantiation & Realisation, practitioner support & That the artefact is applicable and produces the intended artefacts and decisions \\
 \addlinespace
-\ac{SUS} & Instantiation (Apex) & DRQ4 & Perceived usability of the supporting tool \\
+\ac{SUS} & Instantiation (Apex) & Practitioner support & Perceived usability of the supporting tool \\
 \addlinespace
-\ac{NASA-TLX} & Instantiation (Apex) & DRQ4 & Perceived cognitive workload imposed on the practitioner \\
+\ac{NASA-TLX} & Instantiation (Apex) & Practitioner support & Perceived cognitive workload imposed on the practitioner \\
 \addlinespace
-Apex \ac{UX} questionnaire (author-designed) & Instantiation (Apex), with two items scoped to the framework & DRQ4 & Trust in AI-generated content, legibility of phase gates, and error surfacing, which \ac{SUS} and \ac{NASA-TLX} are not designed to reach \\
+Apex \ac{UX} questionnaire (author-designed) & Instantiation (Apex), with two items scoped to the framework & Practitioner support & Trust in AI-generated content, legibility of phase gates, and error surfacing, which \ac{SUS} and \ac{NASA-TLX} are not designed to reach \\
 \addlinespace
-Practitioner interviews & Framework & DRQ1, DRQ2 & Practicality, feasibility, and perceived value in real workflows \\
+Practitioner interviews & Framework & Placement, governance & Practicality, feasibility, and perceived value in real workflows \\
 \addlinespace
-Agile and Scrum expert interviews & Framework & DRQ1, DRQ2 & Alignment with, and departure from, established delivery methodology \\
+Agile and Scrum expert interviews & Framework & Placement, governance & Alignment with, and departure from, established delivery methodology \\
 \addlinespace
-Analytical assessment against criteria & Framework & DRQ1, DRQ2 & Degree to which stated design criteria are satisfied \\
+Analytical assessment against criteria & Framework & Placement, governance & Degree to which stated design criteria are satisfied \\
 \end{longtable}
 }
 
@@ -346,7 +346,7 @@ Governance of AI-enabled activity
 \subsection{Demonstration in a Real Project}
 \label{sec:results_demonstration}
 
-\Cref{tab:eval_instruments} names the demonstration as an instrument for DRQ3 and DRQ4 alongside the four above; \Cref{chap:demonstration} narrates it in full and \Cref{sec:demo_summary} already states its headline facts (nine epics, fifty-four stories, all three loop-back routes exercised, one regression caught and repaired). What follows is the governance-metric detail behind those facts and how it bears on \Cref{tab:analytical}.
+\Cref{tab:eval_instruments} names the demonstration as an instrument for realisation and practitioner support alongside the four above; \Cref{chap:demonstration} narrates it in full and \Cref{sec:demo_summary} already states its headline facts (nine epics, fifty-four stories, all three loop-back routes exercised, one regression caught and repaired). What follows is the governance-metric detail behind those facts and how it bears on \Cref{tab:analytical}.
 
 The instantiation's own governance exports return the three metrics \Cref{sec:metrics} defines, and one it does not. Context Traceability Rate is 50 of 54 deployed stories, 92.6 per cent (the shortfall's single root cause is given in \Cref{sec:demo_observations}). Spec Conformance, an instantiation-added check rather than a framework metric, is a mean of 98.65 per cent across all 54 checked stories, with the finding-level detail and its shared-component root cause in \Cref{sec:demo_observations}. AI Defect Escape Rate is 1 of 54, 1.85 per cent, subject to the same-session blind spot already noted there. Nineteen Fix-Bolts were logged across 14 of the 54 stories.
 
@@ -386,21 +386,23 @@ Trust remains unresolved. B2, on review effort, and B4, on trust sufficient for 
 
 Finally, the tool and the framework received different forms of evaluation. Apex scored below average on usability, while practitioner and expert interviews were broadly positive about the framework, including its specification-centred approach and flexible hat structure (\Cref{sec:interviews}). This difference is not contradictory: the usability instruments evaluate the implementation, whereas the interviews address the methodology. As established in \Cref{sec:eval_strategy}, weaknesses in the interface do not by themselves constitute evidence against the framework.
 
-\subsection{Answering the Research Questions}
+\subsection{Addressing the Research Problem}
 \label{sec:eval_rq_answers}
 
-\paragraph{DRQ1, how can AI-supported activities be mapped to \ac{SDLC} phases so that the point, purpose and boundary of AI participation are unambiguous?}
-The framework answers this at phase granularity through \Cref{tab:phase_mapping}: each phase defines the permitted AI contribution, required output, accountable hat and exit control. The decomposition survived instantiation without any phase being merged, split or omitted, and the alignment criterion is rated \emph{met} in \Cref{tab:analytical}. An independent expert also recognised the phase and hat structure as distinct from more rigid organisational methodologies (\Cref{sec:interviews}). The qualification is clarity: phase boundaries are explicit, but at least one construct depended on an unstated precondition that only implementation exposed.
+The evidence above is read here against the four dimensions of the problem stated in \Cref{chap:problem}.
 
-\paragraph{DRQ2, which governance mechanisms, quality gates and human-in-the-loop practices keep AI contributions traceable, validated and accountable?}
-The strongest mechanisms are specification-based gates, stable identifiers and server-side reconciliation of generated claims (\Cref{sec:governance,sec:gates,sec:apex_qa}). These make artefacts traceable to requirements and prevent generation alone from satisfying a phase. Human-in-the-loop support is therefore rated \emph{met} structurally, and participants independently reported that generated output could be distinguished, rejected and revised (\Cref{tab:analytical}, \Cref{tab:ux_items}). Accountability remains weaker and is rated \emph{partially met}: AI-attributable defects can only be observed through a proxy, and one governance surface was found reporting confidently from stale evidence. The framework therefore makes AI contributions traceable and reviewable, but not yet fully measurable in terms of downstream consequences.
+\paragraph{Placement.}
+The framework bounds AI participation at phase granularity through \Cref{tab:phase_mapping}: each phase defines the permitted AI contribution, required output, accountable hat and exit control. The decomposition survived instantiation without any phase being merged, split or omitted, and the alignment criterion is rated \emph{met} in \Cref{tab:analytical}. An independent expert also recognised the phase and hat structure as distinct from more rigid organisational methodologies (\Cref{sec:interviews}). The qualification is clarity: phase boundaries are explicit, but at least one construct depended on an unstated precondition that only implementation exposed.
 
-\paragraph{DRQ3, to what extent can those constructs be operationalised in a working system, and which resist it?}
+\paragraph{Governance.}
+The strongest governance mechanisms are specification-based gates, stable identifiers and server-side reconciliation of generated claims (\Cref{sec:governance,sec:gates,sec:apex_qa}). These make artefacts traceable to requirements and prevent generation alone from satisfying a phase. Human-in-the-loop support is therefore rated \emph{met} structurally, and participants independently reported that generated output could be distinguished, rejected and revised (\Cref{tab:analytical}, \Cref{tab:ux_items}). Accountability remains weaker and is rated \emph{partially met}: AI-attributable defects can only be observed through a proxy, and one governance surface was found reporting confidently from stale evidence. The framework therefore makes AI contributions traceable and reviewable, but not yet fully measurable in terms of downstream consequences.
+
+\paragraph{Realisation.}
 Of the twelve constructs mapped in \Cref{tab:apex_mapping}, \textbf{ten are realised as specified}, \textbf{one is realised only as a proxy}, and \textbf{one is partially realised}. The exceptions are analytically important. Bolt Cycle Time was initially implemented using the wrong proxy and corrected only by comparison with its written definition (\Cref{sec:apex_framework_mapping}); spec-drift detection exposed an unstated assumption that specifications are scoped per story rather than per project.
 
 The demonstration shows that operationalisation also survives real use. Across the deployed project, Context Traceability resolved for \textbf{50 of 54 stories}, and one shared-component conformance defect was detected consistently across \textbf{nine stories} (\Cref{sec:results_demonstration}). However, a realised construct is not necessarily a reliable one: the Testing Gate was shown passable by a suite that no longer measured the current system, and stale-context governance failures recurred. Operationalisation is therefore substantial but incomplete in reliability.
 
-\paragraph{DRQ4, does the framework, through that implementation, give practitioners usable and cognitively sustainable support in a real setting?}
+\paragraph{Practitioner support.}
 The evidence is mixed but internally consistent. Cognitive workload was comparatively low: the grand Raw \ac{NASA-TLX} aggregate was \textbf{21.5/100}, frustration averaged \textbf{16.7}, and the heaviest task scored \textbf{30.4}. Workload was concentrated in mental demand and in phases requiring substantial review of generated material.
 
 Usability was weaker. The overall \ac{SUS} mean was \textbf{56.73}, grade D, with one participant scoring \textbf{15}; the Portuguese subgroup averaged \textbf{44.17}, grade F. Error legibility was the weakest \ac{UX} area, and \textbf{9 of 13} participants identified density, orientation or navigation as the main source of confusion. The combined interpretation is that Apex imposes relatively modest workload once users understand the workflow, but does not support initial orientation well enough. These are findings about the instantiation, not the framework itself, and remain bounded by the one-session evaluation and sample limitations in \Cref{sec:threats}. The nine-day demonstration provides complementary evidence of sustained use, but also exposed the same governance surfaces as vulnerable to stale or misleading evidence (\Cref{sec:results_demonstration}).
