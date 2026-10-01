@@ -37,7 +37,45 @@ The \ac{DSRM} concerns the development of IT artefacts, such as models, methods 
 \section{Mapping the Methodology onto this Document}
 \label{sec:dsrm_mapping}
 
-Because \ac{DSRM} prescribes activities rather than document sections, \Cref{tab:dsrm_chapter_mapping} states where each is carried out. The mapping is not strictly linear: as \Cref{chap:apex} describes, feedback gathered while building the reference implementation fed back into the framework's design, which is the iteration path \ac{DSRM} explicitly allows.
+\Cref{chap:intro} introduces the research objective this dissertation pursues through four \ac{DRQ}s; \Cref{tab:drq_definitions} restates them here, alongside each other, so that the \ac{DSRM} activity mapping below can be read against their exact wording rather than from memory.
+
+{\small
+\begin{longtable}{p{1.6cm} p{11.8cm}}
+\caption{The four Dissertation Research Questions}
+\label{tab:drq_definitions} \\
+\toprule
+\textbf{DRQ} & \textbf{Question} \\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{DRQ} & \textbf{Question} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{2}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+DRQ1 & How can AI-supported activities be mapped to \ac{SDLC} phases so that the point, purpose and boundary of AI participation are unambiguous? \\
+\addlinespace
+
+DRQ2 & Which governance mechanisms, quality gates and human-in-the-loop practices keep AI contributions traceable, validated and accountable? \\
+\addlinespace
+
+DRQ3 & To what extent can those constructs be operationalised in a working system, and which resist implementation? \\
+\addlinespace
+
+DRQ4 & Does the framework, through that implementation, give practitioners usable and cognitively sustainable support in a real setting? \\
+
+\end{longtable}
+}
+
+Because \ac{DSRM} prescribes activities rather than document sections, \Cref{tab:dsrm_chapter_mapping} states where each is carried out and which \ac{DRQ} each answers. The mapping is not strictly linear: as \Cref{chap:apex} describes, feedback gathered while building the reference implementation fed back into the framework's design, which is the iteration path \ac{DSRM} explicitly allows.
 
 {\small
 \begin{longtable}{p{4.0cm} p{2.6cm} p{1.6cm} p{5.6cm}}
@@ -67,7 +105,7 @@ Problem Identification and Motivation & \Cref{chap:slr,chap:problem} & -- & Evid
 Definition of Objectives & \Cref{chap:proposal} & -- & Objectives derived from the review findings \\
 \addlinespace
 
-Design and Development & \Cref{chap:proposal,chap:apex} & DRQ1, DRQ2 & The framework, and Apex as its reference implementation \\
+Design and Development & \Cref{chap:proposal,chap:apex} & DRQ1, DRQ2, DRQ3 & The framework, and Apex as its reference implementation \\
 \addlinespace
 
 Demonstration & \Cref{chap:demonstration} & DRQ3, DRQ4 & The framework's instantiation as Apex and its application to Outfolio, with a third setting attempted \\
@@ -81,4 +119,4 @@ Communication & \Cref{chap:conclusion} & -- & Public repository, extended abstra
 \end{longtable}
 }
 
-\Cref{chap:intro} states the four \ac{DRQ}s this dissertation answers; the DRQ column above states which DSRM activity, and therefore which chapter, carries the evidence for each.
+DRQ3 spans both Design and Development and Demonstration because its two halves are answered in different places: which constructs are realisable at all is established in \Cref{chap:apex}'s construct-by-construct mapping, and whether that realisation survives real use is confirmed in \Cref{chap:demonstration}.
