@@ -10,4 +10,18 @@ Established methodologies such as Waterfall, Scrum, Kanban and the Agile Manifes
 
 Evidence discussed in \Cref{chap:intro} further suggests that faster or functionally correct code generation does not automatically improve security or delivery outcomes~\cite{Veracode:2025gen, Faros:2025par}. This indicates that the central challenge is not simply AI capability, but the process by which AI is integrated, controlled and evaluated within software development. \textbf{The core research problem addressed in this work is therefore the lack of structured methodological guidance and standardised evaluation criteria for integrating and managing \ac{AI} and \ac{LLM}-based tools across the \ac{SDLC}, while maintaining human oversight, software quality, security and organisational accountability. This gap limits organisations' ability to adopt AI-assisted software development systematically and sustainably.}
 
-The problem has four dimensions, each traceable to the review and each a condition that any solution must satisfy. The first is \textbf{placement}: there is no shared account of where in the \ac{SDLC} AI participates, for what purpose, and where its participation ends, so the point at which a human must take over is left to individual judgement rather than fixed by the process (\Cref{tab:methodologies}). The second is \textbf{governance}: the mechanisms that would keep AI contributions traceable to requirements, validated before they progress and attributable to an accountable person, namely quality gates and human-in-the-loop practice, are acknowledged in principle across the corpus but specified ad hoc, if at all (\Cref{tab:consequences}). The third is \textbf{realisation}: guidance that is only described, and never enforced by a working system, cannot show which of its constructs hold in practice and which collapse when implemented. The fourth is \textbf{practitioner support}: because AI shifts effort from writing code to reviewing it, with review times rising as output grows~\cite{Faros:2025par} and over-reliance reported as a recurring risk (\Cref{tab:consequences}), guidance that is sound in principle but too burdensome to follow does not resolve the problem. The first two dimensions concern what structured guidance must contain; the last two concern whether it can be enforced and sustained in use.
+The problem has four dimensions, each traceable to the review and representing a condition that any solution must satisfy:
+
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.45em]
+
+\item \textbf{Placement.} There is no shared account of where in the \ac{SDLC} AI participates, for what purpose, and where its participation ends. As a result, the point at which human responsibility must take over is left to individual judgement rather than fixed by the process (\Cref{tab:methodologies}).
+
+\item \textbf{Governance.} Mechanisms for keeping AI contributions traceable to requirements, validated before progression, and attributable to an accountable person, particularly quality gates and human-in-the-loop practices, are recognised in principle but specified only ad hoc, if at all (\Cref{tab:consequences}).
+
+\item \textbf{Realisation.} Guidance that remains purely descriptive cannot demonstrate which constructs survive implementation and which fail when enforced in a working system.
+
+\item \textbf{Practitioner support.} AI shifts effort from code production towards review, with review times increasing as output grows~\cite{Faros:2025par} and over-reliance recurring as a risk (\Cref{tab:consequences}). Guidance that is methodologically sound but too burdensome to apply therefore does not resolve the problem.
+
+\end{itemize}
+
+The first two dimensions define what structured guidance must contain; the latter two concern whether that guidance can be implemented and sustained in practice.
