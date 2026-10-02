@@ -129,8 +129,15 @@
 % cleardoublepage -> clearpage, 2026-09-10: blank verso between the table of
 % contents and the list of figures, same fix as above.
 \clearpage
-% reposition baseline
-\onehalfspacing
+% List of Figures/Tables/Acronyms stay \singlespacing (set above, with the
+% ToC): found 2026-10-02 that \onehalfspacing was being re-enabled here,
+% between the ToC and the List of Figures, with nothing re-collapsing it
+% until the real reset at the roman-numbering block below (right before
+% Chapter 1's body). That meant every front-matter list - Figures, Tables,
+% Acronyms - was set at 1.5 line spacing for no reason, which is why the
+% List of Tables alone ran onto a second page. Front-matter lists aren't
+% "texto principal" under the IST formatting rule, so single-spacing them
+% doesn't touch anything the 10pt/1.5-spacing regulation actually governs.
 % -----------------------------------------------------------------------------
 % List of Figures
 \pdfbookmark[1]{List of Figures}{lof}

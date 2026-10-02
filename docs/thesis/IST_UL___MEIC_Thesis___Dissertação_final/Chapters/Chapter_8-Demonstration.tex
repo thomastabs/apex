@@ -73,7 +73,14 @@ What remains unmitigated is stated plainly: for both settings, this chapter repo
 \section{Context}
 \label{sec:demo_context}
 
-Outfolio addresses a problem reported by a professional OutSystems developer and colleague: although the platform exports application logic and data models, it preserves no visual record of the application's appearance or behaviour, making completed work difficult to present outside the platform. The problem extends to developers whose projects remain tied to environments that do not export user-facing artefacts. Outfolio addresses this gap through platform-independent project case studies combining screenshots, architecture notes, problem descriptions and outcomes.
+Outfolio addresses a problem reported by a professional OutSystems developer and colleague: although the platform exports application logic and data models, it preserves no visual record of the application's appearance or behaviour, making completed work difficult to present outside the platform. The problem extends to developers whose projects remain tied to environments that do not export user-facing artefacts. Outfolio addresses this gap through platform-independent project case studies combining screenshots, architecture notes, problem descriptions and outcomes. The complete implementation is published at \url{https://github.com/thomastabs/OutfolioV1}, with the deployed product itself available at \url{https://outfolio-v1.vercel.app/}.
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\linewidth]{./Images/demo-outfolio-dashboard.png}
+    \caption[Outfolio's dashboard]{Outfolio's dashboard: the deployed product built for this setting's lifecycle demonstration, showing the project owner's published case studies.}
+    \label{fig:demo_outfolio_dashboard}
+\end{figure}
 
 The initial scope, recorded in the project's agent-instruction file, comprised six epics and approximately eighteen stories, deliberately limited to support a complete lifecycle demonstration. Three additional epics were subsequently introduced through documented human decisions: a dashboard and visual design system on 16 September 2026, followed by media and file attachments on 20 September through a Phase~6 loop-back after two post-deployment signals were classified as change requests. The resulting product comprised nine epics and fifty-four stories, developed over nine calendar days and 123 commits. The significance of this expansion lies not in its volume but in the recorded decisions and classifications governing it (\Cref{sec:demo_application}).
 
