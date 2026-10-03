@@ -169,21 +169,22 @@ Testing returned real failures throughout. Story \texttt{9560176} failed because
 
 \subsection*{The governance metrics, and what each of them actually measures}
 
-The population the instantiation reports on is 54 stories, all of which reached \texttt{deployed}: the workflow funnel shows no story resting in any earlier phase status, so the figures below describe completed passages through all six phases rather than work in flight. Every number in this subsection is read from the instantiation's own analytics and specification-drift exports, which exist independently of the author's account of the work, as \Cref{sec:demo_design} committed. What those exports measure is not in every case the construct \Cref{sec:metrics} defines, and the divergences are stated before the values rather than after them.
+The instantiation reports on 54 stories, all of which reached \texttt{deployed}; the figures therefore describe completed passages through the lifecycle rather than work in flight. All values are taken from the instantiation's analytics and specification-drift exports, independently of the author's narrative record. Where those measurements diverge from the constructs defined in \Cref{sec:metrics}, the distinction is made explicitly.
 
-\begin{itemize}[leftmargin=0.6cm, itemsep=0.6em]
+\begin{itemize}[leftmargin=0.6cm, itemsep=0.5em]
 
-\item \textbf{Bolt Cycle Time is reported only as a proxy, and a coarser one than the framework defines.} \Cref{sec:metrics} defines it at task level precisely so execution is not conflated with queueing and gate transitions; the instantiation measures the story-level thing the framework rejected instead. That leaves this metric unable to distinguish a gate exercised from one rubber-stamped; \Cref{sec:metrics} assigns that detection job elsewhere.
+\item \textbf{Bolt Cycle Time is realised at task level, as the framework defines.} An early implementation measured story-level gate transitions instead (\Cref{sec:apex_framework_mapping}); the fix landed during this demonstration window, so the population figure the instantiation reports here is the corrected, task-level quantity.
 
-\item \textbf{Context Traceability Rate is 50 of 54, 92.6 per cent}, reported on the dashboard as 93. The four incomplete chains share one identical reason, with no other reason category and none of the failure modes that would indicate the construct itself breaking down. The 7.4 per cent shortfall is a ledger gap at the last step, not a break in the chain, and strictness of that kind is the property wanted from a traceability measure. But the record it demands was written by the phase whose boundary was blurred in practice (below), so the metric's one failure mode and the framework's most-bypassed boundary are the same event from two directions.
+\item \textbf{Context Traceability Rate is 50 of 54, or 92.6\%} (dashboard: 93). The four incomplete chains share the same final-step ledger gap, indicating missing traceability evidence rather than a breakdown of the construct itself.
 
-\item \textbf{Spec Conformance, an instantiation-added check rather than one of the framework's three metrics}, is a mean of 98.65 per cent (dashboard: 99) across all 54 stories. The drift found reduces to one recurring defect, three shared upload routes existing at path level while the implemented handler supports only \texttt{DELETE}/\texttt{GET}/\texttt{PUT}, inherited identically by the nine stories referencing them, evidence for Spec-Anchored Continuity rather than against it.
+\item \textbf{Spec Conformance, an instantiation-added metric, averages 98.65\%} (dashboard: 99) across all 54 stories. The observed drift reduces to one recurring shared-route defect affecting nine stories, which is more consistent with propagation through a common specification than with general specification failure.
 
-\item \textbf{AI Defect Escape Rate is 1 of 54, 1.85 per cent}, reported as 2, the weakest of the three constructs as instantiated. Its proxy definition, a linked issue detected after the story's deployed timestamp, excludes every defect found and repaired within the same session, which is where the log shows most of them were found: nineteen Fix-Bolts were logged across 14 of 54 stories against an escape metric of one.
+\item \textbf{AI Defect Escape Rate is 1 of 54, or 1.85\%} (dashboard: 2), but this is a weak proxy. Its definition excludes defects found and repaired within the same session, despite 19 Fix-Bolts being logged across 14 stories.
 
-\item \textbf{Zero regressions appear in the export, an absence of instrumentation rather than a verified negative.} Neither export contains a regression field, prior-score column or delta against an earlier check. The demonstration log contradicts the silence directly: a Fix-Bolt for the session-context defect itself introduced a login/profile redirect loop, repaired by a second Fix-Bolt the same evening, logged at the time as evidence that a Fix-Bolt cycle under time pressure can introduce new defects. One genuine regression is documented in the narrative record and zero in the metric built to count them.
+\item \textbf{Zero regressions in the export reflects missing instrumentation, not verified absence.} The exports contain no regression field or prior-score comparison, while the demonstration log records at least one regression introduced by a Fix-Bolt and repaired by a second Fix-Bolt.
 
 \end{itemize}
+
 
 \subsection*{Points at which generated output was modified or rejected}
 
@@ -201,8 +202,8 @@ The population the instantiation reports on is 54 stories, all of which reached 
 
 \end{itemize}
 
-\subsection*{Where the framework was awkward, over-specified, or was bypassed}
 
+\subsection*{Where the framework was awkward, over-specified, or was bypassed}
 Six incidents follow, the first two exposing the most consequential limitations of the framework.
 
 \begin{itemize}[leftmargin=0.6cm, itemsep=0.4em]
