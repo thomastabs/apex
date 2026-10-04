@@ -78,6 +78,12 @@ function toMarkdown(data: AnalyticsSummary): string {
     "|---|---|---|---|",
     ...data.cycle_times.map((c) => `| ${c.transition} | ${c.median_hours} | ${c.p90_hours} | ${c.samples} |`),
     "",
+    "## Bolt Cycle Time",
+    "",
+    data.bolt_cycle_time.samples > 0
+      ? `Median ${data.bolt_cycle_time.median_hours}h, p90 ${data.bolt_cycle_time.p90_hours}h, across ${data.bolt_cycle_time.samples} tasks (pack_ready to done). Distinct from the story-level \`implementation\` row above.`
+      : "No completed Bolts recorded (pack_ready to done) at export time.",
+    "",
     "## Context Traceability Rate",
     "",
     `${data.traceability.complete}/${data.traceability.deployed} deployed stories with a complete artifact chain (${Math.round(data.traceability.rate * 100)}%).`,
