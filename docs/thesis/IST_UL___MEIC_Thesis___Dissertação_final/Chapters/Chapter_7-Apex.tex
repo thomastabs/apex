@@ -16,7 +16,7 @@
 \fancychapter{Implementation}
 \label{chap:apex}
 
-The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system instantiating it, which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms the two are distinct artefacts produced by the same Design and Development activity: a method and its instantiation. The chapter addresses the realisation dimension of the problem (\Cref{chap:problem}), and doing so honestly means reporting which constructs resisted implementation as well as which did not.
+The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system instantiating it, which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms the two are distinct artefacts produced by the same Design and Development activity: a method and its instantiation. The chapter addresses the realisation dimension of the problem defined in \Cref{chap:problem}, and doing so honestly means reporting which constructs resisted implementation as well as which did not.
 
 % #############################################################################
 \section{Purpose and Positioning}
@@ -25,7 +25,14 @@ The framework presented in \Cref{chap:proposal} describes a methodology. This ch
 % The distinction below is the one that most needs stating early and plainly:
 % Apex is not competing with coding agents on convenience.
 
-Apex is not a coding agent and is not positioned against one. A coding agent accelerates the writing of code; Apex governs whether the code that results still answers the question that prompted it. The two are complementary, and the distinction is the whole reason the system exists: acceleration without anchoring is the condition \Cref{chap:intro} shows moves the bottleneck to review rather than removing it. Every artefact Apex produces carries a stable specification identifier back to the requirement it derives from, so divergence between what was agreed and what was built becomes a detectable event rather than a drift nobody is positioned to notice.
+Apex is not a coding agent and is not positioned against one. A coding agent accelerates the writing of code; Apex governs whether the code that results still answers the question that prompted it. The two are complementary, and the distinction is the whole reason the system exists because acceleration without anchoring is the condition \Cref{chap:intro} shows moves the bottleneck to review rather than removing it. Every artefact Apex produces carries a stable specification identifier back to the requirement it derives from, so divergence between what was agreed and what was built becomes a detectable event rather than a drift nobody is positioned to notice.
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\linewidth]{./Images/demo-apex-phase1-requirements.png}
+    \caption[Apex's interface, Phase 1 Requirements]{Apex's interface: the left-hand phase and tool navigation, Phase 1 Requirements mid-generation, and the right-hand context panel showing the Developer Packs, Test Plans and Deploy Packs introduced in \Cref{sec:apex_architecture}.}
+    \label{fig:apex_ui}
+\end{figure}
 
 What Apex deliberately does not do is as much part of its definition. It does not train or fine-tune models, and treats the model as a third-party capability that may change beneath it. It does not provision infrastructure: where a release needs configuration or migration scripts it generates them for a human or a \ac{CI} pipeline to execute, and never applies them itself. And it does not replace the project management tool a team already uses. It sits above that tool, reads and writes through it, and expects the team's existing board to remain the system of record for work items, which is why the framework's board guidance in \Cref{sec:work_organisation} asks only that a team's own columns map onto framework phases rather than that they be renamed.
 
@@ -55,7 +62,7 @@ Apex is a split full-stack application. The frontend uses Next.js 15 with TypeSc
 
 \item \textbf{Spec-anchored storage.} Workflow state is stored in per-tenant, per-project specification files rather than an application database. A single storage service abstracts local and cloud backends while enforcing project isolation, making Spec-Anchored Continuity concrete.
 
-\item \textbf{Repository and design grounding.} Two further context files feed that same taxonomy from outside the project-management tool. \texttt{github-context.md} is the more consequential of the two, and the one deliberate exception to Apex's otherwise browser-direct GitHub integration below: the backend shallow-clones the connected repository and packs it with \texttt{repomix} into a file large enough to ground Phase~2 to Phase~6 generation in the real implementation, something an earlier client-side file-tree-and-README fetch, capped near 14\,KB, could not do; a push to the repository retriggers the repack automatically. \texttt{figma-context.md} plays the same role for a connected Figma file, routed through the guarded proxy below since Figma, unlike GitHub, allows no direct browser call, and can additionally render one linked frame to an image so a developer pack is grounded in the literal designed screen rather than a text description of it.
+\item \textbf{Repository and design grounding.} Two additional context files extend the project-management data. \texttt{github-context.md} is generated by shallow-cloning and repacking the connected repository with \texttt{repomix}, grounding Phase~2--6 generation in the actual implementation and refreshing automatically after repository pushes. \texttt{figma-context.md} provides equivalent grounding for connected Figma files through the guarded proxy and can render a linked frame as an image, allowing developer packs to reference the designed screen directly.
 
 \item \textbf{Single-writer concurrency.} Shared file state was initially protected by process-local locks, requiring a single replica. An optional coordination layer now provides cross-replica locking while preserving the same behaviour when disabled.
 
@@ -63,16 +70,11 @@ Apex is a split full-stack application. The frontend uses Next.js 15 with TypeSc
 
 \item \textbf{Project-management adapter.} Apex integrates with existing boards through one adapter interface. Taiga was the original and received the bulk of the implementation effort; Plane was completed behind the same interface, while the Jira adapter was started but left incomplete once it became clear Taiga and Plane were the priority targets. Tool-independence holds at the operation level, although provider-specific \ac{API} limitations still constrain the guarantees Apex can offer.
 
-\item \textbf{Provider abstraction.} Model requests are routed through a provider-independent boundary, with vendor-specific failures mapped to common typed exceptions so the rest of the system does not branch on provider. Three providers are supported today, selected from the model identifier alone: Anthropic (the default, \texttt{claude-sonnet-5}), OpenAI (\texttt{gpt-4.1}, \texttt{gpt-4o}) and Google (\texttt{gemini-2.5-pro}, \texttt{gemini-2.5-flash}).
+\item \textbf{Provider abstraction.} Model requests are routed through a provider-independent boundary, with vendor-specific failures mapped to common typed exceptions so the rest of the system does not branch on provider. Three providers are supported today, selected from the model identifier alone: Anthropic, OpenAI and Google.
 
 \end{itemize}
 
-
-
-The first property is not a one-to-one translation from framework to implementation. \Cref{sec:spec_anchored} defines a two-layer split by lifetime but leaves file granularity unspecified. Apex resolves this with a fixed taxonomy of global and project-local Markdown documents maintained cumulatively across the project. This is an implementation choice rather than a framework requirement.
-
-Three further document types sit on top of that taxonomy with no framework-level equivalent at all. The \textbf{developer pack} is an \ac{AI}-generated per-task implementation brief, assembled from the locked Gherkin, technical specification, design bundle and any sibling packs already written for the same story so that tasks sharing a story stay consistent; saving one marks the task \texttt{pack\_ready}, the event \Cref{sec:apex_analytics} times Bolt Cycle Time from. The \textbf{test plan} is the \ac{QA} hat's per-story \ac{BDD} script set, derived from the same locked Gherkin. The \textbf{deploy pack} is the per-story deployment brief carrying the infrastructure-delta verdict reviewed at the Deployment Gate. All three are plain Markdown, generated once a story reaches the relevant phase and revisable afterwards, and Apex exports them, individually or as a project-wide archive, so a developer, tester or deployer can carry one outside Apex's own interface and work from it in their own local environment rather than being confined to the tool that produced it.
-
+The framework defines Spec-Anchored Continuity as a two-layer structure by lifetime but leaves file granularity open, meaning its not a one to one translation. Apex implements this through a fixed set of cumulative global and project-local Markdown documents, an implementation choice rather than a framework requirement. Three additional Apex-specific artefacts extend that structure. The \textbf{developer pack} is a per-task implementation brief generated from the locked Gherkin, technical specification, design bundle and related task packs; saving it marks the task \texttt{pack\_ready}. The \textbf{test plan} is the \ac{QA} hat's per-story \ac{BDD} script set, while the \textbf{deploy pack} records the infrastructure-delta verdict for Deployment. All three are revisable Markdown artefacts that can be exported individually or project-wide for use outside Apex.
 
 % #############################################################################
 \section{Operationalising the Framework}

@@ -84,7 +84,7 @@ Consolidate practice into a unified, repeatable process-oriented framework. \\
 % not. The exclusions matter: they pre-empt the "why is this not MLOps?"
 % question from the committee.
 
-The artefact is a method in the sense the \ac{DSRM} gives that term: a set of lifecycle phases, the responsibilities attached to each, the artefacts each must produce, and the rules for passing from one to the next; the vocabulary is introduced in \Cref{sec:overview}. It is stated at the level of process rather than of tooling, so that it can be assessed independently of the system instantiating it in \Cref{chap:apex} and adopted against a different tool stack. It covers AI-assisted activity in every phase rather than the code-authoring phases alone, the collaboration and model-selection practices that activity requires, expressed as process obligations rather than a catalogue of prompts, and the governance mechanisms of \Cref{sec:governance}.
+The artefact is a method in the sense the \ac{DSRM} gives that term: a set of lifecycle phases, the responsibilities attached to each, the artefacts each must produce, and the rules for passing from one to the next; the vocabulary is introduced in \Cref{sec:overview}. It is stated at the level of process rather than of tooling, so that it can be assessed independently of the system instantiating it in \Cref{chap:apex} and adopted against a different tool stack. It covers AI-assisted activity in every phase rather than the code-authoring phases alone, the collaboration practices that activity requires, expressed as process obligations rather than a catalogue of prompts, and the governance mechanisms of \Cref{sec:governance}.
 
 It excludes the training or fine-tuning of \acp{LLM}, model architecture design, \ac{MLOps} pipelines and tool-specific detail. These are boundaries rather than omissions, following from \Cref{chap:problem}'s concern with teams that \emph{consume} general-purpose models rather than \emph{produce} them: \ac{MLOps} governs a model's lifecycle as a deployed asset, while this framework governs the lifecycle of software a model helped write, and a pipeline can be mature under the first while the second remains ungoverned, which is the deficiency \Cref{chap:slr} reports. Tool-specific detail is excluded for the same reason \Cref{chap:apex,chap:evaluation} are kept separate: a framework prescribing a vendor cannot be evaluated independently of it.
 
@@ -123,7 +123,7 @@ Seven principles govern every subsequent design decision. Each is stated in \Cre
 \endlastfoot
 
 Human-in-the-Loop by Design &
-All AI-generated artefacts require explicit human review and acceptance before integration: adoption and trust diverge, at around 90\% daily use against roughly 30\% reporting low or no trust~\cite{DORA:2025ai}, and the best agent and model combination was functionally correct 61\% of the time but secure only 10.5\%, with 45\% of samples introducing an OWASP Top 10 vulnerability~\cite{Zhao:2025vibe, Veracode:2025gen}. \\
+All AI-generated artefacts require explicit human review and acceptance before integration because adoption and trust diverge, at around 90\% daily use against roughly 30\% reporting low or no trust~\cite{DORA:2025ai}, and the best agent and model combination was functionally correct 61\% of the time but secure only 10.5\%, with 45\% of samples introducing an OWASP Top 10 vulnerability~\cite{Zhao:2025vibe, Veracode:2025gen}. \\
 \addlinespace
 
 \ac{AI} as Augmentation, Not Substitution &
@@ -143,7 +143,7 @@ Roles are defined as functions rather than fixed organisational positions, ensur
 \addlinespace
 
 Risk-Proportional Validation and Control &
-Validation and control mechanisms are calibrated to the technical, organisational and ethical risks of each activity: the defect profile is not uniform, with vulnerability rates reaching 72\% for Java against 45\% overall and clustering in specific weakness categories~\cite{Veracode:2025gen, Zhao:2025vibe}. \\
+Validation and control mechanisms are calibrated to the technical, organisational and ethical risks of each activity. The defect profile is not uniform, with vulnerability rates reaching 72\% for Java against 45\% overall and clustering in specific weakness categories~\cite{Veracode:2025gen, Zhao:2025vibe}. \\
 \addlinespace
 
 Spec-Anchored Continuity &
@@ -328,7 +328,7 @@ Diagnostic firewall (whole-project context prohibited) and governed loop-back to
 \end{longtable}
 }
 
-The Discovery and Requirements row names the mechanism behind that validation, the \textbf{Interactive Bridge}: the model drafts scenarios in natural language, and the Trio confirms, adds, deletes or modifies them before approved scenarios are compiled into Gherkin acceptance criteria (\Cref{sec:overview}) and anchored into the specification (\Cref{sec:spec_anchored}). Separating critique from formalisation this way lets domain experts catch an incorrect assumption without first having to read it through formal syntax. The same row also names \textbf{Mob Elaboration}, the Trio's structured session critiquing AI-drafted stories as a group before any are approved; the procedure is given in full as one of the six playbooks in \Cref{sec:playbooks}. The table's other rows name mechanisms the same way, the gates, the architectural lock, the \ac{QA} Validation Playbook among them, each unpacked in turn in \Cref{sec:governance,sec:playbooks} rather than here.
+The Discovery and Requirements row names the mechanism behind that validation, the \textbf{Interactive Bridge}: the model drafts scenarios in natural language, and the Trio confirms, adds, deletes or modifies them before approved scenarios are compiled into Gherkin acceptance criteria (\Cref{sec:overview}) and anchored into the specification (\Cref{sec:spec_anchored}). Separating critique from formalisation this way lets domain experts catch an incorrect assumption without first having to read it through formal syntax. The same row also names \textbf{Mob Elaboration}, the Trio's structured session critiquing AI-drafted stories as a group before any are approved; the procedure is given in full as one of the six playbooks in \Cref{sec:playbooks}.  The table's other rows name mechanisms the same way, the gates, the architectural lock, the \ac{QA} Validation Playbook among them, each unpacked in turn in \Cref{sec:governance,sec:playbooks} rather than here.
 
 \textbf{Where the phase model departs from \ac{AI-DLC}.} Most of the expansion from three phases to six is decomposition rather than disagreement: Discovery and Requirements together with Design, Prototyping and Architecture occupy the territory \ac{AI-DLC} calls Inception, and Implementation corresponds to Construction. Two substantive extensions distinguish the proposed framework from it:
 
@@ -356,7 +356,7 @@ The \textbf{Fix-Bolt} is the single exception: triggered by a failed Testing Gat
 
 \subsection{Spec-Anchored Continuity}
 \label{sec:spec_anchored}
-Spec-Anchored Continuity requires every AI-generated artefact to carry forward the context established by previously validated phases. The mechanism is a persistent versioned specification maintained alongside the codebase and split into two layers with different lifetimes. The \textbf{global layer}, the Memory Bank, holds what does not change between stories: architectural rules, technology-stack decisions, security policies and recorded workarounds for already-diagnosed defects. It is written rarely, amended deliberately, and applies to every generation on the project. The \textbf{local layer}, the Feature Specs, holds what is specific to the work in hand, the approved Gherkin acceptance criteria and the technical specification produced at the Design Gate; it is written once per story, locked at a gate, and amended only through a recorded versioned amendment. The split is what makes the mechanism usable, since a single undifferentiated context grows monotonically until it contains more irrelevant material than relevant, reintroducing the problem it was meant to solve.
+Spec-Anchored Continuity requires every AI-generated artefact to carry forward the context established by previously validated phases. The mechanism is a persistent versioned specification maintained alongside the codebase and split into two layers with different lifetimes. The \textbf{global layer} holds what does not change between stories: architectural rules, technology-stack decisions, security policies and recorded workarounds for already-diagnosed defects. It is written rarely, amended deliberately, and applies to every generation on the project. The \textbf{local layer}, the Feature Specs, holds what is specific to the work in hand, the approved Gherkin acceptance criteria and the technical specification produced at the Design Gate; it is written once per story, locked at a gate, and amended only through a recorded versioned amendment. The split is what makes the mechanism usable, since a single undifferentiated context grows monotonically until it contains more irrelevant material than relevant, reintroducing the problem it was meant to solve.
 
 The central argument is that narrowing the model's working context is a control rather than a convenience: a convenience makes a correct outcome easier to reach, whereas a control is a measure whose absence makes an incorrect outcome undetectable. Anchoring satisfies the second definition on three counts. It supplies a reference that existed before the generated artefact did, the precondition for validation being possible at all. It bounds what the model may act upon, an unbounded context being the condition under which a model produces a wide, confident and substantively wrong change, which is why whole-project context is prohibited during Maintenance diagnosis~\cite{Zhao:2025vibe}. And because both layers are versioned and every post-lock edit is a dated amendment, divergence between what was agreed and what was built becomes a detectable event rather than an unattributable drift. This is the spec-driven-development instantiation named in \Cref{tab:principles}; a recent preprint independently argues, from a multivocal review, that specification discipline rather than model capability is the binding constraint on dependability~\cite{Farrag:2026sd}. The contribution is not the idea of anchoring but the specification of where it is mandatory, which gate locks each layer, and what constitutes a legitimate amendment.
 
@@ -460,10 +460,10 @@ Design and Prototyping
 & Both validations pass and tasks enter the Bolt Backlog
 \\ \addlinespace
 
-Maintenance and Evolution
-& A post-deployment signal
-& Signals are classified before code access. Business or specification issues return to the \ac{PM} hat and the relevant phase; technical defects undergo restricted-context diagnosis and manual verification.
-& The signal is classified and routed, with a verified diagnosis where applicable
+\ac{QA} Validation
+& A story that has passed the Implementation Gate
+& The \ac{QA} hat independently derives and manually verifies end-to-end \ac{BDD} scripts from the locked functional specification before execution, followed by exploratory testing.
+& The Testing Gate passes, or a Fix-Bolt is triggered with the failing evidence
 \\ \addlinespace
 
 Fix-Bolt
@@ -472,18 +472,17 @@ Fix-Bolt
 & Low risk takes the Fast Lane to the pipeline; higher risk takes the Secure Lane through a Regression Bypass in staging
 \\ \addlinespace
 
-\ac{QA} Validation
-& A story that has passed the Implementation Gate
-& The \ac{QA} hat independently derives and manually verifies end-to-end \ac{BDD} scripts from the locked functional specification before execution, followed by exploratory testing.
-& The Testing Gate passes, or a Fix-Bolt is triggered with the failing evidence
-\\ \addlinespace
-
 Deployment and Release
 & A story that has passed the Testing Gate
 & The agent assesses infrastructure, configuration and migration requirements, generating artefacts only when necessary. The deployer reviews them for security and policy compliance.
 & The Deployment Gate passes and the persistent context is updated to the live state
-\\
+\\ \addlinespace
 
+Maintenance and Evolution
+& A post-deployment signal
+& Signals are classified before code access. Business or specification issues return to the \ac{PM} hat and the relevant phase; technical defects undergo restricted-context diagnosis and manual verification.
+& The signal is classified and routed, with a verified diagnosis where applicable
+\\
 \end{longtable}
 }
 
@@ -497,7 +496,7 @@ Deployment and Release
 % Work / User Story / Task hierarchy) now lives in \Cref{sec:overview},
 % stated before it is needed rather than argued for only here.
 
-The framework replaces sprints and sprint backlogs with continuous flow, the most disruptive single element of the proposal and therefore the one requiring the strongest empirical justification; the Epic, unlike the sprint, is not replaced and remains an optional grouping (\Cref{sec:overview}). Sprint cadence manages a world in which implementation is the binding constraint: a fixed-length iteration lets a quantity of implementation work be forecast, committed to and inspected at a boundary, calibrated to how long a useful amount of implementation takes. The evidence in \Cref{sec:motivation} indicates that premise no longer holds where AI assistance is heavy: developers in a randomised controlled trial were measurably slower with assistance while believing they had been faster~\cite{Becker:2025rct}, and telemetry across 1,255 teams pairs the merged-pull-request increase reported there with pull requests 154\% larger, 91\% longer review times, and no significant correlation with delivery outcomes~\cite{Faros:2025par}. The constraint moved rather than disappeared, so a cadence calibrated to the old one now obscures the new one. The structural response has two parts: execution compressed into Bolts, so the queue in front of validation refills in small increments rather than batches, and validation decoupled into its own phase, environment, hat and gate, so the constraint is scheduled and measured in its own right. Both are falsifiable: if review is not the constraint in a given setting, Bolt Cycle Time and the \ac{QA} queue will say so. The three-level work hierarchy this replaces, Unit of Work, User Story and Task, is set out in \Cref{sec:overview}.
+The framework replaces sprints and sprint backlogs with continuous flow, the most disruptive single element of the proposal and therefore the one requiring the strongest empirical justification; the Epic, unlike the sprint, is not replaced and remains an optional grouping (\Cref{sec:overview}). Sprint cadence manages a world in which implementation is the binding constraint. A fixed-length iteration lets a quantity of implementation work be forecast, committed to and inspected at a boundary, calibrated to how long a useful amount of implementation takes. The evidence in \Cref{sec:motivation} indicates that premise no longer holds where AI assistance is heavy: developers in a randomised controlled trial were measurably slower with assistance while believing they had been faster~\cite{Becker:2025rct}, and telemetry across 1,255 teams pairs the merged-pull-request increase reported there with pull requests 154\% larger, 91\% longer review times, and no significant correlation with delivery outcomes~\cite{Faros:2025par}. The constraint moved rather than disappeared, so a cadence calibrated to the old one now obscures the new one. The structural response has two parts which are the execution compressed into Bolts, so the queue in front of validation refills in small increments rather than batches, and validation decoupled into its own phase, environment, hat and gate, so the constraint is scheduled and measured in its own right. Both are falsifiable: if review is not the constraint in a given setting, Bolt Cycle Time and the \ac{QA} queue will say so. The three-level work hierarchy this replaces, Unit of Work, User Story and Task, is set out in \Cref{sec:overview}.
 
 The project management tool should provide states corresponding unambiguously to the framework's phases, without requiring a specific board configuration.
 
@@ -523,6 +522,6 @@ Four alternatives are considered below. Each has legitimate advantages, but the 
 \section{Summary}
 \label{sec:proposal_summary}
 
-The placement and governance dimensions of the problem are addressed by the artefact this chapter has specified: the six-phase model of \Cref{sec:phases} with the Strategic Alignment stage preceding it and the mapping in \Cref{tab:phase_mapping}, and \Cref{sec:governance}'s governance set of Bolts, the Consistency Factor, Spec-Anchored Continuity, five gates and three metrics. Two properties of that design are worth isolating, because a phase list and a gate list alone would not achieve them: the model is constrained at every phase to that phase's anchored specification rather than the whole project, and accountability attaches to functions rather than positions, so it survives a team of one while every failed gate routes work back to a named phase rather than discarding it.
+The placement and governance dimensions of the problem are addressed by the artefact this chapter has specified: the six-phase model of \Cref{sec:phases} with the Strategic Alignment stage preceding it and the mapping in \Cref{tab:phase_mapping}, and \Cref{sec:governance}'s governance set of Bolts, the Consistency Factor, Spec-Anchored Continuity, five gates and three metrics. Two properties of that design are worth isolating, because a phase list and a gate list alone would not achieve them, are that the model is constrained at every phase to that phase's anchored specification rather than the whole project, and accountability attaches to functions rather than positions, so it survives a team of one while every failed gate routes work back to a named phase rather than discarding it.
 
 Both are design claims and not yet evidence. The framework's constructs are an original synthesis argued from the literature but not demonstrated in use, and spec-driven development, on which Spec-Anchored Continuity rests, is characterised by its own principal source as emerging with unsettled scaling behaviour~\cite{Thoughtworks:2025SD}. \Cref{chap:apex} presents Apex, the reference implementation, and reports which constructs were implementable as specified, which were weakened or proxied, and which resisted implementation, which is the realisation dimension of the problem.
