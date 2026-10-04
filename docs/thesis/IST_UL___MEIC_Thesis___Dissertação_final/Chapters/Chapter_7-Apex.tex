@@ -16,7 +16,7 @@
 \fancychapter{Implementation}
 \label{chap:apex}
 
-The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system instantiating it, which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms the two are distinct artefacts produced by the same Design and Development activity: a method and its instantiation. The chapter addresses the realisation dimension of the problem defined in \Cref{chap:problem}, and doing so honestly means reporting which constructs resisted implementation as well as which did not.
+The framework in \Cref{chap:proposal} defines the methodology, while this chapter presents Apex as its working instantiation. Apex demonstrates which governance constructs can be implemented in practice and provides the system used in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms, the method and its instantiation are distinct artefacts from the same Design and Development activity. This chapter therefore addresses the realisation dimension of \Cref{chap:problem}, including both successfully implemented constructs and those that resisted implementation.
 
 % #############################################################################
 \section{Purpose and Positioning}
@@ -29,12 +29,13 @@ Apex is not a coding agent and is not positioned against one. A coding agent acc
 
 \begin{figure}[htb]
     \centering
-    \includegraphics[width=\linewidth]{./Images/demo-apex-phase1-review-draft.png}
+    \includegraphics[width=0.8\linewidth]{./Images/demo-apex-phase1-review-draft.png}
     \caption[Apex's interface, Phase 1 Review Draft]{Apex's interface at Phase 1's Review Draft step: AI-drafted Gherkin scenarios for two stories awaiting Trio approval, and the right-hand Active Context panel showing the project's versioned specification files (\Cref{sec:spec_anchored}).}
     \label{fig:apex_ui}
 \end{figure}
 
-What Apex deliberately does not do is as much part of its definition. It does not train or fine-tune models, and treats the model as a third-party capability that may change beneath it. It does not provision infrastructure: where a release needs configuration or migration scripts it generates them for a human or a \ac{CI} pipeline to execute, and never applies them itself. And it does not replace the project management tool a team already uses. It sits above that tool, reads and writes through it, and expects the team's existing board to remain the system of record for work items, which is why the framework's board guidance in \Cref{sec:work_organisation} asks only that a team's own columns map onto framework phases rather than that they be renamed.
+
+Apex also has explicit boundaries. It does not train or fine-tune models, provision infrastructure, or replace an existing project-management tool. Models are treated as external services; deployment artefacts such as configuration or migration scripts are generated for human or \ac{CI} execution rather than applied directly. Apex instead operates above the team's existing project-management system, which remains the system of record, requiring only that its workflow states map onto the framework phases described in \Cref{sec:work_organisation}.
 
 % #############################################################################
 \section{Architecture}
@@ -44,16 +45,22 @@ Apex is a split full-stack application. The frontend uses Next.js 15 with TypeSc
 
 \begin{figure}[!htb]
     \centering
-    % Avoid a dedicated float page ("p"), which can produce a mostly-empty page.
-    \includegraphics[width=\linewidth,height=0.43\textheight,keepaspectratio]{./Images/architecture-a.png}
+    \includegraphics[
+        width=0.95\linewidth,
+        height=0.40\textheight,
+        keepaspectratio
+    ]{./Images/architecture-a.png}
     \caption[Apex architecture, part one]{Apex architecture, part one: frontend, backend and per-tenant specification store.}
     \label{fig:apex_architecture}
 \end{figure}
 
 \begin{figure}[!htb]
     \centering
-    % Avoid a dedicated float page ("p"), which can produce a mostly-empty page.
-    \includegraphics[width=\linewidth,height=0.43\textheight,keepaspectratio]{./Images/architecture-b.png}
+    \includegraphics[
+        width=0.95\linewidth,
+        height=0.40\textheight,
+        keepaspectratio
+    ]{./Images/architecture-b.png}
     \caption[Apex architecture, part two]{Apex architecture, part two: guarded egress layer, external integrations and the browser-direct version-control exception.}
     \label{fig:apex_architecture_b}
 \end{figure}
@@ -83,12 +90,12 @@ The framework defines Spec-Anchored Continuity as a two-layer structure by lifet
 % This is the realisation evidence. The negative rows carry as much weight as
 % the positive ones and must not be softened.
 
-This section establishes how far the framework's governance constructs can be operationalised in a working system and which of them resist it. \Cref{tab:apex_mapping} maps each construct to a mechanism that exists in the codebase rather than to a planned feature. Three outcomes are distinguished: realisation as specified, realisation through a proxy, and partial realisation where the construct resisted implementation at the granularity the framework assumed. \Cref{fig:apex_userflow,fig:apex_userflow_b} show how a practitioner moves through the governed phases.
+This section assesses how far the framework's governance constructs can be realised in a working system and which of them resist it. \Cref{tab:apex_mapping} maps each construct to implemented mechanisms and classifies them as realised as specified, realised through a proxy, or only partially realised where implementation exposed granularity limits. \Cref{fig:apex_userflow,fig:apex_userflow_b} illustrate the resulting governed practitioner workflow.
 
 {\footnotesize
-\begin{longtable}{>{\raggedright\arraybackslash}p{3.6cm}
-                  >{\raggedright\arraybackslash}p{8.4cm}
-                  >{\raggedright\arraybackslash}p{2.6cm}}
+\begin{longtable}{>{\raggedright\arraybackslash}p{3.2cm}
+                  >{\raggedright\arraybackslash}p{7.5cm}
+                  >{\raggedright\arraybackslash}p{3.7cm}}
 \caption[Framework constructs against the mechanisms implementing them in Apex]{Framework constructs against the mechanisms implementing them in Apex, and the outcome of each}
 \label{tab:apex_mapping} \\
 \toprule
@@ -181,7 +188,7 @@ Three rows deserve emphasis because they mark the limits of realisation:
 
 \item \textbf{AI Defect Escape Rate.} The construct remains observable only through a proxy: reported, linked, post-deployment defects. The system cannot directly identify every production defect or reliably attribute it to generated logic, so the metric is deliberately retained as a weaker but still useful operationalisation rather than presented as full implementation.
 
-\item \textbf{Spec-drift detection.} Implementation exposed an unstated assumption that specifications must be scoped per story for drift to be attributable. The technical specification does not satisfy that assumption, so detection was removed there, while the story-scoped functional specification allowed a later partial revival. This is a case of the instantiation revealing and refining an assumption in the framework itself.
+\item \textbf{Spec-drift detection.} Implementation revealed that drift detection requires story-scoped specifications to remain attributable. Because the technical specification lacks that granularity, detection was removed there, while the story-scoped functional specification supported a partial revival, refining an unstated framework assumption.
 
 \end{itemize}
 
@@ -254,14 +261,9 @@ A later sixth consultation with an Agile/Scrum expert is treated separately in \
 \section{Quality Assurance of the Implementation}
 \label{sec:apex_qa}
 
-% Proportionate. This establishes the demonstration platform is sound; it is
-% not the contribution.
-
 This section establishes that the platform the demonstration in \Cref{chap:demonstration} runs on is sound; it is not itself a research contribution, and the detail below is kept proportionate to that purpose.
 
-Testing is layered by what each layer can catch: at the time of writing the backend carries roughly 1,638 tests, the frontend roughly 318 unit tests, and there are 24 end-to-end test cases across 12 specifications, a snapshot of a codebase that continues to change.
-
-Testing also surfaced defects with methodological significance. A section-parsing routine truncated a live project's technical specification part-way through because it anchored on headings the model itself also emits. An automation step once marked a story's quality gate as passed with no verification behind it, and the deployment step trusted that result rather than checking it. And the identity anchor determining which tenant a request belongs to, along with an integrated tool's listing endpoint, each leaked across project boundaries before being corrected. A coverage badge reported the model's own claim about which scenarios it had covered, at face value; it is now reconciled server-side against the parsed specification, and a claimed scenario that does not match a real one is dropped rather than displayed.
+Testing is layered across the system, with approximately 1,638 backend tests, 318 frontend unit tests, and 24 end-to-end cases across 12 specifications at the time of writing. Several defects exposed methodological weaknesses. These included specification truncation during parsing, a quality gate being marked as passed without verification, and cross-project data leakage through tenant identification and tool integration. Scenario coverage was also initially accepted from the model at face value; it is now reconciled server-side against the parsed specification, with unmatched claims discarded.
 
 % #############################################################################
 \section{Limitations of the Implementation}
@@ -291,4 +293,4 @@ The limitations of Apex as a system must be separated from the limitations of th
 
 \end{itemize}
 
-Both framework-level limitations remain open even after the September 2026 work reported above and are carried into \Cref{chap:evaluation} as findings rather than as defects to be excused. The two proxies differ in kind, and \Cref{tab:apex_mapping} names both as proxies rather than presenting either as the construct itself: Bolt Cycle Time was one briefly and by accident, while AI Defect Escape Rate is one by design from the outset. A substitution left unnamed is indistinguishable from the thing it substitutes for.
+Both framework-level limitations remain unresolved and are carried into \Cref{chap:evaluation} as findings. \Cref{tab:apex_mapping} explicitly labels both substitutions as proxies: Bolt Cycle Time became one accidentally, whereas AI Defect Escape Rate was designed as one from the outset. Naming the substitution is essential to avoid conflating the proxy with the construct itself.
