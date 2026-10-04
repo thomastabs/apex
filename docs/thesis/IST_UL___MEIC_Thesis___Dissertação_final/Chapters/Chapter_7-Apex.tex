@@ -257,6 +257,8 @@ A later sixth consultation with an Agile/Scrum expert is treated separately in \
 % Proportionate. This establishes the demonstration platform is sound; it is
 % not the contribution.
 
+This section establishes that the platform the demonstration in \Cref{chap:demonstration} runs on is sound; it is not itself a research contribution, and the detail below is kept proportionate to that purpose.
+
 Testing is layered by what each layer can catch: at the time of writing the backend carries roughly 1,638 tests, the frontend roughly 318 unit tests, and there are 24 end-to-end test cases across 12 specifications, a snapshot of a codebase that continues to change.
 
 Testing also surfaced defects with methodological significance. A section-parsing routine truncated a live project's technical specification part-way through because it anchored on headings the model itself also emits. An automation step once marked a story's quality gate as passed with no verification behind it, and the deployment step trusted that result rather than checking it. And the identity anchor determining which tenant a request belongs to, along with an integrated tool's listing endpoint, each leaked across project boundaries before being corrected. A coverage badge reported the model's own claim about which scenarios it had covered, at face value; it is now reconciled server-side against the parsed specification, and a claimed scenario that does not match a real one is dropped rather than displayed.
