@@ -69,6 +69,8 @@ Apex is a split full-stack application. The frontend uses Next.js 15 with TypeSc
 
 The first property is not a one-to-one translation from framework to implementation. \Cref{sec:spec_anchored} defines a two-layer split by lifetime but leaves file granularity unspecified. Apex resolves this with a fixed taxonomy of global and project-local Markdown documents maintained cumulatively across the project. This is an implementation choice rather than a framework requirement.
 
+Three further document types sit on top of that taxonomy with no framework-level equivalent at all. The \textbf{developer pack} is an \ac{AI}-generated per-task implementation brief, assembled from the locked Gherkin, technical specification, design bundle and any sibling packs already written for the same story so that tasks sharing a story stay consistent; saving one marks the task \texttt{pack\_ready}, the event \Cref{sec:apex_analytics} times Bolt Cycle Time from. The \textbf{test plan} is the \ac{QA} hat's per-story \ac{BDD} script set, derived from the same locked Gherkin. The \textbf{deploy pack} is the per-story deployment brief carrying the infrastructure-delta verdict reviewed at the Deployment Gate. All three are plain Markdown, generated once a story reaches the relevant phase and revisable afterwards, and Apex exports them, individually or as a project-wide archive, so a developer, tester or deployer can carry one outside Apex's own interface and work from it in their own local environment rather than being confined to the tool that produced it.
+
 
 % #############################################################################
 \section{Operationalising the Framework}
