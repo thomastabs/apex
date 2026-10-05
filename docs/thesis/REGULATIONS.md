@@ -794,15 +794,17 @@ removed, not abandoned mid-build. Tomás has already confirmed the Chapter 7
 wording as correct as edited, so this is recorded here as a nuance for
 awareness rather than something reopened for further edits.
 
-**What remains open, in order of how much it matters:** the Acknowledgments
-Lorem Ipsum and placeholder supervisor names (real submission blocker,
-personal content, not this file's to write); the jury section awaiting
-official designation (administrative, tracked, not actionable yet); the
-bibliography single-spacing question from §1a-octies (still undecided,
-Tomás's call); Chapter 9's Table 9.3 full deletion (~0.3-0.35pp, already
-declined once, not revisited here). None of these four affect the two page
-ceilings, both of which remain compliant with margin (main text 71/80,
-whole document 99/100).
+**Backlog, closed out 2026-10-05.** The Acknowledgments Lorem Ipsum and
+placeholder supervisor name noted as open above are resolved: the chapter
+carries real content and the real supervisor's name (this entry was stale,
+not the chapter). The bibliography single-spacing question from §1a-octies
+is closed without being pursued, since the document has margin without it.
+Chapter 9's Table 9.3 stays by explicit decision, not up for further
+deletion proposals. The jury section stays blank by design; the jury is
+named only at submission, so this is an expected state rather than an open
+item. None of these affect either page ceiling, both of which remain
+compliant with margin (main text 71/80 as of §1a-undecies, whole document
+99/100 as of the latest sync).
 
 ## 1a-duodecies. Extended abstract gains figures and a table, 2026-09-27
 
