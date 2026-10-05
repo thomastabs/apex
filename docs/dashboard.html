@@ -5,7 +5,7 @@
   --bg:#0b0b10; --surface:#15151d; --surface2:#1c1c26; --border:#2b2b38;
   --fg:#e9e9ef; --muted:#92929f; --faint:#5d5d6b;
   --accent:#8b6bff; --accent-dim:#5d4ab8;
-  --warn:#e0a94a; --good:#4fae7d;
+  --warn:#e0a94a; --good:#4fae7d; --bad:#e2574c;
   --font-head:'Archivo',system-ui,sans-serif;
   --font-body:'Archivo',system-ui,sans-serif;
   --font-mono:'IBM Plex Mono',ui-monospace,monospace;
@@ -15,7 +15,7 @@
     --bg:#f8f7fb; --surface:#ffffff; --surface2:#f1effa; --border:#e2e0ec;
     --fg:#17171f; --muted:#5e5e6c; --faint:#9a9aa8;
     --accent:#6d46e8; --accent-dim:#ded4ff;
-    --warn:#a16a10; --good:#1f7a4e;
+    --warn:#a16a10; --good:#1f7a4e; --bad:#c0392b;
     color-scheme: light;
   }
 }
@@ -23,7 +23,7 @@
   --bg:#f8f7fb; --surface:#ffffff; --surface2:#f1effa; --border:#e2e0ec;
   --fg:#17171f; --muted:#5e5e6c; --faint:#9a9aa8;
   --accent:#6d46e8; --accent-dim:#ded4ff;
-  --warn:#a16a10; --good:#1f7a4e;
+  --warn:#a16a10; --good:#1f7a4e; --bad:#c0392b;
   color-scheme: light;
 }
 :root[data-theme="dark"]{ color-scheme: dark; }
@@ -51,10 +51,14 @@ header.top{margin-bottom:20px}
   background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden;
   margin-bottom:20px;
 }
-.kd{background:var(--surface2); padding:13px 16px}
+.kd{background:var(--surface2); padding:13px 16px; border-left:3px solid transparent; transition:border-color .2s}
+.kd.soon{border-left-color:var(--warn)}
+.kd.verysoon{border-left-color:var(--bad)}
 .kd-k{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint)}
 .kd-v{font-family:var(--font-mono); font-weight:700; font-size:19px; color:var(--accent); margin-top:3px}
 .kd-c{color:var(--muted); font-size:12px; margin-top:3px}
+.kd-c.soon{color:var(--warn); font-weight:600}
+.kd-c.verysoon{color:var(--bad); font-weight:600}
 .kd-link a{font-family:var(--font-mono); font-weight:700; font-size:16px; text-decoration:none; margin-top:3px; display:inline-flex; align-items:center}
 .kd-link a:hover{text-decoration:underline}
 .eyebrow{
@@ -92,7 +96,7 @@ h1{
 .contrib-cell[data-level="3"]{background:color-mix(in srgb, var(--good) 80%, var(--surface2)); border-color:transparent}
 .contrib-cell[data-level="4"]{background:var(--good); border-color:transparent}
 .contrib-month{
-  position:absolute; top:0; left:0; white-space:nowrap; font-family:var(--font-mono); font-size:12.5px; color:var(--faint);
+  position:absolute; top:-20px; left:0; white-space:nowrap; font-family:var(--font-mono); font-size:12.5px; color:var(--faint);
 }
 .contrib-daylabels{display:flex; flex-direction:column; gap:5px; padding-top:26px; margin-right:9px}
 .contrib-daylabels span{
@@ -217,8 +221,26 @@ tr:last-child td{border-bottom:none}
 .status .v{font-family:var(--font-mono); font-size:20px; font-weight:600; margin-top:4px}
 .status .v.good{color:var(--good)}
 .status .cap{color:var(--muted); font-size:12px; margin-top:2px}
+.status .v .of{color:var(--faint); font-weight:400; font-size:14px}
+.budget-bar{height:6px; border-radius:3px; background:var(--surface2); overflow:hidden; margin-top:8px}
+.budget-fill{height:100%; background:var(--accent); border-radius:3px}
 
-footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--font-mono)}
+.checklist{display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden}
+.check-item{display:flex; align-items:flex-start; gap:10px; background:var(--surface); padding:12px 16px}
+.check-mark{
+  flex:none; width:17px; height:17px; border-radius:50%; background:var(--good); color:var(--bg);
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-top:1px;
+}
+.check-item .t{font-weight:600; font-size:13.5px}
+.check-item .d{color:var(--muted); font-size:12.5px; margin-top:2px; line-height:1.45}
+
+.velocity{display:flex; align-items:flex-end; gap:10px; height:90px; padding:6px 2px 0}
+.v-bar{display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; flex:1; height:100%}
+.v-bar-fill{width:100%; max-width:34px; background:var(--accent); border-radius:4px 4px 0 0; min-height:3px}
+.v-bar-n{font-family:var(--font-mono); font-size:11px; color:var(--fg); font-weight:600}
+.v-bar-l{font-family:var(--font-mono); font-size:10px; color:var(--faint)}
+
+footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--font-mono); line-height:1.7}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
@@ -240,8 +262,8 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 </header>
 
 <div class="keydates">
-  <div class="kd"><div class="kd-k">Submission</div><div class="kd-v">7 Oct</div><div class="kd-c" id="kdSubmit">-</div></div>
-  <div class="kd"><div class="kd-k">Defense</div><div class="kd-v">23 Oct</div><div class="kd-c" id="kdDefense">-</div></div>
+  <div class="kd" id="kdSubmitTile"><div class="kd-k">Submission</div><div class="kd-v">7 Oct</div><div class="kd-c" id="kdSubmit">-</div></div>
+  <div class="kd" id="kdDefenseTile"><div class="kd-k">Defense</div><div class="kd-v">23 Oct</div><div class="kd-c" id="kdDefense">-</div></div>
   <div class="kd kd-link">
     <div class="kd-k">Slides</div>
     <a href="https://claude.ai/artifact/WDYvqVuMSJYxhce4eDSD4s#slide-fe70e7d866fe" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Open deck</a>
@@ -385,16 +407,42 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 </section>
 
 <section>
+  <div class="sec-head">
+    <h2>Thesis commits, last 8 weeks</h2>
+    <span class="sec-note">docs/thesis only, ISO week starting date</span>
+  </div>
+  <div class="velocity" id="velocity"></div>
+</section>
+
+<section>
   <div class="sec-head"><h2>Status now</h2></div>
   <div class="status">
-    <div class="cell"><div class="k">Whole document</div><div class="v">99 / 100</div><div class="cap">1pp margin</div></div>
-    <div class="cell"><div class="k">Main text</div><div class="v">71 / 80</div><div class="cap">as of last audit, 2026-09-27</div></div>
+    <div class="cell budget">
+      <div class="k">Whole document</div>
+      <div class="v">99<span class="of">/100</span></div>
+      <div class="budget-bar"><div class="budget-fill" style="width:99%"></div></div>
+      <div class="cap">1pp margin</div>
+    </div>
+    <div class="cell budget">
+      <div class="k">Main text</div>
+      <div class="v">71<span class="of">/80</span></div>
+      <div class="budget-bar"><div class="budget-fill" style="width:88.75%"></div></div>
+      <div class="cap">as of last audit, 2026-09-27</div>
+    </div>
     <div class="cell"><div class="k">Backlog</div><div class="v good">closed out</div><div class="cap">2026-10-05, REGULATIONS.md</div></div>
     <div class="cell"><div class="k">Participants</div><div class="v good">13 / 12</div><div class="cap">target met, none withdrew</div></div>
   </div>
 </section>
 
-<footer>generated from local git log + docs/thesis/REGULATIONS.md · versioned at docs/dashboard.html · a static snapshot, not a live view</footer>
+<section>
+  <div class="sec-head"><h2>Backlog, closed out 2026-10-05</h2></div>
+  <div class="checklist" id="checklist"></div>
+</section>
+
+<footer>
+  generated from local git log + docs/thesis/REGULATIONS.md &middot; versioned at docs/dashboard.html &middot; a static snapshot, not a live view
+  <br>last commit <span id="lastCommitAgo">-</span>
+</footer>
 </div>
 
 <script>
@@ -427,18 +475,29 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   })();
 
   // Key dates: computed live against the viewer's clock, never hardcoded "N days left".
+  // Urgency styling: <=3 days = amber, <=1 day (or passed and not yet past) = red.
   (function(){
-    function fmt(target){
+    function daysUntil(target){
       var now = new Date();
       var t = new Date(target + 'T23:59:59');
-      var days = Math.ceil((t - now) / 86400000);
+      return Math.ceil((t - now) / 86400000);
+    }
+    function fmt(days){
       if (days > 1) return 'in ' + days + ' days';
       if (days === 1) return 'tomorrow';
       if (days === 0) return 'today';
       return days === -1 ? 'yesterday' : (-days) + ' days ago';
     }
-    document.getElementById('kdSubmit').textContent = fmt('2026-10-07');
-    document.getElementById('kdDefense').textContent = fmt('2026-10-23');
+    function apply(id, tileId, target){
+      var days = daysUntil(target);
+      var el = document.getElementById(id);
+      var tile = document.getElementById(tileId);
+      el.textContent = fmt(days);
+      var cls = days <= 1 ? 'verysoon' : (days <= 3 ? 'soon' : '');
+      if (cls){ el.classList.add(cls); tile.classList.add(cls); }
+    }
+    apply('kdSubmit', 'kdSubmitTile', '2026-10-07');
+    apply('kdDefense', 'kdDefenseTile', '2026-10-23');
   })();
 
   // Contribution heatmap: real per-day commit counts, repo-wide, laid out GitHub-style.
@@ -740,5 +799,56 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     row.innerHTML = '<div class="date">'+p.d+'</div><div class="count">'+p.c+'</div><div class="note">'+p.n+'</div>';
     pages.appendChild(row);
   });
+
+  var checklistData = [
+    {t:'Acknowledgments', d:'Real content, real supervisor name confirmed - the open item in REGULATIONS.md was a stale tracking note, not an actual gap.'},
+    {t:'Bibliography single-spacing', d:'Closed without pursuing it. The document has margin without the extra pages it would recover.'},
+    {t:'Table 9.3 (NASA-TLX matrix)', d:'Stays, by explicit decision. Not up for further deletion proposals.'},
+    {t:'Jury section', d:'Blank by design. The jury is named only at submission, so this is expected, not pending.'},
+    {t:'Both page ceilings', d:'Main text 71/80, whole document 99/100 - both compliant with margin, as of the last full audit.'},
+    {t:'Evaluation data collection', d:'13 of a 12-participant target. All four instruments returned. Nobody withdrew.'}
+  ];
+  var checklistWrap = document.getElementById('checklist');
+  checklistData.forEach(function(c){
+    var row = document.createElement('div');
+    row.className = 'check-item';
+    row.innerHTML = '<div class="check-mark">&#10003;</div><div><div class="t">'+c.t+'</div><div class="d">'+c.d+'</div></div>';
+    checklistWrap.appendChild(row);
+  });
+
+  var velocityData = [
+    {l:'17 Aug', n:24}, {l:'24 Aug', n:12}, {l:'31 Aug', n:15}, {l:'07 Sep', n:26},
+    {l:'14 Sep', n:30}, {l:'21 Sep', n:7}, {l:'28 Sep', n:40}, {l:'05 Oct', n:12}
+  ];
+  var vMax = Math.max.apply(null, velocityData.map(function(v){ return v.n; }));
+  var vWrap = document.getElementById('velocity');
+  velocityData.forEach(function(v){
+    var bar = document.createElement('div');
+    bar.className = 'v-bar';
+    var h = Math.max(4, (v.n / vMax) * 100);
+    bar.innerHTML =
+      '<div class="v-bar-n">'+v.n+'</div>' +
+      '<div class="v-bar-fill" style="height:'+h+'%"></div>' +
+      '<div class="v-bar-l">'+v.l+'</div>';
+    vWrap.appendChild(bar);
+  });
+
+  // Live "time since last commit" ticker.
+  (function(){
+    var last = new Date('2026-10-05T20:50:22+01:00');
+    var el = document.getElementById('lastCommitAgo');
+    function tick(){
+      var ms = Date.now() - last.getTime();
+      var mins = Math.floor(ms / 60000);
+      var text;
+      if (mins < 1) text = 'just now';
+      else if (mins < 60) text = mins + 'm ago';
+      else if (mins < 1440) text = Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm ago';
+      else text = Math.floor(mins / 1440) + 'd ' + Math.floor((mins % 1440) / 60) + 'h ago';
+      el.textContent = text + ' (as of this snapshot, 5 Oct 2026 20:50)';
+    }
+    tick();
+    setInterval(tick, 30000);
+  })();
 })();
 </script>
