@@ -1,0 +1,637 @@
+<title>Apex &amp; Thesis Ledger</title>
+<style>
+/* layout: top stat strip -> filterable chronological ledger -> taxonomy/chapter tables -> dogfood callout -> status footer. flat dense surfaces, violet the only accent, mono for every identifier/number (Apex's own "Spec Ledger" convention, reused here on purpose) */
+:root{
+  --bg:#0b0b10; --surface:#15151d; --surface2:#1c1c26; --border:#2b2b38;
+  --fg:#e9e9ef; --muted:#92929f; --faint:#5d5d6b;
+  --accent:#8b6bff; --accent-dim:#5d4ab8;
+  --warn:#e0a94a; --good:#4fae7d;
+  --font-head:'Archivo',system-ui,sans-serif;
+  --font-body:'Archivo',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f8f7fb; --surface:#ffffff; --surface2:#f1effa; --border:#e2e0ec;
+    --fg:#17171f; --muted:#5e5e6c; --faint:#9a9aa8;
+    --accent:#6d46e8; --accent-dim:#ded4ff;
+    --warn:#a16a10; --good:#1f7a4e;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f8f7fb; --surface:#ffffff; --surface2:#f1effa; --border:#e2e0ec;
+  --fg:#17171f; --muted:#5e5e6c; --faint:#9a9aa8;
+  --accent:#6d46e8; --accent-dim:#ded4ff;
+  --warn:#a16a10; --good:#1f7a4e;
+  color-scheme: light;
+}
+:root[data-theme="dark"]{ color-scheme: dark; }
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--font-body);
+  margin:0; padding-inline:20px; padding-block:28px 60px;
+}
+a{color:var(--accent)}
+.wrap{max-width:980px; margin:0 auto}
+
+header.top{margin-bottom:20px}
+.top-row{display:flex; align-items:flex-start; justify-content:space-between; gap:16px}
+.theme-btn{
+  display:flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:11.5px;
+  color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:999px;
+  padding:6px 12px; cursor:pointer; white-space:nowrap; transition:border-color .15s,color .15s;
+}
+.theme-btn:hover{color:var(--fg); border-color:var(--faint)}
+.theme-btn svg{color:var(--accent)}
+
+.keydates{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1px;
+  background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden;
+  margin-bottom:20px;
+}
+.kd{background:var(--surface2); padding:13px 16px}
+.kd-k{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint)}
+.kd-v{font-family:var(--font-mono); font-weight:700; font-size:19px; color:var(--accent); margin-top:3px}
+.kd-c{color:var(--muted); font-size:12px; margin-top:3px}
+.kd-link a{font-family:var(--font-mono); font-weight:700; font-size:16px; text-decoration:none; margin-top:3px; display:inline-block}
+.kd-link a:hover{text-decoration:underline}
+.eyebrow{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); margin:0 0 6px;
+}
+h1{
+  font-family:var(--font-head); font-weight:800; font-size:clamp(28px,5vw,40px);
+  letter-spacing:-.01em; margin:0 0 8px; text-wrap:balance;
+}
+.sub{color:var(--muted); font-size:15px; max-width:62ch; line-height:1.5; margin:0}
+
+.stats{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:1px;
+  background:var(--border); border:1px solid var(--border); border-radius:10px;
+  overflow:hidden; margin:24px 0 8px;
+}
+.stat{background:var(--surface); padding:14px 16px}
+.stat .n{
+  font-family:var(--font-mono); font-weight:600; font-size:22px; font-variant-numeric:tabular-nums;
+  color:var(--fg);
+}
+.stat .l{color:var(--muted); font-size:11.5px; margin-top:3px; line-height:1.3}
+
+.links{display:flex; gap:18px; flex-wrap:wrap; margin:14px 2px 0}
+.links a{font-family:var(--font-mono); font-size:12.5px; color:var(--muted); text-decoration:none}
+.links a:hover{color:var(--accent)}
+
+section{margin-top:40px}
+.sec-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap}
+h2{font-family:var(--font-head); font-size:19px; font-weight:700; margin:0}
+.sec-note{color:var(--faint); font-size:12.5px; font-family:var(--font-mono)}
+
+.chips{display:flex; gap:8px; flex-wrap:wrap}
+.chip{
+  font-family:var(--font-mono); font-size:11.5px; letter-spacing:.02em; padding:5px 11px;
+  border-radius:999px; border:1px solid var(--border); background:var(--surface);
+  color:var(--muted); cursor:pointer; user-select:none; transition:border-color .15s,color .15s;
+}
+.chip:hover{color:var(--fg)}
+.chip[aria-pressed="true"]{border-color:var(--accent); color:var(--accent); background:var(--accent-dim)}
+
+.ledger{border-top:1px solid var(--border)}
+.entry{
+  display:grid; grid-template-columns:92px 90px 1fr; gap:14px; padding:13px 0;
+  border-bottom:1px solid var(--border); align-items:start;
+}
+.entry.hide{display:none}
+.entry .date{font-family:var(--font-mono); font-size:12px; color:var(--faint); padding-top:2px; white-space:nowrap}
+.tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+  padding:3px 8px; border-radius:5px; height:fit-content; text-align:center;
+}
+.tag.app{background:var(--surface2); color:var(--muted); border:1px solid var(--border)}
+.tag.thesis{background:var(--accent-dim); color:var(--accent); border:1px solid transparent}
+.tag.bug{background:rgba(224,169,74,.14); color:var(--warn); border:1px solid rgba(224,169,74,.3)}
+.entry .body .t{font-weight:600; font-size:14.5px; margin:0 0 3px}
+.entry .body .d{color:var(--muted); font-size:13.5px; line-height:1.5; margin:0}
+
+@media (max-width:620px){
+  .entry{grid-template-columns:1fr; gap:4px}
+  .entry .date{order:1}
+  .tag{order:2; justify-self:start}
+  .entry .body{order:3}
+}
+
+.pager{display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding-top:16px}
+.pbtn{
+  font-family:var(--font-mono); font-size:12.5px; min-width:30px; height:30px; padding:0 9px;
+  border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--muted);
+  cursor:pointer; text-align:center; transition:border-color .15s,color .15s;
+}
+.pbtn:hover:not(:disabled){color:var(--fg); border-color:var(--faint)}
+.pbtn:disabled{opacity:.35; cursor:default}
+.pbtn[aria-current="true"]{border-color:var(--accent); color:var(--accent); background:var(--accent-dim)}
+.pager .pinfo{font-family:var(--font-mono); font-size:11.5px; color:var(--faint); margin-left:6px}
+
+.realise-bar{display:flex; height:30px; border-radius:7px; overflow:hidden; border:1px solid var(--border)}
+.realise-seg{
+  display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:11px;
+  color:#fff; white-space:nowrap; overflow:hidden;
+}
+.realise-seg.good{background:var(--good)}
+.realise-seg.warn{background:var(--warn)}
+.realise-seg.muted{background:var(--faint)}
+.realise-cap{color:var(--muted); font-size:12.5px; line-height:1.5; margin-top:10px}
+
+.bars{display:flex; flex-direction:column; gap:10px; margin-top:4px}
+.bar-row{display:grid; grid-template-columns:90px 1fr 50px; align-items:center; gap:10px}
+.bar-label{font-family:var(--font-mono); font-size:12.5px; color:var(--muted)}
+.bar-track{background:var(--surface2); border-radius:4px; height:10px; overflow:hidden}
+.bar-fill{height:100%; background:var(--accent); border-radius:4px}
+.bar-val{font-family:var(--font-mono); font-size:12.5px; text-align:right; color:var(--fg); font-variant-numeric:tabular-nums}
+
+table{width:100%; border-collapse:collapse; font-size:13.5px}
+th{
+  text-align:left; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--faint); font-weight:500; padding:0 10px 8px; border-bottom:1px solid var(--border);
+}
+td{padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:top}
+td.num{font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--muted)}
+tr:last-child td{border-bottom:none}
+.ch-name{font-weight:600}
+.tbl-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:10px}
+.tbl-wrap table{min-width:480px}
+.tbl-wrap th:first-child, .tbl-wrap td:first-child{padding-left:14px}
+
+.dogfood{
+  background:var(--surface); border:1px solid rgba(224,169,74,.35); border-radius:10px; padding:4px 0;
+}
+.df-item{display:grid; grid-template-columns:84px 1fr; gap:14px; padding:13px 16px; border-bottom:1px solid var(--border)}
+.df-item:last-child{border-bottom:none}
+.df-item .date{font-family:var(--font-mono); font-size:12px; color:var(--warn); padding-top:1px}
+.df-item .t{font-weight:600; font-size:14px; margin:0 0 3px}
+.df-item .d{color:var(--muted); font-size:13px; line-height:1.5; margin:0}
+
+.pages{display:flex; flex-direction:column; gap:8px}
+.page-row{display:grid; grid-template-columns:92px 56px 1fr; gap:14px; align-items:baseline; font-size:13.5px}
+.page-row .date{font-family:var(--font-mono); font-size:12px; color:var(--faint)}
+.page-row .count{font-family:var(--font-mono); font-weight:600; color:var(--fg)}
+.page-row .note{color:var(--muted)}
+
+.status{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px;
+  background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden;
+}
+.status .cell{background:var(--surface); padding:16px}
+.status .k{font-family:var(--font-mono); font-size:11px; color:var(--faint); letter-spacing:.04em; text-transform:uppercase}
+.status .v{font-family:var(--font-mono); font-size:20px; font-weight:600; margin-top:4px}
+.status .v.good{color:var(--good)}
+.status .cap{color:var(--muted); font-size:12px; margin-top:2px}
+
+footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--font-mono)}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<div class="wrap">
+
+<header class="top">
+  <div class="top-row">
+    <div>
+      <p class="eyebrow">docs/thesis &amp; apex-backend - git history</p>
+      <h1>Apex &amp; Thesis Ledger</h1>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle light/dark theme">
+      <svg id="iconSun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg id="iconMoon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+      <span id="themeLabel">dark</span>
+    </button>
+  </div>
+  <p class="sub">Everything since <code style="font-family:var(--font-mono)">6d212b6</code>, the repo's first commit, read back out of its own history: 1,154 commits across a governance platform and the dissertation describing it, built the way the dissertation itself argues software should be - specification-anchored, gated, traceable.</p>
+</header>
+
+<div class="keydates">
+  <div class="kd"><div class="kd-k">Submission</div><div class="kd-v">7 Oct</div><div class="kd-c" id="kdSubmit">-</div></div>
+  <div class="kd"><div class="kd-k">Defense</div><div class="kd-v">23 Oct</div><div class="kd-c" id="kdDefense">-</div></div>
+  <div class="kd kd-link">
+    <div class="kd-k">Slides</div>
+    <a href="https://claude.ai/artifact/WDYvqVuMSJYxhce4eDSD4s#slide-fe70e7d866fe" target="_blank" rel="noopener">Open deck &#8594;</a>
+    <div class="kd-c">in progress, separate artifact</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n">164</div><div class="l">days since first commit</div></div>
+  <div class="stat"><div class="n">1,154</div><div class="l">total commits</div></div>
+  <div class="stat"><div class="n">62</div><div class="l">days writing the thesis</div></div>
+  <div class="stat"><div class="n">189</div><div class="l">commits touching docs/thesis</div></div>
+  <div class="stat"><div class="n">99<span style="color:var(--faint);font-weight:400">/100</span></div><div class="l">current page count</div></div>
+  <div class="stat"><div class="n">13<span style="color:var(--faint);font-weight:400">/12</span></div><div class="l">evaluation participants</div></div>
+</div>
+
+<div class="links">
+  <a href="https://github.com/thomastabs/apex" target="_blank" rel="noopener">Apex repo &#8594;</a>
+  <a href="https://apex-bolt.com" target="_blank" rel="noopener">Apex, live &#8594;</a>
+  <a href="https://github.com/thomastabs/OutfolioV1" target="_blank" rel="noopener">Outfolio repo &#8594;</a>
+  <a href="https://outfolio-v1.vercel.app/" target="_blank" rel="noopener">Outfolio, live &#8594;</a>
+</div>
+
+<section>
+  <div class="sec-head">
+    <h2>Timeline</h2>
+    <div class="chips" id="filters">
+      <span class="chip" data-f="all" aria-pressed="true">all</span>
+      <span class="chip" data-f="app" aria-pressed="false">app</span>
+      <span class="chip" data-f="thesis" aria-pressed="false">thesis</span>
+      <span class="chip" data-f="bug" aria-pressed="false">dogfood bugs</span>
+    </div>
+  </div>
+  <div class="ledger" id="ledger"></div>
+  <div class="pager" id="pager"></div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Commit taxonomy</h2>
+    <span class="sec-note">whole repo, by conventional-commit prefix</span>
+  </div>
+  <div class="bars" id="bars"></div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Chapters</h2>
+    <span class="sec-note">all scaffolded 2026-08-04 as \todo stubs; dates below are real content landing</span>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Chapter</th><th>First real content</th><th>Commits</th></tr></thead>
+      <tbody id="chapters"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Found by writing about it</h2>
+    <span class="sec-note">real Apex bugs the thesis/demonstration work surfaced</span>
+  </div>
+  <div class="dogfood" id="dogfood"></div>
+  <div class="pager" id="dfPager"></div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Page count, under the 80/100 ceiling</h2>
+    <span class="sec-note">IST hard caps: main text ≤80pp, whole document ≤100pp</span>
+  </div>
+  <div class="pages" id="pages"></div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>What the evaluation found</h2>
+    <span class="sec-note">Chapter 9, 13 unmoderated task-based sessions + demonstration on Outfolio</span>
+  </div>
+  <div class="realise">
+    <div class="realise-bar">
+      <div class="realise-seg good" style="width:83.3%">10 realised</div>
+      <div class="realise-seg warn" style="width:8.3%">1 proxy</div>
+      <div class="realise-seg muted" style="width:8.3%">1 partial</div>
+    </div>
+    <div class="realise-cap">12 governance constructs mapped (Table 7.1): Bolt Cycle Time initially measured through the wrong proxy, caught by comparing the implementation against its own written definition; spec-drift detection stayed partial for the technical specification.</div>
+  </div>
+  <div class="stats" style="margin-top:16px">
+    <div class="stat"><div class="n">56.73</div><div class="l">SUS mean &middot; grade D</div></div>
+    <div class="stat"><div class="n">21.5<span style="color:var(--faint);font-weight:400">/100</span></div><div class="l">NASA-TLX workload, low</div></div>
+    <div class="stat"><div class="n">92.6%</div><div class="l">Context Traceability Rate</div></div>
+    <div class="stat"><div class="n">98.65%</div><div class="l">Spec Conformance</div></div>
+    <div class="stat"><div class="n">1.85%</div><div class="l">AI Defect Escape Rate</div></div>
+    <div class="stat"><div class="n">0.22h</div><div class="l">Bolt Cycle Time, median</div></div>
+  </div>
+  <div class="stats" style="margin-top:1px">
+    <div class="stat"><div class="n">9 / 54</div><div class="l">Outfolio epics / stories</div></div>
+    <div class="stat"><div class="n">9</div><div class="l">calendar days, demonstration</div></div>
+    <div class="stat"><div class="n">123</div><div class="l">Outfolio commits</div></div>
+    <div class="stat"><div class="n">3 / 3</div><div class="l">loop-back routes exercised</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Scale</h2>
+    <span class="sec-note">current working tree + whole-history diff totals</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n">48.9k</div><div class="l">frontend lines, .ts/.tsx</div></div>
+    <div class="stat"><div class="n">26.8k</div><div class="l">backend lines, .py</div></div>
+    <div class="stat"><div class="n">22.6k</div><div class="l">backend test lines</div></div>
+    <div class="stat"><div class="n">251k</div><div class="l">total insertions, all history</div></div>
+    <div class="stat"><div class="n">62.3k</div><div class="l">total deletions, all history</div></div>
+    <div class="stat"><div class="n">47</div><div class="l">busiest day, commits (18 Jul)</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Status now</h2></div>
+  <div class="status">
+    <div class="cell"><div class="k">Whole document</div><div class="v">99 / 100</div><div class="cap">1pp margin</div></div>
+    <div class="cell"><div class="k">Main text</div><div class="v">71 / 80</div><div class="cap">as of last audit, 2026-09-27</div></div>
+    <div class="cell"><div class="k">Backlog</div><div class="v good">closed out</div><div class="cap">2026-10-05, REGULATIONS.md</div></div>
+    <div class="cell"><div class="k">Participants</div><div class="v good">13 / 12</div><div class="cap">target met, none withdrew</div></div>
+  </div>
+</section>
+
+<footer>generated from local git log + docs/thesis/REGULATIONS.md · versioned at docs/dashboard.html · a static snapshot, not a live view</footer>
+</div>
+
+<script>
+(function(){
+  // Theme toggle: explicit light/dark choice, remembered per-viewer, falls back to system.
+  (function(){
+    var root = document.documentElement;
+    var btn = document.getElementById('themeBtn');
+    var sun = document.getElementById('iconSun');
+    var moon = document.getElementById('iconMoon');
+    var label = document.getElementById('themeLabel');
+    var stored = null;
+    try { stored = localStorage.getItem('apex-ledger-theme'); } catch(e){}
+    var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var current = stored || (systemDark ? 'dark' : 'light');
+
+    function apply(theme){
+      current = theme;
+      root.setAttribute('data-theme', theme);
+      sun.hidden = theme !== 'dark';
+      moon.hidden = theme === 'dark';
+      label.textContent = theme;
+    }
+    apply(current);
+
+    btn.addEventListener('click', function(){
+      apply(current === 'dark' ? 'light' : 'dark');
+      try { localStorage.setItem('apex-ledger-theme', current); } catch(e){}
+    });
+  })();
+
+  // Key dates: computed live against the viewer's clock, never hardcoded "N days left".
+  (function(){
+    function fmt(target){
+      var now = new Date();
+      var t = new Date(target + 'T23:59:59');
+      var days = Math.ceil((t - now) / 86400000);
+      if (days > 1) return 'in ' + days + ' days';
+      if (days === 1) return 'tomorrow';
+      if (days === 0) return 'today';
+      return days === -1 ? 'yesterday' : (-days) + ' days ago';
+    }
+    document.getElementById('kdSubmit').textContent = fmt('2026-10-07');
+    document.getElementById('kdDefense').textContent = fmt('2026-10-23');
+  })();
+
+  var ledgerData = [
+    {d:'2026-04-24', tag:'app', t:'Repo created', x:'First commit. Backend/frontend split, FastAPI + Next.js, Taiga as the first PM integration.'},
+    {d:'2026-05-23', tag:'app', t:'Phase 2 save-flow polish', x:'Spinner and progress message added to the Save & Lock Design button.'},
+    {d:'2026-05-26', tag:'app', t:'Phase 3 header redesign', x:'Title, subtitle and a collapsible process diagram added above the task board.'},
+    {d:'2026-05-29', tag:'app', t:'Auto-layout for diagrams', x:'One-click auto-layout added to the ER diagram and screen-flow panels.'},
+    {d:'2026-06-01', tag:'app', t:'Choose New Story button', x:'Phase 3\'s Lock & Export stage gets a direct story switcher.'},
+    {d:'2026-06-05', tag:'app', t:'GitHub repo context enrichment', x:'Early version of what later became the server-side repomix pack.'},
+    {d:'2026-06-12', tag:'app', t:'Governance analytics dashboard shipped', x:'Bolt Cycle Time, Context Traceability Rate, AI Defect Escape Rate - the three metrics the thesis later defines in Chapter 6.'},
+    {d:'2026-06-14', tag:'app', t:'Deterministic temperature + Phase 3 DAG check', x:'Temperature policy fixed (0 structured / 0.2 creative); task coverage verified server-side.'},
+    {d:'2026-06-18', tag:'app', t:'EARS explainer in Phase 1', x:'Inline explainer for Easy Approach to Requirements Syntax, plus a constraints loading indicator.'},
+    {d:'2026-06-21', tag:'app', t:'Redis multi-replica enabled in prod', x:'Distributed lock verified against live Azure IPs; backend no longer a forced single replica.'},
+    {d:'2026-06-22', tag:'app', t:'Cross-check alt-model panel', x:'A second model can now review the first model\'s output, with a richer result panel.'},
+    {d:'2026-06-27', tag:'app', t:'Figma integration shipped', x:'Backend proxy, frame-to-story linking, design-change drift flagged into Phase 6 maintenance.'},
+    {d:'2026-07-01', tag:'app', t:'Bring-your-own API key', x:'OpenAI, Google and Anthropic keys all supported per project.'},
+    {d:'2026-07-02', tag:'app', t:'Usage/cost tracking shipped', x:'Real token/cost telemetry, tiered to the cheapest model for triage calls.'},
+    {d:'2026-07-03', tag:'app', t:'Traceability cluster view', x:'react-force-graph added as a switchable view of the spec-to-code traceability graph.'},
+    {d:'2026-07-04', tag:'app', t:'Phase 2 design delta', x:'Incremental design regeneration for stories added after the initial lock.'},
+    {d:'2026-07-08', tag:'app', t:'Server-side repomix pack', x:'github-context.md now generated by a real shallow-clone + repomix pass, not a client-side file-tree fetch.'},
+    {d:'2026-07-11', tag:'app', t:'AI-generated visual design system', x:'Design-token generation added to Phase 2.'},
+    {d:'2026-07-13', tag:'app', t:'Phase 1 clarifying Q&A', x:'Ambiguity check between the natural-language draft and the compiled Gherkin.'},
+    {d:'2026-07-15', tag:'app', t:'Impeccable design system established', x:'PRODUCT.md / DESIGN.md written. North Star "The Spec Ledger" - the same violet-accent, mono-for-identifiers language this page borrows.'},
+    {d:'2026-07-18', tag:'app', t:'Agent-file grounding picker', x:'AGENTS.md/CLAUDE.md/CODEX.md/GEMINI.md become selectable grounding context across phases.'},
+    {d:'2026-07-20', tag:'app', t:'Outfolio designated the QA subject', x:'A real OutSystems-portfolio product, chosen as the project Apex would be demonstrated on end-to-end. Same-day: per-task Bolt lifecycle tracking shipped.'},
+    {d:'2026-07-21', tag:'app', t:'Full 5-agent repo audit', x:'Every Critical/High/Medium/Low finding closed within 24 hours.'},
+    {d:'2026-08-04', tag:'app', t:'Typed, translated error toasts', x:'Every failure surfaced loud-by-default through one shared QueryCache/MutationCache hook.'},
+    {d:'2026-08-04', tag:'thesis', t:'Dissertation scaffolded', x:'IST template set up. All ten chapters created as \\todo stubs - the same day the error-toast overhaul shipped on the app side.'},
+    {d:'2026-08-05', tag:'thesis', t:'Front matter settled', x:'Cover, declaration, acknowledgments structure fixed before any chapter content existed.'},
+    {d:'2026-08-10', tag:'app', t:'Plane.so integration merged', x:'Full Taiga-parity second PM adapter, driven by a partner org\'s mid-project tool migration.'},
+    {d:'2026-08-11', tag:'thesis', t:'Chapter 5 statistics sourced', x:'The two motivating RCT/telemetry statistics traced back to their original papers.'},
+    {d:'2026-08-12', tag:'app', t:'Plane API limitations mitigated', x:'Three permanent Plane platform limits worked around where possible, documented where not.'},
+    {d:'2026-08-19', tag:'thesis', t:'Chapter 6 compressed 28 → 18pp', x:'The framework chapter\'s first real cut, before the page budget became load-bearing.'},
+    {d:'2026-08-20', tag:'thesis', t:'Chapter 7 written', x:'The Apex reference-implementation chapter - architecture, construct mapping, QA, limitations.'},
+    {d:'2026-08-21', tag:'thesis', t:'Chapter 8 design pre-registered', x:'Demonstration criteria committed to writing before any fieldwork ran, to block post-hoc selection.'},
+    {d:'2026-08-27', tag:'thesis', t:'Evaluation instruments built', x:'8 Google Forms (4 instruments × EN/PT): consent, Raw NASA-TLX, SUS, Apex UX questionnaire.'},
+    {d:'2026-09-01', tag:'app', t:'Real, tool-agnostic AI Defect Escape Rate', x:'Computed from linked PM issues across both Taiga and Plane, not just one tool.'},
+    {d:'2026-09-01', tag:'thesis', t:'Redundancy pass', x:'Whole-document cut, 107 → 106pp, every removal independently verified.'},
+    {d:'2026-09-02', tag:'thesis', t:'P0 pilot counted as a full participant', x:'Session verified clean across all four instruments, upgraded from discarded pilot.'},
+    {d:'2026-09-02', tag:'bug', t:'P0 pilot surfaces two real bugs', x:'GitHub pack token ceiling, and stale context trusted at "High Confidence" - found live, during the first real evaluation session.'},
+    {d:'2026-09-10', tag:'thesis', t:'Blank-page LaTeX fix', x:'openright→openany, cleardoublepage→clearpage. Recovered pages with zero content cut.'},
+    {d:'2026-09-13', tag:'thesis', t:'Evaluation data collection complete', x:'13 of a 12-participant target, all four instruments returned, nobody withdrew.'},
+    {d:'2026-09-13', tag:'thesis', t:'New lifecycle diagram', x:'Six-phase Graphviz diagram added as Figure 6.1 and reused on the cover.'},
+    {d:'2026-09-14', tag:'thesis', t:'Chapter 9 written from real study data', x:'SUS/TLX/UX results, then three same-day tightening passes on the Discussion section.'},
+    {d:'2026-09-14', tag:'thesis', t:'PDF renamed via jobname', x:'Output became ist1103641-tomas-taborda-dissertacao.pdf; source stayed main.tex.'},
+    {d:'2026-09-15', tag:'thesis', t:'Chapter 7 renamed to "Implementation"', x:'Title change only, for clarity against Chapter 6\'s "Proposal".'},
+    {d:'2026-09-15', tag:'thesis', t:'Extended abstract, Sections 5-8 written', x:'Reference Implementation through Discussion, drawn from the now-real Chapter 7/9 content.'},
+    {d:'2026-09-18', tag:'app', t:'Manual Fix-Bolt reporting', x:'Bug reports can now be filed from the dashboard without a failed QA scenario as the trigger.'},
+    {d:'2026-09-18', tag:'bug', t:'Fix-Bolt data-loss bug found and fixed', x:'fail_gate was overwriting bug_report_<id>.md instead of appending a dated heading - real data loss, caught while writing the chapter that describes Fix-Bolts.'},
+    {d:'2026-09-20', tag:'app', t:'Deployment-log viewer', x:'View Deployment Log button added to Phase 5, surfacing deployment-log.md directly.'},
+    {d:'2026-09-21', tag:'app', t:'Artifact-chain gap reasons surfaced', x:'Analytics now explains WHY a story\'s traceability chain is incomplete, not just that it is.'},
+    {d:'2026-09-22', tag:'thesis', t:'Evaluation analytics exported', x:'apex-analytics.md/csv and apex-spec-drift generated from the live Outfolio project.'},
+    {d:'2026-09-23', tag:'thesis', t:'First structural cutting pass', x:'2 pages recovered without touching the narrative.'},
+    {d:'2026-09-24', tag:'thesis', t:'Chapters 8 and 10 written from real evidence', x:'Last two \\todo chapters filled in, with a page-budget cutting pass in the same commit.'},
+    {d:'2026-09-27', tag:'thesis', t:'Final IST compliance audit', x:'Both page ceilings confirmed compliant: 71/80 main text, 99/100 whole document.'},
+    {d:'2026-09-27', tag:'thesis', t:'Extended abstract gains figures and a table', x:'Lifecycle diagram, a construct-mapping table, and a real Deployment Gate screenshot added.'},
+    {d:'2026-10-04', tag:'bug', t:'Bolt Cycle Time missing from export', x:'The dashboard computed it; the Markdown/CSV export never surfaced it. Found while sourcing a number for Chapter 8.'},
+    {d:'2026-10-04', tag:'thesis', t:'Partner-org narrative corrected', x:'The abandoned third demonstration setting was wrongly framed as a deliberate tool-adapter test; corrected to the real sequence (Taiga → Plane migration → delay).'},
+    {d:'2026-10-04', tag:'thesis', t:'Figure 7.1 caption fixed', x:'Caption rewritten to match the actual Review-Draft-step screenshot it sits beside.'},
+    {d:'2026-10-05', tag:'thesis', t:'Appendix B instrument links added', x:'Live EN/PT Google Forms URLs for every instrument, collected in one place and pointed to from Chapter 9. A stray xurl bug (URLs overflowing the page margin) fixed in the same pass.'},
+    {d:'2026-10-05', tag:'thesis', t:'Colon-tic pass - Chapter 6', x:'14 "claim: explanation" sentences rewritten to plain sentences or a since/because join.'},
+    {d:'2026-10-05', tag:'thesis', t:'Colon-tic pass - Chapter 8', x:'12 instances rewritten, same rule applied.'},
+    {d:'2026-10-05', tag:'thesis', t:'Colon-tic pass - Chapter 9', x:'24 instances rewritten - the largest single pass, left genuine enumerations and quote lead-ins alone.'},
+    {d:'2026-10-05', tag:'thesis', t:'Colon-tic pass - Chapter 10', x:'5 instances rewritten, the last of the four chapters.'},
+    {d:'2026-10-05', tag:'thesis', t:'Stray AI-response sentence removed', x:'A leftover "Below is a tighter version..." preamble, pasted into Chapter 9\'s body by mistake, deleted.'},
+    {d:'2026-10-05', tag:'thesis', t:'Final full-document review', x:'Every .tex file diffed against the "probably final" zip; genuine edits kept, stale reversions declined with reasons given.'},
+    {d:'2026-10-05', tag:'thesis', t:'Backlog closed out', x:'REGULATIONS.md\'s open-items list resolved: Acknowledgments confirmed real, bibliography spacing and Table 9.3 both closed without action, jury section marked expected-blank.'},
+    {d:'2026-10-05', tag:'thesis', t:'This dashboard built', x:'Generated straight from git log and REGULATIONS.md - no number on this page is estimated.'}
+  ];
+
+  var PAGE_SIZE = 12;
+  var state = { filter: 'all', page: 1 };
+
+  var ledger = document.getElementById('ledger');
+  var pager = document.getElementById('pager');
+
+  function filtered(){
+    return state.filter === 'all' ? ledgerData : ledgerData.filter(function(e){ return e.tag === state.filter; });
+  }
+
+  function renderLedger(){
+    var items = filtered();
+    var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    state.page = Math.min(Math.max(1, state.page), totalPages);
+    var start = (state.page - 1) * PAGE_SIZE;
+    var pageItems = items.slice(start, start + PAGE_SIZE);
+
+    ledger.innerHTML = '';
+    pageItems.forEach(function(e){
+      var row = document.createElement('div');
+      row.className = 'entry';
+      row.innerHTML =
+        '<div class="date">'+e.d+'</div>' +
+        '<div class="tag '+e.tag+'">'+(e.tag==='bug'?'dogfood':e.tag)+'</div>' +
+        '<div class="body"><p class="t">'+e.t+'</p><p class="d">'+e.x+'</p></div>';
+      ledger.appendChild(row);
+    });
+
+    pager.innerHTML = '';
+    var prev = document.createElement('button');
+    prev.className = 'pbtn'; prev.textContent = '←'; prev.disabled = state.page === 1;
+    prev.onclick = function(){ state.page--; renderLedger(); };
+    pager.appendChild(prev);
+
+    for (var p = 1; p <= totalPages; p++){
+      (function(p){
+        var b = document.createElement('button');
+        b.className = 'pbtn'; b.textContent = String(p);
+        b.setAttribute('aria-current', state.page === p ? 'true' : 'false');
+        b.onclick = function(){ state.page = p; renderLedger(); };
+        pager.appendChild(b);
+      })(p);
+    }
+
+    var next = document.createElement('button');
+    next.className = 'pbtn'; next.textContent = '→'; next.disabled = state.page === totalPages;
+    next.onclick = function(){ state.page++; renderLedger(); };
+    pager.appendChild(next);
+
+    var info = document.createElement('span');
+    info.className = 'pinfo';
+    info.textContent = items.length + ' entries';
+    pager.appendChild(info);
+  }
+
+  renderLedger();
+
+  var chips = document.querySelectorAll('#filters .chip');
+  chips.forEach(function(c){
+    c.addEventListener('click', function(){
+      chips.forEach(function(o){ o.setAttribute('aria-pressed','false'); });
+      c.setAttribute('aria-pressed','true');
+      state.filter = c.dataset.f;
+      state.page = 1;
+      renderLedger();
+    });
+  });
+
+  var barData = [
+    {l:'feat', v:283}, {l:'fix', v:209}, {l:'docs', v:228}, {l:'refactor', v:16}, {l:'test', v:11}
+  ];
+  var max = Math.max.apply(null, barData.map(function(b){return b.v;}));
+  var bars = document.getElementById('bars');
+  barData.forEach(function(b){
+    var row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML =
+      '<div class="bar-label">'+b.l+'(...)</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:'+(b.v/max*100)+'%"></div></div>' +
+      '<div class="bar-val">'+b.v+'</div>';
+    bars.appendChild(row);
+  });
+
+  var chapterData = [
+    ['1 - Introduction','2026-08-?? early','11'],
+    ['2 - Methodology','2026-08-?? early','15'],
+    ['3 - Background','2026-08-?? early','8'],
+    ['4 - SLR','2026-08-?? early','18'],
+    ['5 - Problem','2026-08-11','11'],
+    ['6 - Proposal (framework)','2026-08-19 / 20','42'],
+    ['7 - Apex (implementation)','2026-08-20','39'],
+    ['8 - Demonstration','2026-08-21 design, 2026-09-24 content','24'],
+    ['9 - Evaluation','2026-09-14','38'],
+    ['10 - Conclusion','2026-09-24','19'],
+    ['Appendix A','-','11'],
+    ['Appendix B - Evaluation Instruments','-','18']
+  ];
+  var cbody = document.getElementById('chapters');
+  chapterData.forEach(function(r){
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="ch-name">'+r[0]+'</td><td>'+r[1]+'</td><td class="num">'+r[2]+'</td>';
+    cbody.appendChild(tr);
+  });
+
+  var dfData = [
+    {d:'2026-09-02', t:'GitHub pack token ceiling', x:'Developer-pack generation truncated silently past a token limit, found live mid-pilot rather than in testing.'},
+    {d:'2026-09-02', t:'Stale context trusted as "High Confidence"', x:'An advisory governance surface reported high confidence on evidence that was no longer current.'},
+    {d:'2026-09-19', t:'Shared-endpoint defect propagated across nine stories', x:'One common-specification bug, not nine independent ones - caught only because the demonstration ran at full project scale instead of the pre-registered single unit.'},
+    {d:'2026-09-18', t:'Fix-Bolt bug-report overwrite', x:'fail_gate replaced the whole bug_report_<id>.md file instead of appending; real history-loss bug, fixed the same session it was found.'},
+    {d:'2026-09-20', t:'Phase 6 handoff silently discarded its payload', x:'The control that opens a Maintenance item in Phase 1 carried no content through - a defect visible only by actually using the loop-back, not by reading the code.'},
+    {d:'2026-09-21', t:'Production database wiped by the AI implementer', x:'A destructive reset script ran against live production without checking which environment it was pointed at, during a routine seeding task. No gate catches a destructive action taken inside a phase.'},
+    {d:'2026-09-24', t:'Regression detection missing from governance exports', x:'The demonstration log recorded a real regression, introduced by one Fix-Bolt and repaired by a second - but the exports have no regression field at all to show it.'},
+    {d:'2026-10-04', t:'Bolt Cycle Time absent from export', x:'Computed and displayed on the dashboard, never written into the Markdown/CSV export - found while trying to cite the number in the thesis.'}
+  ];
+
+  var DF_PAGE_SIZE = 4;
+  var dfState = { page: 1 };
+  var dfWrap = document.getElementById('dogfood');
+  var dfPager = document.getElementById('dfPager');
+
+  function renderDogfood(){
+    var totalPages = Math.max(1, Math.ceil(dfData.length / DF_PAGE_SIZE));
+    dfState.page = Math.min(Math.max(1, dfState.page), totalPages);
+    var start = (dfState.page - 1) * DF_PAGE_SIZE;
+    var pageItems = dfData.slice(start, start + DF_PAGE_SIZE);
+
+    dfWrap.innerHTML = '';
+    pageItems.forEach(function(e){
+      var row = document.createElement('div');
+      row.className = 'df-item';
+      row.innerHTML = '<div class="date">'+e.d+'</div><div><p class="t">'+e.t+'</p><p class="d">'+e.x+'</p></div>';
+      dfWrap.appendChild(row);
+    });
+
+    dfPager.innerHTML = '';
+    var prev = document.createElement('button');
+    prev.className = 'pbtn'; prev.textContent = '←'; prev.disabled = dfState.page === 1;
+    prev.onclick = function(){ dfState.page--; renderDogfood(); };
+    dfPager.appendChild(prev);
+
+    for (var p = 1; p <= totalPages; p++){
+      (function(p){
+        var b = document.createElement('button');
+        b.className = 'pbtn'; b.textContent = String(p);
+        b.setAttribute('aria-current', dfState.page === p ? 'true' : 'false');
+        b.onclick = function(){ dfState.page = p; renderDogfood(); };
+        dfPager.appendChild(b);
+      })(p);
+    }
+
+    var next = document.createElement('button');
+    next.className = 'pbtn'; next.textContent = '→'; next.disabled = dfState.page === totalPages;
+    next.onclick = function(){ dfState.page++; renderDogfood(); };
+    dfPager.appendChild(next);
+
+    var info = document.createElement('span');
+    info.className = 'pinfo';
+    info.textContent = dfData.length + ' entries';
+    dfPager.appendChild(info);
+  }
+
+  renderDogfood();
+
+  var pageData = [
+    {d:'2026-09-01', c:'107→106', n:'Redundancy pass: cut restated sentences, no content lost.'},
+    {d:'2026-09-10', c:'107→94', n:'Blank-page LaTeX fix recovered pages with zero content cut.'},
+    {d:'2026-09-23', c:'−2pp', n:'First structural cutting pass.'},
+    {d:'2026-09-27', c:'99/100', n:'Final compliance audit - both ceilings confirmed with margin.'},
+    {d:'2026-10-04', c:'100/100', n:'Bolt Cycle Time value + Appendix B links pushed to the cap.'},
+    {d:'2026-10-05', c:'99/100', n:'Colon-tic pass recovered 1pp of margin - current state.'}
+  ];
+  var pages = document.getElementById('pages');
+  pageData.forEach(function(p){
+    var row = document.createElement('div');
+    row.className = 'page-row';
+    row.innerHTML = '<div class="date">'+p.d+'</div><div class="count">'+p.c+'</div><div class="note">'+p.n+'</div>';
+    pages.appendChild(row);
+  });
+})();
+</script>
