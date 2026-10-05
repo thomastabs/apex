@@ -55,7 +55,7 @@ header.top{margin-bottom:20px}
 .kd-k{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint)}
 .kd-v{font-family:var(--font-mono); font-weight:700; font-size:19px; color:var(--accent); margin-top:3px}
 .kd-c{color:var(--muted); font-size:12px; margin-top:3px}
-.kd-link a{font-family:var(--font-mono); font-weight:700; font-size:16px; text-decoration:none; margin-top:3px; display:inline-block}
+.kd-link a{font-family:var(--font-mono); font-weight:700; font-size:16px; text-decoration:none; margin-top:3px; display:inline-flex; align-items:center}
 .kd-link a:hover{text-decoration:underline}
 .eyebrow{
   font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
@@ -110,7 +110,8 @@ h1{
 .contrib-legend .cell[data-level="4"]{background:var(--good)}
 
 .links{display:flex; gap:18px; flex-wrap:wrap; margin:14px 2px 0}
-.links a{font-family:var(--font-mono); font-size:12.5px; color:var(--muted); text-decoration:none}
+.links a{font-family:var(--font-mono); font-size:12.5px; color:var(--muted); text-decoration:none; display:inline-flex; align-items:center}
+.ext-icon{margin-right:5px; flex:none}
 .links a:hover{color:var(--accent)}
 
 section{margin-top:40px}
@@ -243,7 +244,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   <div class="kd"><div class="kd-k">Defense</div><div class="kd-v">23 Oct</div><div class="kd-c" id="kdDefense">-</div></div>
   <div class="kd kd-link">
     <div class="kd-k">Slides</div>
-    <a href="https://claude.ai/artifact/WDYvqVuMSJYxhce4eDSD4s#slide-fe70e7d866fe" target="_blank" rel="noopener">🌐 Open deck</a>
+    <a href="https://claude.ai/artifact/WDYvqVuMSJYxhce4eDSD4s#slide-fe70e7d866fe" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Open deck</a>
     <div class="kd-c">in progress, separate artifact</div>
   </div>
 </div>
@@ -258,10 +259,10 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 </div>
 
 <div class="links">
-  <a href="https://github.com/thomastabs/apex" target="_blank" rel="noopener">🌐 Apex repo</a>
-  <a href="https://apex-bolt.com" target="_blank" rel="noopener">🌐 Apex, live</a>
-  <a href="https://github.com/thomastabs/OutfolioV1" target="_blank" rel="noopener">🌐 Outfolio repo</a>
-  <a href="https://outfolio-v1.vercel.app/" target="_blank" rel="noopener">🌐 Outfolio, live</a>
+  <a href="https://github.com/thomastabs/apex" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Apex repo</a>
+  <a href="https://apex-bolt.com" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Apex, live</a>
+  <a href="https://github.com/thomastabs/OutfolioV1" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Outfolio repo</a>
+  <a href="https://outfolio-v1.vercel.app/" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Outfolio, live</a>
 </div>
 
 <section>
