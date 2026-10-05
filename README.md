@@ -38,6 +38,7 @@ Apex is the reference implementation of a broader process framework for governed
 | `docs/framework/Draft-and-Ideas-v1.docx` | The original working draft, kept for the historical record — the framework's first conceptual scaffold before the v2 rewrite (role model reframed as hats not people, the DevOps Alliance role dropped, Bolt terminology confirmed as a direct AWS AI-DLC borrowing). |
 | `docs/framework/Apex-Implementation-Report.docx` | Internal + external engineering documentation for the thesis writeup, distinct from the framework specification above — how Apex itself was built, tested, and deployed: architecture diagrams, the spec-anchored storage model, the single-writer concurrency model and its Redis multi-replica escape hatch (live in production), the layered test strategy (1,640 backend tests, 318 frontend unit tests, 24 E2E test cases across 12 specs) and CI gating, the Docker/Azure Container Apps deployment pipeline, and a dated incident log of real production bugs found and fixed over the project's history. |
 | `docs/diagrams/big-picture.puml` / `docs/diagrams/big-picture.bpmn` | The big-picture diagram in two notations — a PlantUML flow and a standards-compliant BPMN 2.0 process (openable in Camunda Modeler, bpmn.io, or any BPMN tool). Both show all seven phases end to end with each phase's input, output, and literature citation, plus the governed Maintenance loop-back (Change Request → Discovery; Secure Lane → Testing) — the framework's explicit answer to being read as linear/Waterfall. Rendered PNG/SVG in `docs/diagrams/Images/`. |
+| [`docs/dashboard.html`](https://claude.ai/artifact/2qhQzqYDJ4ybP4Xoqr5BRd) | **Apex & Thesis Ledger** — a self-contained dashboard built from this repo's own git history: a GitHub-style contribution heatmap, a filterable paginated timeline of both the app and the thesis, commit taxonomy, chapter-by-chapter write dates, real bugs found while writing the thesis about the tool that has those bugs, the page-budget saga, evaluation headline results, and the current submission/defense countdown. A static snapshot, not a live view — re-sync by publishing the file fresh. |
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -743,7 +744,7 @@ new Azure IP is likely dropped too.
 - npm
 - Docker, optional
 - Anthropic API key
-- Taiga account
+- Taiga or Plane.so account
 - GitHub Personal Access Token, optional (for repository context enrichment)
 - `git` + [`repomix`](https://github.com/yamadashy/repomix) (`npm install -g repomix`), only if running the backend **outside Docker** and using GitHub context sync — `backend/Dockerfile` already bakes both in for the containerized backend
 - Figma Personal Access Token, optional (for design context + generating stories from frames)
