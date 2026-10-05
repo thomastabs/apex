@@ -227,7 +227,11 @@
 % PACKAGE url:
 % -----------------------------------------------------------------------------
 % Provides better support for handling and breaking URLs.
-\usepackage{url} 
+\usepackage{url}
+% xurl: breaks long unbroken URLs (e.g. Google Forms ids) at any character
+% instead of overflowing the margin, since url.sty alone only breaks at a
+% fixed punctuation set that these ids rarely contain.
+\usepackage{xurl}
 %
 % -----------------------------------------------------------------------------
 % PACKAGE Cleveref:
