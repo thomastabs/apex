@@ -38,16 +38,22 @@ Two artefacts were produced in \Cref{chap:proposal,chap:apex}: a framework and i
 
 Demonstration in a real project & Framework and instantiation & Realisation, practitioner support & That the artefact is applicable and produces the intended artefacts and decisions \\
 \addlinespace
+
 \ac{SUS} & Instantiation (Apex) & Practitioner support & Perceived usability of the supporting tool \\
 \addlinespace
+
 \ac{NASA-TLX} & Instantiation (Apex) & Practitioner support & Perceived cognitive workload imposed on the practitioner \\
 \addlinespace
+
 Apex \ac{UX} questionnaire (author-designed) & Instantiation (Apex), with two items scoped to the framework & Practitioner support & Trust in AI-generated content, legibility of phase gates, and error surfacing, which \ac{SUS} and \ac{NASA-TLX} are not designed to reach \\
 \addlinespace
+
 Practitioner interviews & Framework & Placement, governance & Practicality, feasibility, and perceived value in real workflows \\
 \addlinespace
+
 Agile and Scrum expert interviews & Framework & Placement, governance & Alignment with, and departure from, established delivery methodology \\
 \addlinespace
+
 Analytical assessment against criteria & Framework & Placement, governance & Degree to which stated design criteria are satisfied \\
 \end{longtable}
 }
@@ -74,7 +80,7 @@ The sample comprised thirteen participants and was predominantly junior. Three w
 
 \item \textbf{Data collection.} Sessions and interviews were not audio, video or screen-recorded. Collected data comprised questionnaire responses, submission timestamps and contemporaneous interview notes written up immediately after each interview. The limitations of note-based rather than transcript-based analysis are addressed in \Cref{sec:threats}.
 
-\item \textbf{Anonymisation and retention.} Participants are identified only as P0-P12; names, employers and identifying project details were not retained with responses. Only wording recorded verbatim is presented as quotation, with other interview material explicitly paraphrased. Anonymised responses and interview notes are retained with researcher-only access as described in \Cref{sec:appB_consent}, permitting the reported aggregates to be recomputed.
+\item \textbf{Anonymisation and retention.} Participants are identified only as P0-P12; names, employers and identifying project details were not retained with responses. Only wording recorded verbatim is presented as quotation, with other interview material explicitly paraphrased. Anonymised responses and interview notes are retained with researcher-only access as described in \Cref{sec:appB_consent}, permitting the reported aggregates to be recomputed. Live links to every instrument below, in both languages, are collected in \Cref{sec:appB_access}.
 
 \end{itemize}
 
@@ -82,7 +88,7 @@ The sample comprised thirteen participants and was predominantly junior. Three w
 \section{Instruments and Procedure}
 \label{sec:eval_instruments_procedure}
 
-The usability study was administered entirely unmoderated. Participants worked independently, at their own pace, from a fixed written task script and completed the questionnaires online without the researcher present. A small moderated think-aloud arm was considered but deliberately removed. Without recordings, observation would have produced only facilitator notes, and because the author designed both artefacts under evaluation, facilitation would also have introduced a direct risk of steering, hinting or reacting to participants. The trade-off is the absence of measured task completion, time on task, assist counts and observational evidence of where participants struggled, which is discussed in \Cref{sec:threats}. Live links to every instrument below, in both languages, are collected in \Cref{sec:appB_access}.
+The usability study was administered entirely unmoderated. Participants worked independently, at their own pace, from a fixed written task script and completed the questionnaires online without the researcher present. Without recordings, observation would have produced only facilitator notes, and because the author designed both artefacts under evaluation, facilitation would also have introduced a direct risk of steering, hinting or reacting to participants. The trade-off is the absence of measured task completion, time on task, assist counts and observational evidence of where participants struggled, which is discussed in \Cref{sec:threats}.
 
 \subsection{System Usability Scale}
 \label{sec:sus}
@@ -104,7 +110,7 @@ The \ac{NASA-TLX}~\cite{Hart:1988TLX} measures perceived workload across mental 
 
 The Raw variant was chosen because per-task administration would otherwise require ninety pairwise weighting comparisons per participant. More importantly, Hart's review of 550 studies found no consistent sensitivity advantage for the weighted form across direct comparisons~\cite{Hart:2006TLX}. The six subscale scores, which are the primary results in this study, are identical under both variants; weighting affects only the aggregate.
 
-Two departures from the published instrument were made. Responses used a 0-10 linear scale rather than the original twenty-interval line and were rescaled to 0-100 by multiplying by ten. This simplifies unmoderated administration but reduces resolution, so small differences are not interpreted as meaningful and the values are not treated as directly comparable with studies using the original response scale. The reversed performance scale was also placed last rather than fourth to reduce the risk of inversion errors during an unmoderated session. Neither change alters the Raw \ac{NASA-TLX} computation. Repeated administration may introduce anchoring and fatigue, particularly on later tasks. These risks are discussed in \Cref{sec:threats} and weighed against the benefit of obtaining a phase-specific workload profile. Both instruments were applied to one fixed task set, identical in wording and order for all participants. Nine tasks carried a single password-reset Unit of Work from requirement to deployed increment:
+Two departures from the published instrument were made. Responses used a 0-10 linear scale rather than the original twenty-interval line and were rescaled to 0-100 by multiplying by ten. This simplifies unmoderated administration but reduces resolution, so small differences are not interpreted as meaningful and the values are not treated as directly comparable with studies using the original response scale. The reversed performance scale was also placed last rather than fourth to reduce the risk of inversion errors during an unmoderated session. Neither change alters the Raw \ac{NASA-TLX} computation. Repeated administration may introduce anchoring and fatigue, particularly on later tasks. These risks are discussed in \Cref{sec:threats} and weighed against the benefit of obtaining a phase-specific workload profile. Both instruments were applied to one fixed task set, identical in wording and order for all participants. Nine tasks carried a single password-reset Epic from requirement to deployed increment:
 
 \begin{table}[htb]
 \centering
@@ -135,7 +141,7 @@ Task 8 was initially designed as a refusal test in which deployment would be blo
 \subsection{Apex UX Questionnaire}
 \label{sec:apex_ux}
 
-An eighteen-item questionnaire was developed for this evaluation to capture aspects not addressed by \ac{SUS} or Raw \ac{NASA-TLX}: trust in AI-generated content, perceptions of phase gates, and whether reviewing generated output felt cheaper than producing it. The items were grouped into five constructs: process understanding, interaction with AI-generated content, control and reversibility, feedback and errors, and fit to real work. Because the questionnaire is not validated, results are reported item by item rather than as composite or subscale scores. It was administered after \ac{SUS} and is reproduced in \Cref{chapter:appendixB}. Two items in the fifth construct concern the framework rather than Apex itself, asking whether the artefacts and process fit real work. Although presented on the same questionnaire for participant convenience, they are analysed separately under the framework evidence in \Cref{tab:eval_instruments}. Two cross-item relationships were defined in advance:
+An eighteen-item questionnaire was developed for this evaluation to capture aspects not addressed by \ac{SUS} or Raw \ac{NASA-TLX} those being trust in AI-generated content, perceptions of phase gates, and whether reviewing generated output felt cheaper than producing it. The items were grouped into five constructs: process understanding, interaction with AI-generated content, control and reversibility, feedback and errors, and fit to real work. Because the questionnaire is not validated, results are reported item by item rather than as composite or subscale scores. It was administered after \ac{SUS} and is reproduced in \Cref{chapter:appendixB}. Two items in the fifth construct concern the framework rather than Apex itself, asking whether the artefacts and process fit real work. Although presented on the same questionnaire for participant convenience, they are analysed separately under the framework evidence in \Cref{tab:eval_instruments}. Two cross-item relationships were defined in advance:
 
 \begin{itemize}[leftmargin=0.6cm, itemsep=0.3em, topsep=0.2em]
 
@@ -283,7 +289,7 @@ Of the fifteen instantiation-scoped items, \textbf{ten had a median of 4} and \t
 
 The pre-defined trust-calibration pair did not diverge at the median. B2, reviewing requiring less effort than writing, and B4, trust sufficient for real use, both had a median of \textbf{4}, with no participant below \textbf{3} on either item. This is consistent with calibrated trust at the aggregate level, but P7's free text described the opposite pattern directly: ``I did not review in great detail and I trusted it completely''. Because the sessions were unobserved, the study cannot determine how common that behaviour was; this limitation is carried into \Cref{sec:threats}.
 
-The framework-scoped items show a more nuanced result. E3, whether the process effort is worth its output, received no disagreement. \textbf{0} responses at 1 or 2, \textbf{2} neutral, \textbf{5} at 4 and \textbf{6} at 5, giving a median of \textbf{4}. E2, whether the process fits the participant's team, was the weakest-supported of the seventeen items. \textbf{3} marked \emph{N/A}, none strongly agreed, \textbf{2} disagreed, \textbf{2} were neutral and \textbf{6} agreed, also yielding a median of \textbf{4}. The same three participants marked \emph{N/A} on E1, so those missing values are related rather than independent; all three answered E3. The main distinction is therefore between perceived value and organisational fit, because participants were more willing to say the process was worth its cost than that it matched how their own team works.
+The framework-scoped items show a more nuanced result. E3, whether the process effort is worth its output, received no disagreement. \textbf{0} responses at 1 or 2, \textbf{2} neutral, \textbf{5} at 4 and \textbf{6} at 5, giving a median of \textbf{4}. E2, whether the process fits the participant's team, was the weakest-supported of the seventeen items. \textbf{3} marked \emph{N/A}, none strongly agreed, \textbf{2} disagreed, \textbf{2} were neutral and \textbf{6} agreed, also yielding a median of \textbf{4}. The same three participants marked \emph{N/A} on E1, so those missing values are related rather than independent; all three answered E3. The main distinction is therefore between perceived value and organisational fit because participants were more willing to say the process was worth its cost than that it matched how their own team works.
 
 \subsection{Analytical Assessment}
 \label{sec:results_analytical}
@@ -346,7 +352,7 @@ Governance of AI-enabled activity
 
 \Cref{tab:eval_instruments} names the demonstration as an instrument for realisation and practitioner support alongside the four above; \Cref{chap:demonstration} narrates it in full and \Cref{sec:demo_summary} already states its headline facts (nine epics, fifty-four stories, all three loop-back routes exercised, one regression caught and repaired). What follows is the governance-metric detail behind those facts and how it bears on \Cref{tab:analytical}.
 
-The instantiation's own governance exports return the three metrics \Cref{sec:metrics} defines, and one it does not. Bolt Cycle Time, computed per task from \texttt{pack\_ready} to \texttt{done}, is median 0.22h and p90 1.4h across 254 tasks; an early implementation measured story-level gate transitions under this name instead, a construct/proxy confusion corrected only during the demonstration window (\Cref{sec:demo_observations}). Context Traceability Rate is 50 of 54 deployed stories, 92.6 per cent (the shortfall's single root cause is given in \Cref{sec:demo_observations}). Spec Conformance, an instantiation-added check rather than a framework metric, is a mean of 98.65 per cent across all 54 checked stories, with the finding-level detail and its shared-component root cause in \Cref{sec:demo_observations}. AI Defect Escape Rate is 1 of 54, 1.85 per cent, subject to the same-session blind spot already noted there. Nineteen Fix-Bolts were logged across 14 of the 54 stories.
+The instantiation's own governance exports return the three metrics \Cref{sec:metrics} defines, and one it does not.  Bolt Cycle Time, computed per task from \texttt{pack\_ready} to \texttt{done}, is median 0.22h and p90 1.4h across 254 tasks.  Context Traceability Rate is 50 of 54 deployed stories, 92.6 per cent (the shortfall's single root cause is given in \Cref{sec:demo_observations}). Spec Conformance, an instantiation-added check rather than a framework metric, is a mean of 98.65 per cent across all 54 checked stories, with the finding-level detail and its shared-component root cause in \Cref{sec:demo_observations}. AI Defect Escape Rate is 1 of 54, 1.85 per cent, subject to the same-session blind spot already noted there. Nineteen Fix-Bolts were logged across 14 of the 54 stories.
 
 Two results from the demonstration bear on \Cref{tab:analytical}'s ratings above and are cited there rather than repeated: the Testing Gate was shown passable by a suite that had stopped measuring the system it tested, and a governance surface, the Phase 5 pre-flight check, was found reporting high confidence on stale evidence on two further occasions beyond the one already recorded in the study proper (\Cref{sec:eval_discussion}). A third result has no instrument above to attach to: on one occasion the AI implementer executed a destructive command against the live production database without checking which environment it was pointed at, a failure inside a phase rather than at a gate, which no construct in \Cref{tab:apex_mapping} was positioned to catch (\Cref{sec:demo_observations}).
 
