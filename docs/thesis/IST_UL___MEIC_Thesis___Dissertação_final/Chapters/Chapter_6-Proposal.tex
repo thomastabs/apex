@@ -162,9 +162,9 @@ Each principle recurs later as a concrete mechanism, so this table also serves a
 % see the file header for why. Every term defined here recurs, in detail,
 % in a section cited inline.
 
-The framework's most direct precedent is the \ac{AI-DLC} published by Amazon Web Services~\cite{AWS:2025aidlc}, which organises work into Inception, Construction and Operations. Three of its terms are adopted here unchanged and recur throughout this chapter: a \textbf{Bolt}, a short execution cycle measured in hours or days that replaces the sprint; a \textbf{Unit of Work}, the top-level grouping of business justification and acceptance criteria, optionally organised into Epics rather than replacing them as \ac{AI-DLC} does; and \textbf{Mob Elaboration}, the collaborative ritual in which the Squad critiques AI-drafted requirements before they are locked. No originality is claimed for any of the three, and \ac{AI-DLC}'s own reported ten-to-fifteen-fold productivity improvement is vendor-reported, unreplicated, and is not carried here as evidence; only its process vocabulary is adopted.
+The framework's most direct precedent is the \ac{AI-DLC} published by Amazon Web Services~\cite{AWS:2025aidlc}, which organises work into Inception, Construction and Operations. Three of its terms are adopted here unchanged and recur throughout this chapter: a \textbf{Bolt}, a short execution cycle measured in hours or days that replaces the sprint; a \textbf{Unit of Work}, the top-level grouping of business justification and acceptance criteria, optionally organised into Epics rather than replacing them as \ac{AI-DLC} does; and \textbf{Mob Elaboration}, the collaborative ritual in which the Trio critiques AI-drafted requirements before they are locked. No originality is claimed for any of the three, and \ac{AI-DLC}'s own reported ten-to-fifteen-fold productivity improvement is vendor-reported, unreplicated, and is not carried here as evidence; only its process vocabulary is adopted.
 
-The team that receives a Unit of Work is the \textbf{Squad}. Every responsibility within it is a \textbf{hat}: a function the framework requires rather than a position that must be staffed by a dedicated person, so one individual may hold several and a small team may still leave none unfilled. Three hats, \ac{PO}, Tech Lead and Design Lead, jointly form the \textbf{Trio}, which owns Discovery and Design together; the full set of hats and the gate each owns is detailed in \Cref{sec:roles}.
+The team that receives a Unit of Work is the \textbf{Squad}, comprising the Trio and the Bolt Master, Developer, \ac{QA} and Deploying hats; the \ac{PM} hat acts before it. Every responsibility within it is a \textbf{hat}: a function the framework requires rather than a position that must be staffed by a dedicated person, so one individual may hold several and a small team may still leave none unfilled. Three hats, \ac{PO}, Tech Lead and Design Lead, jointly form the \textbf{Trio}, which owns Discovery and Design together; the full set of hats and the gate each owns is detailed in \Cref{sec:roles}.
 
 Work is organised in a four-level hierarchy. A \textbf{Unit of Work} decomposes into \textbf{User Stories}, sized extra-small or small, each the minimum unit of observable business value and the unit \ac{QA} validates; a story decomposes into \textbf{Tasks}, granular technical steps queued in the \textbf{Bolt Backlog}; and a Bolt is the execution of one task. There are no sprints, since tasks are pulled continuously rather than committed to in batches; the argument is made in full in \Cref{sec:work_organisation}. Unlike \ac{AI-DLC}, which replaces the Epic outright, the framework leaves it optional: a team may still group a Unit of Work's stories into Epics, a project-management-tool-native sub-grouping the framework neither requires nor prohibits, and Epic-level organisation is independently supported by evidence of higher correctness and completeness than requirement-level decomposition~\cite{Siddeeq:2026gh}. The demonstration in \Cref{chap:demonstration} uses Epics throughout for exactly this reason.
 
@@ -183,7 +183,7 @@ Every role in the framework is a hat: a required function rather than a position
 
 The Trio (\Cref{sec:overview}) draws inspiration from the Spotify Model, but not as a prescriptive template. Spotify's own account was descriptive rather than normative~\cite{Kniberg:2012sp}, later commentary explicitly framed it as inspiration rather than a blueprint~\cite{LeadingComplexity:2023sp}, and first-hand retrospective evidence identified unresolved matrix authority and autonomy-without-accountability problems~\cite{Lee:2020sq}. The framework addresses these through the Tech Lead's architectural lock (\Cref{sec:bolts}) and by separating Bolt logistics from technical authority, with each gate owned by a named function. Team Topologies provides a closer structural analogue through its emphasis on cognitive load~\cite{Skelton:2019tt}, while the \ac{PM} hat resembles Amazon's single-threaded leadership model~\cite{Bryar:2021wb}.
 
-Deployment approval and infrastructure-security review remain mandatory but are owned by whoever performs the deployment, whether self-reviewed in solo work or peer-reviewed in a larger team. This avoids introducing governance bodies that the process assumes exist but that may never be staffed.
+Deployment approval and infrastructure-security review remain mandatory but are owned by the Deploying hat, held by whoever performs the deployment, whether self-reviewed in solo work or peer-reviewed in a larger team. This avoids introducing governance bodies that the process assumes exist but that may never be staffed.
 
 The gates themselves do not weaken as team size decreases. In solo work they are self-checked, but the required evidence in \Cref{tab:gates} must still exist, be recorded and be reviewed explicitly at the gate. Their value lies in enforcing a distinct validation step against a specification that predates the artefact, preserving meaningful review even when author and reviewer are the same person.
 
@@ -210,12 +210,12 @@ The gates themselves do not weaken as team size decreases. In solo work they are
 \bottomrule
 \endlastfoot
 
-\ac{PM} & Stakeholder alignment, \acp{OKR} and \acp{KPI}, and the business justification of a Unit of Work before it reaches the Squad; receives classified business deviations from Maintenance. & Strategic alignment sign-off \\ \addlinespace
+\ac{PM} & Stakeholder alignment, \acp{OKR} and \acp{KPI}, and the business justification of a Unit of Work before it reaches the Squad; receives classified business deviations from Maintenance. & Strategic Alignment sign-off, pre-lifecycle \\ \addlinespace
 \ac{PO} (Trio) & Business value and prioritisation of User Stories; leads the critique of AI-drafted scenarios during Mob Elaboration. & Discovery, with the Trio \\ \addlinespace
 Tech Lead (Trio) & Technical specification, architectural feasibility and integration risk; decomposes stories into tasks and flags high-risk ones before any Bolt begins. & Design (technical) and the pre-Bolt architectural lock \\ \addlinespace
 Design Lead (Trio) & Prototype or visual element for every feature, and its validation through usability testing. & Design (usability) \\ \addlinespace
 Bolt Master & Continuous flow: prioritises the Bolt Backlog, manages dependencies, assigns by capacity once the Tech Lead hat has approved. & None; holds logistics authority deliberately separated from technical authority \\ \addlinespace
-Developer & Executes tasks with the model, generates and validates the Consistency Factor, and remains answerable for correctness, security and being able to explain the logic. & Implementation \\ \addlinespace
+Developer & Executes tasks with the model, generates and validates the Consistency Factor, and remains answerable for correctness, security and being able to explain the logic; also reviews Fix-Bolt security and diagnoses Maintenance signals. & Implementation \\ \addlinespace
 \ac{QA} & Validates the assembled story against the approved Gherkin in a separate environment, verifying generated \ac{BDD} scripts before execution and probing edge cases manually. & Testing \\ \addlinespace
 Deploying hat & Not a distinct role: whoever performs a release approves it and reviews the security of any generated \ac{IaC} or configuration. & Deployment \\
 
@@ -315,14 +315,14 @@ The \ac{QA} Validation Playbook and the Testing Gate, in a separate environment 
 Deployment &
 Answers the infrastructure delta question; generates configuration, \ac{IaC} or migrations only when required &
 A released increment and a persistent context updated to the live state &
-Whoever performs the deployment approves it and reviews its security implications &
-Deployment Gate, performed by the deploying hat; no separate gatekeeping team is assumed \\
+Deploying hat approves the release and reviews its security implications &
+Deployment Gate, performed by the Deploying hat; no separate gatekeeping team is assumed \\
 \midrule
 
 Maintenance &
 Reconstructs a deliberately narrow context to explain one specific failure and proposes a bounded fix &
 A classified signal routed to the phase that owns it, with a verified diagnosis where applicable &
-Developer or \ac{PM} hat classifies the signal and must verify any diagnosis before it is trusted &
+Developer hat classifies the signal and verifies any diagnosis; business deviations pass to the \ac{PM} hat &
 Diagnostic firewall (whole-project context prohibited) and governed loop-back to a named phase \\
 
 \end{longtable}
@@ -392,7 +392,7 @@ Discovery & The Trio & Testable Gherkin acceptance criteria approved through the
 Design & Design Lead and Tech Lead hats & An approved prototype validated by usability testing; a technical specification covering interface contract, data model and runtime contract, anchored into the persistent context. & Feedback returns to prototype generation or architectural specification; no task may enter the Bolt Backlog. \\ \addlinespace
 Implementation & Developer hat & Every task complete, passing the pipeline and the Consistency Factor, with the developer able to explain the generated logic. & The story does not enter staging; incomplete or unexplained tasks return to the Bolt Backlog. \\ \addlinespace
 Testing & \ac{QA} hat & The assembled story validated in staging against the locked Gherkin through verified \ac{BDD} scripts, with edge cases probed manually. & A Fix-Bolt is triggered with the exact failing evidence attached; the story re-enters staging afterwards. \\ \addlinespace
-Deployment & Whoever performs the deployment & Explicit approval of the release and a security review of any generated \ac{IaC}, configuration or migration; the persistent context updated to the live state. & The specific objection is fed back for a compliant regeneration; the release does not proceed. \\
+Deployment & Deploying hat (whoever performs the deployment) & Explicit approval of the release and a security review of any generated \ac{IaC}, configuration or migration; the persistent context updated to the live state. & The specific objection is fed back for a compliant regeneration; the release does not proceed. \\
 
 \end{longtable}
 }
@@ -456,7 +456,7 @@ Mob Elaboration
 
 Design and Prototyping
 & Locked Gherkin acceptance criteria
-& The Design and Tech Lead hats define interfaces, data models and runtime contracts. Usability testing and architectural review validate the resulting artefacts.
+& The Design Lead and Tech Lead hats define interfaces, data models and runtime contracts. Usability testing and architectural review validate the resulting artefacts.
 & Both validations pass and tasks enter the Bolt Backlog
 \\ \addlinespace
 
@@ -474,13 +474,13 @@ Fix-Bolt
 
 Deployment and Release
 & A story that has passed the Testing Gate
-& The agent assesses infrastructure, configuration and migration requirements, generating artefacts only when necessary. The deployer reviews them for security and policy compliance.
+& The agent assesses infrastructure, configuration and migration requirements, generating artefacts only when necessary. The Deploying hat reviews them for security and policy compliance.
 & The Deployment Gate passes and the persistent context is updated to the live state
 \\ \addlinespace
 
 Maintenance and Evolution
 & A post-deployment signal
-& Signals are classified before code access. Business or specification issues return to the \ac{PM} hat and the relevant phase; technical defects undergo restricted-context diagnosis and manual verification.
+& Signals are classified before code access. Business deviations return to the \ac{PM} hat and specification gaps to the phase that owns them; technical defects undergo restricted-context diagnosis and manual verification.
 & The signal is classified and routed, with a verified diagnosis where applicable
 \\
 \end{longtable}
