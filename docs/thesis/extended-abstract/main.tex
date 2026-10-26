@@ -142,14 +142,14 @@ Discovery \& Requirements & Drafts stories, compiles approved scenarios into Ghe
 Design, Prototyping \& Architecture & Proposes UI structure and a technical specification & Design Gate (Design Lead, Tech Lead) \\
 Implementation & Generates and refactors code inside a Bolt & Implementation Gate (Developer) \\
 Testing & Drafts end-to-end BDD scripts from locked Gherkin & Testing Gate (QA) \\
-Deployment & Generates infrastructure delta only when required & Deployment Gate (deploying hat) \\
+Deployment & Generates infrastructure delta only when required & Deployment Gate (Deploying hat) \\
 Maintenance & Reconstructs a narrow context to diagnose one signal & Diagnostic firewall, governed loop-back \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Roles as Hats}
-Every role named is a hat, a function the framework requires to be performed rather than a person who must be hired; one individual may wear several, and on a small team an unfilled hat's responsibility falls to whoever performs the adjacent work. The Trio (Product Owner, Tech Lead and Design Lead hats) is inspired by the Squad concept popularised in the Spotify Model~\cite{Kniberg:2012sp}, cited alongside its own documented limits: it was a description of one company at one point in time rather than a blueprint~\cite{LeadingComplexity:2023sp}, and a first-hand account names matrix ambiguity and autonomy without accountability as failure modes it never fully resolved even internally~\cite{Lee:2020sq}. The framework answers both directly, the first through the Tech Lead hat's pre-Bolt architectural lock, the second by separating logistics authority (Bolt Master hat) from technical authority (Tech Lead hat) and attaching every gate to a named function; the treatment of team cognitive load as an explicit design constraint~\cite{Skelton:2019tt} is the more rigorous vocabulary for the same argument, and the Project Manager hat sits outside the Squad closer to the single-threaded-leader pattern Amazon adopted once its earlier structure did not survive scale~\cite{Bryar:2021wb}.
+Every role named is a hat, a function the framework requires to be performed rather than a person who must be hired; one individual may wear several, and on a small team an unfilled hat's responsibility falls to whoever performs the adjacent work. The Trio (Product Owner, Tech Lead and Design Lead hats) is inspired by the Squad concept popularised in the Spotify Model~\cite{Kniberg:2012sp}, cited alongside its own documented limits: it was a description of one company at one point in time rather than a blueprint~\cite{LeadingComplexity:2023sp}, and a first-hand account names matrix ambiguity and autonomy without accountability as failure modes it never fully resolved even internally~\cite{Lee:2020sq}. The framework answers both directly, the first through the Tech Lead hat's pre-Bolt architectural lock, the second by separating logistics authority (Bolt Master hat) from technical authority (Tech Lead hat) and attaching every gate to a named function; the treatment of team cognitive load as an explicit design constraint~\cite{Skelton:2019tt} is the more rigorous vocabulary for the same argument, and the Product Manager hat sits outside the Squad closer to the single-threaded-leader pattern Amazon adopted once its earlier structure did not survive scale~\cite{Bryar:2021wb}.
 
 \subsection{Governance Mechanisms and Quality Gates}
 \label{sec:governance}
@@ -212,7 +212,7 @@ Feedback gathered while building Apex fed back into the framework itself, not on
 
 \begin{itemize}[leftmargin=0.5cm,itemsep=0.3em]
 \item \textbf{DevOps Alliance role removed} (framework-level). This earlier role, external to the team and holding deployment approval and infrastructure-security review, was removed once feedback observed that a role defined only by what it supervises can be assumed by the process and never staffed; its two responsibilities were reassigned to whoever performs the deployment.
-\item \textbf{Design/technical sign-off demoted} (framework-level). Phase 2's mandatory separate sign-off was demoted to a self-checked, evidence-based gate once the same observation showed that role-gating a gate on a small team either blocks the work or is satisfied twice by the same person.
+\item \textbf{Design/technical sign-off merged} (framework-level). Phase 2's two separate sign-offs were merged into one evidence-based gate, still owned jointly by the Design Lead and Tech Lead hats, once the same observation showed that role-gating a gate on a small team either blocks the work or is satisfied twice by the same person.
 \item \textbf{Design-conflict detector} (tool-level). Narrowed, then removed entirely.
 \item \textbf{Spec-drift flagging} (tool-level). Narrowed after the whole-specification cascade described above.
 \item \textbf{Authentication for a design integration} (tool-level). An authentication flow requiring an operator-registered application and backend-held secret was reverted for conflicting with Apex's zero-configuration deployment model.
