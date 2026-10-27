@@ -240,6 +240,24 @@ tr:last-child td{border-bottom:none}
 .v-bar-n{font-family:var(--font-mono); font-size:11px; color:var(--fg); font-weight:600}
 .v-bar-l{font-family:var(--font-mono); font-size:10px; color:var(--faint)}
 
+.ctx{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden}
+.ctx-card{background:var(--surface); padding:16px 18px}
+.ctx-k{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:6px}
+.ctx-card p{color:var(--muted); font-size:13.5px; line-height:1.55; margin:0}
+.ctx-card p + p{margin-top:8px}
+.ctx-card strong{color:var(--fg); font-weight:600}
+.ctx-title{font-weight:600; font-size:15px; line-height:1.4; margin:0 0 14px; max-width:70ch}
+
+.docs{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px}
+.doc-card{display:grid; grid-template-columns:132px 1fr; gap:16px; align-items:start; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; color:inherit; text-decoration:none; transition:border-color .15s}
+.doc-card:hover{border-color:var(--accent)}
+.doc-card:hover .doc-open{text-decoration:underline}
+.doc-cover{width:132px; height:auto; aspect-ratio:560/792; object-fit:cover; object-position:top; border-radius:4px; border:1px solid var(--border); background:#fff; display:block}
+.doc-k{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint)}
+.doc-t{font-weight:700; font-size:15px; margin:4px 0 6px}
+.doc-d{color:var(--muted); font-size:12.5px; line-height:1.5; margin:0 0 10px}
+.doc-open{font-family:var(--font-mono); font-size:12.5px; font-weight:600; color:var(--accent); display:inline-flex; align-items:center}
+
 footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--font-mono); line-height:1.7}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -258,25 +276,26 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
       <span id="themeLabel">dark</span>
     </button>
   </div>
-  <p class="sub">Everything since <code style="font-family:var(--font-mono)">6d212b6</code>, the repo's first commit, read back out of its own history: 1,154 commits across a governance platform and the dissertation describing it, built the way the dissertation itself argues software should be - specification-anchored, gated, traceable.</p>
+  <p class="sub">Everything since <code style="font-family:var(--font-mono)">6d212b6</code>, the repo's first commit, read back out of its own history: 1,170 commits across a governance platform and the dissertation describing it, built the way the dissertation itself argues software should be - specification-anchored, gated, traceable. Submitted 7 Oct, defended 23 Oct, final grade 17/20. Project closed.</p>
 </header>
 
 <div class="keydates">
-  <div class="kd" id="kdSubmitTile"><div class="kd-k">Submission</div><div class="kd-v">7 Oct</div><div class="kd-c" id="kdSubmit">-</div></div>
-  <div class="kd" id="kdDefenseTile"><div class="kd-k">Defense</div><div class="kd-v">23 Oct</div><div class="kd-c" id="kdDefense">-</div></div>
+  <div class="kd"><div class="kd-k">Submission</div><div class="kd-v">7 Oct</div><div class="kd-c">submitted on the deadline</div></div>
+  <div class="kd"><div class="kd-k">Defense</div><div class="kd-v">23 Oct</div><div class="kd-c">defended</div></div>
+  <div class="kd"><div class="kd-k">Final grade</div><div class="kd-v">17/20</div><div class="kd-c">MEIC-T dissertation</div></div>
   <div class="kd kd-link">
     <div class="kd-k">Slides</div>
     <a href="https://claude.ai/artifact/WDYvqVuMSJYxhce4eDSD4s#slide-fe70e7d866fe" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Open deck</a>
-    <div class="kd-c">in progress, separate artifact</div>
+    <div class="kd-c">used at the defense, separate artifact</div>
   </div>
 </div>
 
 <div class="stats">
-  <div class="stat"><div class="n">164</div><div class="l">days since first commit</div></div>
-  <div class="stat"><div class="n">1,154</div><div class="l">total commits</div></div>
-  <div class="stat"><div class="n">62</div><div class="l">days writing the thesis</div></div>
-  <div class="stat"><div class="n">189</div><div class="l">commits touching docs/thesis</div></div>
-  <div class="stat"><div class="n">99<span style="color:var(--faint);font-weight:400">/100</span></div><div class="l">current page count</div></div>
+  <div class="stat"><div class="n">185</div><div class="l">days, first to last commit</div></div>
+  <div class="stat"><div class="n">1,170</div><div class="l">total commits</div></div>
+  <div class="stat"><div class="n">83</div><div class="l">days writing the thesis</div></div>
+  <div class="stat"><div class="n">199</div><div class="l">commits touching docs/thesis</div></div>
+  <div class="stat"><div class="n">99<span style="color:var(--faint);font-weight:400">/100</span></div><div class="l">final page count</div></div>
   <div class="stat"><div class="n">13<span style="color:var(--faint);font-weight:400">/12</span></div><div class="l">evaluation participants</div></div>
 </div>
 
@@ -286,6 +305,63 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   <a href="https://github.com/thomastabs/OutfolioV1" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Outfolio repo</a>
   <a href="https://outfolio-v1.vercel.app/" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Outfolio, live</a>
 </div>
+
+<section>
+  <div class="sec-head">
+    <h2>Context</h2>
+    <span class="sec-note">what the dissertation set out to do</span>
+  </div>
+  <p class="ctx-title">Governed Human-AI Collaboration Across the Software Development Lifecycle: A Process Framework and Its Reference Implementation</p>
+  <div class="ctx">
+    <div class="ctx-card">
+      <div class="ctx-k">Introduction</div>
+      <p>An MSc dissertation in Computer Science and Engineering (MEIC-T) at IST, run under the Design Science Research Methodology: identify a problem, design an artefact that addresses it, demonstrate it in a real setting, then evaluate it.</p>
+      <p>The work has two halves, kept separate on purpose: a <strong>framework</strong> (the method) and <strong>Apex</strong> (one working instantiation of it).</p>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-k">Context</div>
+      <p>Generative AI and Large Language Models moved from autocomplete to active contributors across the whole lifecycle. Practitioners now state requirements in natural language and supervise what the model produces.</p>
+      <p>Adoption has outpaced method. Teams use these tools daily without an agreed process for where AI participates and where it stops.</p>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-k">Problem</div>
+      <p>A Systematic Literature Review over <strong>646 articles</strong> found real benefits alongside recurring risks in reliability, security, traceability and accountability.</p>
+      <p>The central unresolved gap: no structured, repeatable guidance for integrating AI into professional workflows. Value depends on process, not on model capability alone.</p>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-k">Solution</div>
+      <p>A process framework treating AI as a first-class collaborator whose output must be <strong>bounded, validated and traced</strong>: six phases (Discovery, Design, Implementation, Testing, Deployment, Maintenance), five quality gates, responsibilities as hats rather than job titles, Bolts in place of sprints, and three governance metrics.</p>
+      <p>Everything is anchored to a persistent, versioned specification linking each generated artefact to its requirement. <strong>Apex</strong> runs it end to end against real Taiga/Plane, GitHub and Figma backends, evaluated on the Outfolio project and with 13 participants.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Documents</h2>
+    <span class="sec-note">final versions, click a cover to open the PDF on GitHub</span>
+  </div>
+  <div class="docs">
+    <a class="doc-card" href="https://github.com/thomastabs/apex/blob/main/docs/thesis/IST_UL___MEIC_Thesis___Disserta%C3%A7%C3%A3o_final/ist1103641-tomas-taborda-dissertacao.pdf" target="_blank" rel="noopener">
+      <img class="doc-cover" src="dashboard-assets/thesis-cover.png" alt="Cover of the dissertation" width="560" height="792" loading="lazy">
+      <div>
+        <div class="doc-k">Dissertation</div>
+        <div class="doc-t">MSc thesis</div>
+        <p class="doc-d">99 pages, 10 chapters + 2 appendices. Final post-defense version, with the examination committee on the cover.</p>
+        <span class="doc-open"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Open PDF</span>
+      </div>
+    </a>
+    <a class="doc-card" href="https://github.com/thomastabs/apex/blob/main/docs/thesis/extended-abstract/ist1103641_TomasTaborda_resumo.pdf" target="_blank" rel="noopener">
+      <img class="doc-cover" src="dashboard-assets/extended-abstract-cover.png" alt="First page of the extended abstract" width="560" height="725" loading="lazy">
+      <div>
+        <div class="doc-k">Extended abstract</div>
+        <div class="doc-t">Paper-format summary</div>
+        <p class="doc-d">8 of 10 pages, in English. The whole dissertation condensed: motivation, framework, Apex, evaluation.</p>
+        <span class="doc-open"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Open PDF</span>
+      </div>
+    </a>
+  </div>
+</section>
 
 <section>
   <div class="sec-head">
@@ -326,7 +402,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 <section>
   <div class="sec-head">
     <h2>Commit taxonomy</h2>
-    <span class="sec-note">whole repo, by conventional-commit prefix</span>
+    <span class="sec-note">whole repo, by conventional-commit prefix, scoped or not</span>
   </div>
   <div class="bars" id="bars"></div>
 </section>
@@ -399,8 +475,8 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     <div class="stat"><div class="n">48.9k</div><div class="l">frontend lines, .ts/.tsx</div></div>
     <div class="stat"><div class="n">26.8k</div><div class="l">backend lines, .py</div></div>
     <div class="stat"><div class="n">22.6k</div><div class="l">backend test lines</div></div>
-    <div class="stat"><div class="n">251k</div><div class="l">total insertions, all history</div></div>
-    <div class="stat"><div class="n">62.3k</div><div class="l">total deletions, all history</div></div>
+    <div class="stat"><div class="n">252.8k</div><div class="l">total insertions, all history</div></div>
+    <div class="stat"><div class="n">61.7k</div><div class="l">total deletions, all history</div></div>
     <div class="stat"><div class="n">47</div><div class="l">busiest day, commits (18 Jul)</div></div>
     <div class="stat"><div class="n">11</div><div class="l">Overleaf review rounds synced</div></div>
   </div>
@@ -408,20 +484,20 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 
 <section>
   <div class="sec-head">
-    <h2>Thesis commits, last 8 weeks</h2>
+    <h2>Thesis commits, final 8 weeks</h2>
     <span class="sec-note">docs/thesis only, ISO week starting date</span>
   </div>
   <div class="velocity" id="velocity"></div>
 </section>
 
 <section>
-  <div class="sec-head"><h2>Status now</h2></div>
+  <div class="sec-head"><h2>Final status</h2></div>
   <div class="status">
     <div class="cell budget">
       <div class="k">Whole document</div>
       <div class="v">99<span class="of">/100</span></div>
       <div class="budget-bar"><div class="budget-fill" style="width:99%"></div></div>
-      <div class="cap">1pp margin</div>
+      <div class="cap">1pp margin, final PDF</div>
     </div>
     <div class="cell budget">
       <div class="k">Main text</div>
@@ -429,7 +505,8 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
       <div class="budget-bar"><div class="budget-fill" style="width:88.75%"></div></div>
       <div class="cap">as of last audit, 2026-09-27</div>
     </div>
-    <div class="cell"><div class="k">Backlog</div><div class="v good">closed out</div><div class="cap">2026-10-05, REGULATIONS.md</div></div>
+    <div class="cell"><div class="k">Extended abstract</div><div class="v">8<span class="of">/10</span></div><div class="cap">final PDF, English</div></div>
+    <div class="cell"><div class="k">Defense</div><div class="v good">17 / 20</div><div class="cap">defended 2026-10-23</div></div>
     <div class="cell"><div class="k">Participants</div><div class="v good">13 / 12</div><div class="cap">target met, none withdrew</div></div>
   </div>
 </section>
@@ -440,7 +517,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 </section>
 
 <footer>
-  generated from local git log + docs/thesis/REGULATIONS.md &middot; versioned at docs/dashboard.html &middot; a static snapshot, not a live view
+  generated from local git log + docs/thesis/REGULATIONS.md &middot; versioned at docs/dashboard.html &middot; final snapshot, 27 Oct 2026, after the defense
   <br>last commit <span id="lastCommitAgo">-</span>
 </footer>
 </div>
@@ -474,35 +551,9 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     });
   })();
 
-  // Key dates: computed live against the viewer's clock, never hardcoded "N days left".
-  // Urgency styling: <=3 days = amber, <=1 day (or passed and not yet past) = red.
-  (function(){
-    function daysUntil(target){
-      var now = new Date();
-      var t = new Date(target + 'T23:59:59');
-      return Math.ceil((t - now) / 86400000);
-    }
-    function fmt(days){
-      if (days > 1) return 'in ' + days + ' days';
-      if (days === 1) return 'tomorrow';
-      if (days === 0) return 'today';
-      return days === -1 ? 'yesterday' : (-days) + ' days ago';
-    }
-    function apply(id, tileId, target){
-      var days = daysUntil(target);
-      var el = document.getElementById(id);
-      var tile = document.getElementById(tileId);
-      el.textContent = fmt(days);
-      var cls = days <= 1 ? 'verysoon' : (days <= 3 ? 'soon' : '');
-      if (cls){ el.classList.add(cls); tile.classList.add(cls); }
-    }
-    apply('kdSubmit', 'kdSubmitTile', '2026-10-07');
-    apply('kdDefense', 'kdDefenseTile', '2026-10-23');
-  })();
-
   // Contribution heatmap: real per-day commit counts, repo-wide, laid out GitHub-style.
   (function(){
-    var counts = {'2026-04-24':2,'2026-04-28':2,'2026-04-29':1,'2026-05-03':1,'2026-05-04':20,'2026-05-05':6,'2026-05-06':1,'2026-05-07':7,'2026-05-08':7,'2026-05-09':11,'2026-05-10':3,'2026-05-11':36,'2026-05-12':20,'2026-05-13':2,'2026-05-14':3,'2026-05-15':17,'2026-05-17':4,'2026-05-18':20,'2026-05-19':28,'2026-05-20':1,'2026-05-21':11,'2026-05-22':23,'2026-05-23':29,'2026-05-26':20,'2026-05-27':1,'2026-05-28':7,'2026-05-29':10,'2026-06-01':7,'2026-06-02':11,'2026-06-03':21,'2026-06-04':12,'2026-06-05':8,'2026-06-06':5,'2026-06-07':5,'2026-06-08':15,'2026-06-09':16,'2026-06-10':7,'2026-06-11':11,'2026-06-12':25,'2026-06-13':8,'2026-06-14':20,'2026-06-15':18,'2026-06-16':13,'2026-06-17':17,'2026-06-18':14,'2026-06-19':12,'2026-06-20':17,'2026-06-21':10,'2026-06-22':13,'2026-06-23':7,'2026-06-24':2,'2026-06-25':6,'2026-06-27':16,'2026-06-28':7,'2026-06-29':8,'2026-06-30':27,'2026-07-01':22,'2026-07-02':5,'2026-07-03':6,'2026-07-04':4,'2026-07-05':18,'2026-07-06':3,'2026-07-08':5,'2026-07-09':5,'2026-07-10':4,'2026-07-11':4,'2026-07-12':13,'2026-07-13':6,'2026-07-15':3,'2026-07-17':5,'2026-07-18':47,'2026-07-19':9,'2026-07-20':11,'2026-07-21':11,'2026-07-22':1,'2026-07-23':4,'2026-07-24':2,'2026-07-25':11,'2026-07-26':5,'2026-07-27':2,'2026-08-04':10,'2026-08-05':21,'2026-08-06':6,'2026-08-07':1,'2026-08-08':3,'2026-08-10':4,'2026-08-11':11,'2026-08-12':5,'2026-08-17':1,'2026-08-18':2,'2026-08-19':25,'2026-08-20':8,'2026-08-21':5,'2026-08-24':1,'2026-08-28':9,'2026-08-30':3,'2026-08-31':10,'2026-09-01':12,'2026-09-02':1,'2026-09-03':1,'2026-09-04':1,'2026-09-07':1,'2026-09-08':2,'2026-09-10':6,'2026-09-13':20,'2026-09-14':29,'2026-09-15':2,'2026-09-18':6,'2026-09-19':13,'2026-09-20':11,'2026-09-21':7,'2026-09-24':1,'2026-09-27':6,'2026-09-28':1,'2026-09-29':3,'2026-09-30':2,'2026-10-01':12,'2026-10-02':7,'2026-10-03':1,'2026-10-04':15,'2026-10-05':13};
+    var counts = {'2026-04-24':2,'2026-04-28':2,'2026-04-29':1,'2026-05-03':1,'2026-05-04':20,'2026-05-05':6,'2026-05-06':1,'2026-05-07':7,'2026-05-08':7,'2026-05-09':11,'2026-05-10':3,'2026-05-11':36,'2026-05-12':20,'2026-05-13':2,'2026-05-14':3,'2026-05-15':17,'2026-05-17':4,'2026-05-18':20,'2026-05-19':28,'2026-05-20':1,'2026-05-21':11,'2026-05-22':23,'2026-05-23':29,'2026-05-26':20,'2026-05-27':1,'2026-05-28':7,'2026-05-29':10,'2026-06-01':7,'2026-06-02':11,'2026-06-03':21,'2026-06-04':12,'2026-06-05':8,'2026-06-06':5,'2026-06-07':5,'2026-06-08':15,'2026-06-09':16,'2026-06-10':7,'2026-06-11':11,'2026-06-12':25,'2026-06-13':8,'2026-06-14':20,'2026-06-15':18,'2026-06-16':13,'2026-06-17':17,'2026-06-18':14,'2026-06-19':12,'2026-06-20':17,'2026-06-21':10,'2026-06-22':13,'2026-06-23':7,'2026-06-24':2,'2026-06-25':6,'2026-06-27':16,'2026-06-28':7,'2026-06-29':8,'2026-06-30':27,'2026-07-01':22,'2026-07-02':5,'2026-07-03':6,'2026-07-04':4,'2026-07-05':18,'2026-07-06':3,'2026-07-08':5,'2026-07-09':5,'2026-07-10':4,'2026-07-11':4,'2026-07-12':13,'2026-07-13':6,'2026-07-15':3,'2026-07-17':5,'2026-07-18':47,'2026-07-19':9,'2026-07-20':11,'2026-07-21':11,'2026-07-22':1,'2026-07-23':4,'2026-07-24':2,'2026-07-25':11,'2026-07-26':5,'2026-07-27':2,'2026-08-04':10,'2026-08-05':21,'2026-08-06':6,'2026-08-07':1,'2026-08-08':3,'2026-08-10':4,'2026-08-11':11,'2026-08-12':5,'2026-08-17':1,'2026-08-18':2,'2026-08-19':25,'2026-08-20':8,'2026-08-21':5,'2026-08-24':1,'2026-08-28':9,'2026-08-30':3,'2026-08-31':10,'2026-09-01':12,'2026-09-02':1,'2026-09-03':1,'2026-09-04':1,'2026-09-07':1,'2026-09-08':2,'2026-09-10':6,'2026-09-13':20,'2026-09-14':29,'2026-09-15':2,'2026-09-18':6,'2026-09-19':13,'2026-09-20':11,'2026-09-21':7,'2026-09-24':1,'2026-09-27':6,'2026-09-28':1,'2026-09-29':3,'2026-09-30':2,'2026-10-01':12,'2026-10-02':7,'2026-10-03':1,'2026-10-04':15,'2026-10-05':19,'2026-10-07':2,'2026-10-26':7};
 
     function level(n){
       if (!n) return 0;
@@ -516,7 +567,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 
     var start = new Date('2026-04-24T00:00:00');
     start.setDate(start.getDate() - start.getDay()); // back up to the preceding Sunday
-    var end = new Date('2026-10-05T00:00:00');
+    var end = new Date('2026-10-26T00:00:00');
 
     var grid = document.getElementById('contribGrid');
     grid.innerHTML = '';
@@ -618,7 +669,11 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     {d:'2026-10-05', tag:'thesis', t:'Stray AI-response sentence removed', x:'A leftover "Below is a tighter version..." preamble, pasted into Chapter 9\'s body by mistake, deleted.'},
     {d:'2026-10-05', tag:'thesis', t:'Final full-document review', x:'Every .tex file diffed against the "probably final" zip; genuine edits kept, stale reversions declined with reasons given.'},
     {d:'2026-10-05', tag:'thesis', t:'Backlog closed out', x:'REGULATIONS.md\'s open-items list resolved: Acknowledgments confirmed real, bibliography spacing and Table 9.3 both closed without action, jury section marked expected-blank.'},
-    {d:'2026-10-05', tag:'thesis', t:'This dashboard built', x:'Generated straight from git log and REGULATIONS.md - no number on this page is estimated.'}
+    {d:'2026-10-05', tag:'thesis', t:'This dashboard built', x:'Generated straight from git log and REGULATIONS.md - no number on this page is estimated.'},
+    {d:'2026-10-07', tag:'thesis', t:'Dissertation and extended abstract submitted', x:'Submitted on the IST deadline: 99/100pp dissertation, 8/10pp extended abstract. Last-day fixes: colon-tic pass and AI-use declaration in the extended abstract, an invisible cover subtitle, unconfirmed jury details cleared.'},
+    {d:'2026-10-23', tag:'thesis', t:'Defended - 17/20', x:'Public defense before the examination committee. Final grade 17/20.'},
+    {d:'2026-10-26', tag:'thesis', t:'Final post-defense version', x:'Role references made consistent with Table 6.3 (PM as Product Manager, hat-consistent wording), a second consistency pass across chapters and abstracts, the PM hat decision recorded on the Ch8 business-deviation loop-back, and the confirmed examination committee printed on the cover.'},
+    {d:'2026-10-27', tag:'thesis', t:'Dashboard closed out', x:'Final refresh with post-submission, defense and grade data, plus a Context section. No further updates planned.'}
   ];
 
   var PAGE_SIZE = 12;
@@ -690,7 +745,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   });
 
   var barData = [
-    {l:'feat', v:283}, {l:'fix', v:209}, {l:'docs', v:228}, {l:'refactor', v:16}, {l:'test', v:11}
+    {l:'feat', v:332}, {l:'fix', v:310}, {l:'docs', v:314}, {l:'refactor', v:25}, {l:'test', v:16}
   ];
   var max = Math.max.apply(null, barData.map(function(b){return b.v;}));
   var bars = document.getElementById('bars');
@@ -710,11 +765,11 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     ['3 - Background','2026-08-?? early','8'],
     ['4 - SLR','2026-08-?? early','18'],
     ['5 - Problem','2026-08-11','11'],
-    ['6 - Proposal (framework)','2026-08-19 / 20','42'],
-    ['7 - Apex (implementation)','2026-08-20','39'],
-    ['8 - Demonstration','2026-08-21 design, 2026-09-24 content','24'],
-    ['9 - Evaluation','2026-09-14','38'],
-    ['10 - Conclusion','2026-09-24','19'],
+    ['6 - Proposal (framework)','2026-08-19 / 20','45'],
+    ['7 - Apex (implementation)','2026-08-20','41'],
+    ['8 - Demonstration','2026-08-21 design, 2026-09-24 content','27'],
+    ['9 - Evaluation','2026-09-14','39'],
+    ['10 - Conclusion','2026-09-24','20'],
     ['Appendix A','-','11'],
     ['Appendix B - Evaluation Instruments','-','18']
   ];
@@ -790,7 +845,8 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     {d:'2026-09-23', c:'−2pp', n:'First structural cutting pass.'},
     {d:'2026-09-27', c:'99/100', n:'Final compliance audit - both ceilings confirmed with margin.'},
     {d:'2026-10-04', c:'100/100', n:'Bolt Cycle Time value + Appendix B links pushed to the cap.'},
-    {d:'2026-10-05', c:'99/100', n:'Colon-tic pass recovered 1pp of margin - current state.'}
+    {d:'2026-10-05', c:'99/100', n:'Colon-tic pass recovered 1pp of margin.'},
+    {d:'2026-10-26', c:'99/100', n:'Post-defense consistency pass, page count unchanged - final.'}
   ];
   var pages = document.getElementById('pages');
   pageData.forEach(function(p){
@@ -804,8 +860,8 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     {t:'Acknowledgments', d:'Real content, real supervisor name confirmed - the open item in REGULATIONS.md was a stale tracking note, not an actual gap.'},
     {t:'Bibliography single-spacing', d:'Closed without pursuing it. The document has margin without the extra pages it would recover.'},
     {t:'Table 9.3 (NASA-TLX matrix)', d:'Stays, by explicit decision. Not up for further deletion proposals.'},
-    {t:'Jury section', d:'Blank by design. The jury is named only at submission, so this is expected, not pending.'},
-    {t:'Both page ceilings', d:'Main text 71/80, whole document 99/100 - both compliant with margin, as of the last full audit.'},
+    {t:'Jury section', d:'Left blank at submission by design; the confirmed examination committee was printed on the cover in the 2026-10-26 final version.'},
+    {t:'Both page ceilings', d:'Main text 71/80, whole document 99/100 - both compliant in the submitted and final versions.'},
     {t:'Evaluation data collection', d:'13 of a 12-participant target. All four instruments returned. Nobody withdrew.'}
   ];
   var checklistWrap = document.getElementById('checklist');
@@ -817,8 +873,8 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   });
 
   var velocityData = [
-    {l:'17 Aug', n:24}, {l:'24 Aug', n:12}, {l:'31 Aug', n:15}, {l:'07 Sep', n:26},
-    {l:'14 Sep', n:30}, {l:'21 Sep', n:7}, {l:'28 Sep', n:40}, {l:'05 Oct', n:12}
+    {l:'07 Sep', n:26}, {l:'14 Sep', n:30}, {l:'21 Sep', n:7}, {l:'28 Sep', n:40},
+    {l:'05 Oct', n:15}, {l:'12 Oct', n:0}, {l:'19 Oct', n:0}, {l:'26 Oct', n:7}
   ];
   var vMax = Math.max.apply(null, velocityData.map(function(v){ return v.n; }));
   var vWrap = document.getElementById('velocity');
@@ -835,7 +891,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 
   // Live "time since last commit" ticker.
   (function(){
-    var last = new Date('2026-10-05T20:50:22+01:00');
+    var last = new Date('2026-10-26T12:14:06+00:00');
     var el = document.getElementById('lastCommitAgo');
     function tick(){
       var ms = Date.now() - last.getTime();
@@ -845,7 +901,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
       else if (mins < 60) text = mins + 'm ago';
       else if (mins < 1440) text = Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm ago';
       else text = Math.floor(mins / 1440) + 'd ' + Math.floor((mins % 1440) / 60) + 'h ago';
-      el.textContent = text + ' (as of this snapshot, 5 Oct 2026 20:50)';
+      el.textContent = text + ' (final snapshot, last commit 26 Oct 2026 12:14)';
     }
     tick();
     setInterval(tick, 30000);
