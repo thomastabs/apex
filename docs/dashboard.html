@@ -276,13 +276,13 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
       <span id="themeLabel">dark</span>
     </button>
   </div>
-  <p class="sub">Everything since <code style="font-family:var(--font-mono)">6d212b6</code>, the repo's first commit, read back out of its own history: 1,170 commits across a governance platform and the dissertation describing it, built the way the dissertation itself argues software should be - specification-anchored, gated, traceable. Submitted 7 Oct, defended 23 Oct, final grade 17/20. Project closed.</p>
+  <p class="sub">Everything since <code style="font-family:var(--font-mono)">6d212b6</code>, the repo's first commit, read back out of its own history: 1,171 commits across a governance platform and the dissertation describing it, built the way the dissertation itself argues software should be - specification-anchored, gated, traceable. Submitted 7 Oct, defended 23 Oct, dissertation graded 17/20 (final MSc grade pending). Project closed.</p>
 </header>
 
 <div class="keydates">
   <div class="kd"><div class="kd-k">Submission</div><div class="kd-v">7 Oct</div><div class="kd-c">submitted on the deadline</div></div>
   <div class="kd"><div class="kd-k">Defense</div><div class="kd-v">23 Oct</div><div class="kd-c">defended</div></div>
-  <div class="kd"><div class="kd-k">Final grade</div><div class="kd-v">17/20</div><div class="kd-c">MEIC-T dissertation</div></div>
+  <div class="kd"><div class="kd-k">Thesis grade</div><div class="kd-v">17/20</div><div class="kd-c">MEIC-T dissertation</div></div>
   <div class="kd kd-link">
     <div class="kd-k">Slides</div>
     <a href="https://claude.ai/artifact/WDYvqVuMSJYxhce4eDSD4s#slide-fe70e7d866fe" target="_blank" rel="noopener"><svg class="ext-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>Open deck</a>
@@ -291,8 +291,8 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 </div>
 
 <div class="stats">
-  <div class="stat"><div class="n">185</div><div class="l">days, first to last commit</div></div>
-  <div class="stat"><div class="n">1,170</div><div class="l">total commits</div></div>
+  <div class="stat"><div class="n">186</div><div class="l">days, first to last commit</div></div>
+  <div class="stat"><div class="n">1,171</div><div class="l">total commits</div></div>
   <div class="stat"><div class="n">83</div><div class="l">days writing the thesis</div></div>
   <div class="stat"><div class="n">199</div><div class="l">commits touching docs/thesis</div></div>
   <div class="stat"><div class="n">99<span style="color:var(--faint);font-weight:400">/100</span></div><div class="l">final page count</div></div>
@@ -604,7 +604,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   })();
 
   var ledgerData = [
-    {d:'2026-04-24', tag:'app', t:'Repo created', x:'First commit. Backend/frontend split, FastAPI + Next.js, Taiga as the first PM integration.'},
+    {d:'2026-04-24', tag:'app', t:'Repo created', x:'First commit: bolt, a single-process Streamlit app with six phase views, a Taiga adapter and OpenSpec functional and technical specs. FastAPI + Next.js came later, on 18-19 May.'},
     {d:'2026-05-23', tag:'app', t:'Phase 2 save-flow polish', x:'Spinner and progress message added to the Save & Lock Design button.'},
     {d:'2026-05-26', tag:'app', t:'Phase 3 header redesign', x:'Title, subtitle and a collapsible process diagram added above the task board.'},
     {d:'2026-05-29', tag:'app', t:'Auto-layout for diagrams', x:'One-click auto-layout added to the ER diagram and screen-flow panels.'},
@@ -671,7 +671,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
     {d:'2026-10-05', tag:'thesis', t:'Backlog closed out', x:'REGULATIONS.md\'s open-items list resolved: Acknowledgments confirmed real, bibliography spacing and Table 9.3 both closed without action, jury section marked expected-blank.'},
     {d:'2026-10-05', tag:'thesis', t:'This dashboard built', x:'Generated straight from git log and REGULATIONS.md - no number on this page is estimated.'},
     {d:'2026-10-07', tag:'thesis', t:'Dissertation and extended abstract submitted', x:'Submitted on the IST deadline: 99/100pp dissertation, 8/10pp extended abstract. Last-day fixes: colon-tic pass and AI-use declaration in the extended abstract, an invisible cover subtitle, unconfirmed jury details cleared.'},
-    {d:'2026-10-23', tag:'thesis', t:'Defended - 17/20', x:'Public defense before the examination committee. Final grade 17/20.'},
+    {d:'2026-10-23', tag:'thesis', t:'Defended - 17/20', x:'Public defense before the examination committee. Dissertation graded 17/20.'},
     {d:'2026-10-26', tag:'thesis', t:'Final post-defense version', x:'Role references made consistent with Table 6.3 (PM as Product Manager, hat-consistent wording), a second consistency pass across chapters and abstracts, the PM hat decision recorded on the Ch8 business-deviation loop-back, and the confirmed examination committee printed on the cover.'},
     {d:'2026-10-27', tag:'thesis', t:'Dashboard closed out', x:'Final refresh with post-submission, defense and grade data, plus a Context section. No further updates planned.'}
   ];
@@ -745,7 +745,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   });
 
   var barData = [
-    {l:'feat', v:332}, {l:'fix', v:310}, {l:'docs', v:314}, {l:'refactor', v:25}, {l:'test', v:16}
+    {l:'feat', v:332}, {l:'fix', v:310}, {l:'docs', v:315}, {l:'refactor', v:25}, {l:'test', v:16}, {l:'chore', v:10}
   ];
   var max = Math.max.apply(null, barData.map(function(b){return b.v;}));
   var bars = document.getElementById('bars');
