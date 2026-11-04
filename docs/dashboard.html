@@ -3,9 +3,9 @@
 /* layout: top stat strip -> filterable chronological ledger -> taxonomy/chapter tables -> dogfood callout -> status footer. flat dense surfaces, violet the only accent, mono for every identifier/number (Apex's own "Spec Ledger" convention, reused here on purpose) */
 :root{
   --bg:#0b0b10; --surface:#15151d; --surface2:#1c1c26; --border:#2b2b38;
-  --fg:#e9e9ef; --muted:#92929f; --faint:#5d5d6b;
+  --fg:#e9e9ef; --muted:#92929f; --faint:#8c8c99;
   --accent:#8b6bff; --accent-dim:#5d4ab8;
-  --warn:#e0a94a; --good:#4fae7d; --bad:#e2574c;
+  --warn:#e0a94a; --seg-ink:#0b0b10; --good:#4fae7d; --bad:#e2574c;
   --font-head:'Archivo',system-ui,sans-serif;
   --font-body:'Archivo',system-ui,sans-serif;
   --font-mono:'IBM Plex Mono',ui-monospace,monospace;
@@ -13,17 +13,17 @@
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
     --bg:#f8f7fb; --surface:#ffffff; --surface2:#f1effa; --border:#e2e0ec;
-    --fg:#17171f; --muted:#5e5e6c; --faint:#9a9aa8;
+    --fg:#17171f; --muted:#5e5e6c; --faint:#6b6b79;
     --accent:#6d46e8; --accent-dim:#ded4ff;
-    --warn:#a16a10; --good:#1f7a4e; --bad:#c0392b;
+    --warn:#8a5a0c; --seg-ink:#fff; --good:#1f7a4e; --bad:#c0392b;
     color-scheme: light;
   }
 }
 :root[data-theme="light"]{
   --bg:#f8f7fb; --surface:#ffffff; --surface2:#f1effa; --border:#e2e0ec;
-  --fg:#17171f; --muted:#5e5e6c; --faint:#9a9aa8;
+  --fg:#17171f; --muted:#5e5e6c; --faint:#6b6b79;
   --accent:#6d46e8; --accent-dim:#ded4ff;
-  --warn:#a16a10; --good:#1f7a4e; --bad:#c0392b;
+  --warn:#8a5a0c; --seg-ink:#fff; --good:#1f7a4e; --bad:#c0392b;
   color-scheme: light;
 }
 :root[data-theme="dark"]{ color-scheme: dark; }
@@ -130,7 +130,7 @@ h2{font-family:var(--font-head); font-size:19px; font-weight:700; margin:0}
   color:var(--muted); cursor:pointer; user-select:none; transition:border-color .15s,color .15s;
 }
 .chip:hover{color:var(--fg)}
-.chip[aria-pressed="true"]{border-color:var(--accent); color:var(--accent); background:var(--accent-dim)}
+.chip[aria-pressed="true"]{border-color:var(--accent); color:var(--fg); background:var(--accent-dim)}
 
 .ledger{border-top:1px solid var(--border)}
 .entry{
@@ -170,7 +170,7 @@ h2{font-family:var(--font-head); font-size:19px; font-weight:700; margin:0}
 .realise-bar{display:flex; height:30px; border-radius:7px; overflow:hidden; border:1px solid var(--border)}
 .realise-seg{
   display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:11px;
-  color:#fff; white-space:nowrap; overflow:hidden;
+  color:var(--seg-ink); white-space:nowrap; overflow:hidden;
 }
 .realise-seg.good{background:var(--good)}
 .realise-seg.warn{background:var(--warn)}
@@ -262,7 +262,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
-<div class="wrap">
+<main class="wrap">
 
 <header class="top">
   <div class="top-row">
@@ -389,10 +389,10 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   <div class="sec-head">
     <h2>Timeline</h2>
     <div class="chips" id="filters">
-      <span class="chip" data-f="all" aria-pressed="true">all</span>
-      <span class="chip" data-f="app" aria-pressed="false">app</span>
-      <span class="chip" data-f="thesis" aria-pressed="false">thesis</span>
-      <span class="chip" data-f="bug" aria-pressed="false">dogfood bugs</span>
+      <span class="chip" role="button" tabindex="0" data-f="all" aria-pressed="true">all</span>
+      <span class="chip" role="button" tabindex="0" data-f="app" aria-pressed="false">app</span>
+      <span class="chip" role="button" tabindex="0" data-f="thesis" aria-pressed="false">thesis</span>
+      <span class="chip" role="button" tabindex="0" data-f="bug" aria-pressed="false">dogfood bugs</span>
     </div>
   </div>
   <div class="ledger" id="ledger"></div>
@@ -520,7 +520,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
   generated from local git log + docs/thesis/REGULATIONS.md &middot; versioned at docs/dashboard.html &middot; final snapshot, 27 Oct 2026, after the defense
   <br>last commit <span id="lastCommitAgo">-</span>
 </footer>
-</div>
+</main>
 
 <script>
 (function(){
@@ -735,6 +735,7 @@ footer{margin-top:46px; color:var(--faint); font-size:12px; font-family:var(--fo
 
   var chips = document.querySelectorAll('#filters .chip');
   chips.forEach(function(c){
+    c.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); c.click(); } });
     c.addEventListener('click', function(){
       chips.forEach(function(o){ o.setAttribute('aria-pressed','false'); });
       c.setAttribute('aria-pressed','true');
