@@ -1,5 +1,12 @@
 name: Apex · Scale scheduler
 
+# DISABLED since 2026-11-09 (gh workflow disable). Production now runs in
+# minimum-cost mode: apex-backend and apex-frontend are both min=0 max=1 and
+# scale to zero when idle; nothing re-applies other replica counts. Re-enable
+# with `gh workflow enable scale-scheduler.yml` to restore the day/night policy
+# described below (which then overrides the min=0 settings on every run).
+# See README "Scale Scheduler".
+#
 # Day/night cost mode (Portugal):
 #   08:00 UTC  → scale UP   (frontend min=1, warm for the working day)
 #   22:00 UTC  → scale DOWN (frontend → scale-to-zero overnight)

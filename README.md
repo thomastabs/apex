@@ -554,7 +554,7 @@ Implemented:
 | `frontend/lib/hooks/` | React Query hooks for all phases |
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
-| `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
+| `.github/workflows/scale-scheduler.yml` | Azure Container Apps day/night scale scheduler (disabled since 2026-11-09, apps scale to zero; see [Scale Scheduler](#scale-scheduler)) |
 | `docs/diagrams/architecture.puml` | PlantUML component diagram of the system architecture (frontend, backend, AI, PM tools, spec store) — thesis reference |
 | `docs/diagrams/user-flow.puml` | PlantUML sequence diagram of the user flow across Phase 1–6 (User · Frontend · Backend · AI · PM · spec store) — thesis reference |
 | `docs/diagrams/big-picture.puml` / `.bpmn` | The framework's big-picture phase/input/output/literature diagram, in PlantUML and BPMN 2.0 — see [Framework Documentation](#framework-documentation) below |
@@ -1369,30 +1369,26 @@ The current code supports both local disk and SDK mode. The mount model is simpl
 
 ## Scale Scheduler
 
-The scheduler is defined in `.github/workflows/scale-scheduler.yml`.
+**Current state (since 2026-11-09): minimum-cost mode, scheduler disabled.** Both apps run at `min=0 max=1` and scale to zero when idle, so idle compute costs nothing. The `scale-scheduler.yml` workflow is disabled in GitHub Actions, so the 08:00/22:00 crons no longer run and nothing re-applies other replica counts. CI deploys (`az containerapp update --image`) only swap the image and keep these scale settings. Trade-off: the first request after an idle period cold-starts each app (typically 10-30 s, more for the backend).
 
-**Day/night mode (two daily crons):**
+The cold backend start re-rolls the revision onto a fresh Azure SNAT egress path + cold HTTP pool, the churn behind the 2026-06-12 Taiga egress incident. That is now absorbed by the PM proxies' self-heal (retry + keepalive recycling) and the Cloudflare Taiga relay - see the egress note below. If Taiga calls fail right after a wake-up, check there first.
 
-- `08:00 UTC` → **up**: frontend pre-warmed (`min=1 max=10`).
-- `22:00 UTC` → **down**: frontend scales to zero overnight (`min=0 max=2`).
+**Backend `max=1`.** Multi-replica is supported (`REDIS_URL` is set on `apex-backend`, Upstash serverless free tier, so `src/distributed.py` backs the story-index/config write lock, the rate-limit counters and the PM token-validation cache with Redis), but production runs one replica. `max>1` is safe ONLY while `REDIS_URL` is set and connected (verify via Upstash `CLIENT LIST` showing the Azure egress IP, or the boot-time `distributed: Redis enabled` log). The 5s workspace-config TTL cache stays process-local - negligible staleness, intentionally not migrated.
 
-**`apex-backend` runs `min=1` around the clock — it is never scaled to zero.**
-
-- **Multi-replica is enabled in production** (`max=3`): `REDIS_URL` is set on `apex-backend` (Upstash serverless free tier), so `src/distributed.py` backs the story-index/config write lock with a reentrant cross-replica Redis lock, the rate-limit counters with shared Redis keys, and the PM token-validation cache with shared Redis entries — the former single-writer constraint is lifted. (The 5s workspace-config TTL cache stays process-local — negligible staleness, intentionally not migrated.) Without `REDIS_URL` the lock/counters fall back to process-local (single-replica-safe only), so **`max>1` is safe ONLY while `REDIS_URL` is set and connected** (verify via Upstash `CLIENT LIST` showing the Azure egress IP, or the boot-time `distributed: Redis enabled` log). To run single-replica again, unset `REDIS_URL` and drop `max-replicas` back to 1.
-- `min=1`: a cold start re-rolls the revision onto a fresh Azure SNAT egress path + cold HTTP pool, the daily churn behind the 2026-06-12 Taiga egress incident. Keeping the backend warm removes that churn for ~cents/month. The PM proxies also self-heal connect failures (retry + keepalive recycling) — see the egress note below.
-
-**Night mode toggle** (skip the 22:00 scale-down, e.g. a late demo):
+**Changing scale by hand:**
 
 ```bash
-gh variable set APEX_NIGHT_MODE --body off   # skip the scheduled scale-down (08:00 up still runs)
-gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
+az containerapp update -n apex-backend  -g apex-rg --min-replicas 1 --max-replicas 1   # keep backend warm
+az containerapp update -n apex-frontend -g apex-rg --min-replicas 1 --max-replicas 2   # keep frontend warm
+az containerapp update -n apex-backend  -g apex-rg --min-replicas 0 --max-replicas 1   # back to scale-to-zero
+az containerapp update -n apex-frontend -g apex-rg --min-replicas 0 --max-replicas 1
 ```
 
-**Manual dispatch** (overrides the schedule at any time):
+**Re-enabling the day/night scheduler** (`gh workflow enable scale-scheduler.yml`) restores its previous behaviour, which overrides the settings above on every run:
 
-- `up`: pre-warm — backend `min=1 max=1`, frontend `min=1 max=10` (no cold starts during a demo).
-- `down`: night/cost mode — backend stays `min=1 max=1`, frontend `min=0 max=2`.
-- `hibernate`: **manual-only full scale-to-zero** — backend `min=0 max=1` *and* frontend `min=0 max=2`. For stretches of total inactivity (e.g. away for days) to save the most money. Unreachable from the cron by design (the schedule only emits up/down). Dispatch `up` to wake. The first request after hibernate cold-starts the backend (the self-heal retry/keepalive absorbs the transient SNAT churn), so use it only when genuinely idle — not for normal nights (that's `down`).
+- `08:00 UTC` cron -> **up**: backend `min=1 max=1`, frontend `min=1 max=10`.
+- `22:00 UTC` cron -> **down**: backend stays `min=1 max=1`, frontend `min=0 max=2`. Skipped while the repo variable `APEX_NIGHT_MODE` is `off`.
+- Manual dispatch `hibernate`: backend `min=0 max=1`, frontend `min=0 max=2` (never emitted by the crons).
 
 ---
 
