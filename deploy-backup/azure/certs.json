@@ -1,0 +1,44 @@
+[
+  {
+    "id": "/subscriptions/d330e359-c2a2-4d9b-bc0a-326bb04d38ce/resourceGroups/apex-rg/providers/Microsoft.App/managedEnvironments/apex-env/managedCertificates/mc-apex-env-www-apex-bolt-co-5060",
+    "location": "France Central",
+    "name": "mc-apex-env-www-apex-bolt-co-5060",
+    "properties": {
+      "domainControlValidation": "CNAME",
+      "provisioningState": "Succeeded",
+      "subjectName": "www.apex-bolt.com",
+      "validationMethod": "CNAME"
+    },
+    "resourceGroup": "apex-rg",
+    "systemData": {
+      "createdAt": "2026-05-09T15:15:48.5985715",
+      "createdBy": "tomassantostaborda@gmail.com",
+      "createdByType": "User",
+      "lastModifiedAt": "2026-05-09T15:15:48.5985715",
+      "lastModifiedBy": "tomassantostaborda@gmail.com",
+      "lastModifiedByType": "User"
+    },
+    "type": "Microsoft.App/managedEnvironments/managedCertificates"
+  },
+  {
+    "id": "/subscriptions/d330e359-c2a2-4d9b-bc0a-326bb04d38ce/resourceGroups/apex-rg/providers/Microsoft.App/managedEnvironments/apex-env/managedCertificates/mc-apex-env-apex-bolt-com-0542",
+    "location": "France Central",
+    "name": "mc-apex-env-apex-bolt-com-0542",
+    "properties": {
+      "domainControlValidation": "HTTP",
+      "provisioningState": "Succeeded",
+      "subjectName": "apex-bolt.com",
+      "validationMethod": "HTTP"
+    },
+    "resourceGroup": "apex-rg",
+    "systemData": {
+      "createdAt": "2026-05-09T15:18:34.7599157",
+      "createdBy": "tomassantostaborda@gmail.com",
+      "createdByType": "User",
+      "lastModifiedAt": "2026-05-09T15:18:34.7599157",
+      "lastModifiedBy": "tomassantostaborda@gmail.com",
+      "lastModifiedByType": "User"
+    },
+    "type": "Microsoft.App/managedEnvironments/managedCertificates"
+  }
+]

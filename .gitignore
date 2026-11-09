@@ -83,3 +83,8 @@ docs/thesis/demonstration/demonstration-log.local.md
 # figure gets copied into Images/ and included from there like every other
 # thesis figure; this folder itself never gets tracked or compiled.
 docs/thesis/demonstration/screenshots/
+
+# Azure decommission backup (deploy-backup/azure/README.md). Secret values and
+# the downloaded File Share (holds encrypted per-project PATs/AI keys) stay local.
+deploy-backup/azure/*.local.*
+deploy-backup/azure/files/

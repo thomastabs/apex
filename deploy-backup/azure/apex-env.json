@@ -1,0 +1,70 @@
+{
+  "id": "/subscriptions/d330e359-c2a2-4d9b-bc0a-326bb04d38ce/resourceGroups/apex-rg/providers/Microsoft.App/managedEnvironments/apex-env",
+  "location": "France Central",
+  "name": "apex-env",
+  "properties": {
+    "appInsightsConfiguration": null,
+    "appLogsConfiguration": {
+      "destination": null,
+      "logAnalyticsConfiguration": null
+    },
+    "availabilityZones": null,
+    "customDomainConfiguration": {
+      "certificateKeyVaultProperties": null,
+      "certificatePassword": null,
+      "certificateValue": null,
+      "customDomainVerificationId": "1E0FB76D4E34B86E58ED61E28B9E27E7A57EA4EBA2D78DE8F16A9E2B0EF1F362",
+      "dnsSuffix": null,
+      "expirationDate": null,
+      "subjectName": null,
+      "thumbprint": null
+    },
+    "daprAIConnectionString": null,
+    "daprAIInstrumentationKey": null,
+    "daprConfiguration": {
+      "version": "1.16.4-msft.13"
+    },
+    "defaultDomain": "ambitiousisland-53e294d6.francecentral.azurecontainerapps.io",
+    "diskEncryptionConfiguration": null,
+    "environmentMode": "WorkloadProfiles",
+    "eventStreamEndpoint": "https://francecentral.azurecontainerapps.dev/subscriptions/d330e359-c2a2-4d9b-bc0a-326bb04d38ce/resourceGroups/apex-rg/managedEnvironments/apex-env/eventstream",
+    "infrastructureResourceGroup": null,
+    "ingressConfiguration": null,
+    "kedaConfiguration": {
+      "version": "2.20.2"
+    },
+    "openTelemetryConfiguration": null,
+    "peerAuthentication": {
+      "mtls": {
+        "enabled": false
+      }
+    },
+    "peerTrafficConfiguration": {
+      "encryption": {
+        "enabled": false
+      }
+    },
+    "provisioningState": "Succeeded",
+    "publicNetworkAccess": "Enabled",
+    "staticIp": "20.40.133.185",
+    "vnetConfiguration": null,
+    "workloadProfiles": [
+      {
+        "enableFips": false,
+        "name": "Consumption",
+        "workloadProfileType": "Consumption"
+      }
+    ],
+    "zoneRedundant": false
+  },
+  "resourceGroup": "apex-rg",
+  "systemData": {
+    "createdAt": "2026-05-07T23:10:51.7519505",
+    "createdBy": "tomassantostaborda@gmail.com",
+    "createdByType": "User",
+    "lastModifiedAt": "2026-05-07T23:10:51.7519505",
+    "lastModifiedBy": "tomassantostaborda@gmail.com",
+    "lastModifiedByType": "User"
+  },
+  "type": "Microsoft.App/managedEnvironments"
+}

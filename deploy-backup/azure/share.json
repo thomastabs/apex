@@ -1,0 +1,18 @@
+{
+  "accessTier": "TransactionOptimized",
+  "accessTierChangeTime": "2026-05-07T23:14:41.0000000Z",
+  "enabledProtocols": "SMB",
+  "etag": "\"0x8DEAFC416488DC7\"",
+  "id": "/subscriptions/d330e359-c2a2-4d9b-bc0a-326bb04d38ce/resourceGroups/apex-rg/providers/Microsoft.Storage/storageAccounts/apexctxstore/fileServices/default/shares/contextspec",
+  "lastModifiedTime": "2026-05-12T01:16:25.0000000Z",
+  "leaseState": "available",
+  "leaseStatus": "unlocked",
+  "metadata": {
+    "AzureBackupProtected": "false"
+  },
+  "name": "contextspec",
+  "resourceGroup": "apex-rg",
+  "shareQuota": 102400,
+  "signedIdentifiers": [],
+  "type": "Microsoft.Storage/storageAccounts/fileServices/shares"
+}

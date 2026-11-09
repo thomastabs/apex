@@ -1,0 +1,28 @@
+[
+  {
+    "id": "/subscriptions/d330e359-c2a2-4d9b-bc0a-326bb04d38ce/resourceGroups/apex-rg/providers/Microsoft.App/managedEnvironments/apex-env/storages/contextspec-mount",
+    "name": "contextspec-mount",
+    "properties": {
+      "azureFile": {
+        "accessMode": "ReadWrite",
+        "accountName": "apexctxstore",
+        "shareName": "contextspec"
+      }
+    },
+    "resourceGroup": "apex-rg",
+    "type": "Microsoft.App/managedenvironments/storages"
+  },
+  {
+    "id": "/subscriptions/d330e359-c2a2-4d9b-bc0a-326bb04d38ce/resourceGroups/apex-rg/providers/Microsoft.App/managedEnvironments/apex-env/storages/contextspec-store",
+    "name": "contextspec-store",
+    "properties": {
+      "azureFile": {
+        "accessMode": "ReadWrite",
+        "accountName": "apexctxstore",
+        "shareName": "contextspec"
+      }
+    },
+    "resourceGroup": "apex-rg",
+    "type": "Microsoft.App/managedenvironments/storages"
+  }
+]
